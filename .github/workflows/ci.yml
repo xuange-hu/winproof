@@ -1,0 +1,59 @@
+# NOTE: this workflow has not been executed yet - the repository has no remote and
+# nothing has been pushed. Treat the first run as unverified.
+
+name: scan and tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    # The tool targets Windows PowerShell 5.1 and reads Windows-only surfaces,
+    # so the runner must be Windows. There is no portable path to test here.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture facts (read-only probes)
+        shell: powershell
+        run: |
+          & probes\browser_prefs.ps1
+          & probes\persistence.ps1
+
+      - name: Baseline, then rescan (the diff contract)
+        # A run that captures a baseline and immediately rescans must classify
+        # every finding as PERSIST with zero NEW. That is the whole promise of
+        # "what changed", so it is checked on a machine nobody has cleaned.
+        shell: powershell
+        run: |
+          & engine.ps1 -Mode baseline
+          & engine.ps1 -Mode scan
+          $f = (Get-Content out\findings.json -Raw | ConvertFrom-Json)
+          if ([int]$f.counts.NEW -ne 0) { throw "rescan reported $($f.counts.NEW) NEW rows against a baseline just taken" }
+          Write-Output ("runner state: subjects=" + $f.subjects_total + " findings=" + @($f.findings).Count)
+
+      - name: Render the report
+        shell: powershell
+        run: & report.ps1
+
+      - name: Contract tests (fixtures + live re-derivation)
+        shell: powershell
+        run: & tools\selftest.ps1
+
+      - name: Repository hygiene (bat CRLF, ps1 encoding)
+        shell: powershell
+        run: & tools\hygiene.ps1
+
+      - name: Report integrity, label coverage and redaction
+        run: node tools/verify.js
+
+      - name: Upload the report this runner produced
+        # This is the runner's own machine state, not a demo dataset. It exists so
+        # a reviewer can open one HTML file without owning a Windows box.
+        uses: actions/upload-artifact@v4
+        with:
+          name: winproof-report
+          path: out/report.html

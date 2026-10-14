@@ -80,6 +80,7 @@ probes/    只读采集事实，不做任何判断
 rules/     纯 JSON 数据，没有代码、没有 eval
 engine.ps1 声明式谓词解释器 + 基线 diff
 report.ps1 生成自包含静态 HTML，没有服务器
+tests/     提交的合成采集夹具：判据的可执行定义
 ```
 
 **规则不是代码，这是本项目的核心决策。**
@@ -177,30 +178,74 @@ Edge 在 `session` 下另存 `startup_urls_edge_enclave` / `_verify`（另一台
 **13. `-Value [string]$x` 在参数模式下不是表达式。**
 `[string]` 被当成字面量 token，值变成字符串 `"[string]@{...}.group"`，
 后续哈希查表全部落空 → 报告里每张卡片的分组名静默为空。必须写 `-Value ([string]$x)`。
-这个 bug 是靠截图发现的，现在 `selftest [9b]` 直接断言 `group_title` 非空且不含 `@{`。
+这个 bug 是靠截图发现的，现在 `selftest [12]` 直接断言 `group_title` 非空且不含 `@{`。
+
+**14. 一台干净的机器测不到那四条最危险的规则。**
+`PS-03`（ELAM）、`PS-04`（hosts）、`PS-05`（IFEO）、`PS-06`（LSP）在本机命中 0 条——这是正确结果，
+但也意味着真机自检永远不会执行它们：谓词写反了也只有出事那天才知道。
+`tests/fixtures/facts-persistence.json` 因此造了这四种状态各一份，
+[8] 断言 7 条驻留规则**全部**命中且命中集合与清单完全一致。
+同理 `BR-01/BR-05` 的"sync 开/关"两个建议分支、`PS-01` 的三个处置分支，都在夹具里各有一个专属对象。
+
+**15. 锚定文档选了却没用：只有明文 `Preferences` 的 Profile 被静默放过。**
+`New-BrowserSubjects` 先算出 `$anchor = Secure Preferences ?? Preferences`，
+之后却只在 `$null -ne $secure` 时读取字段——于是没有 `Secure Preferences` 的 Profile，
+即使明文里写着被劫持的 `session.startup_urls`，`BR-01` 也不会报。
+这是**写夹具时才暴露的假阴性**：`Chrome / Profile 3` 那条 plain-only 记录唯一的用途就是打这个点。
+修法是按锚定文档取值，同时把密封键/孤立签名继续锁在 secure 文档里（它们本来就只存在于那儿），
+所以 plain-only Profile 不可能凭空报出"存在密封副本"。
+`BR-01`/`BR-03` 的 `doc_role=secure` 前置条件也一并去掉，并把 `doc_role` 放进证据——
+读者需要知道这个值是从哪份文档读来的，因为"手改会不会被还原"取决于它。
+
+**16. 规则可以引用一个渲染层没翻译的字段。**
+`PS-03/05/06` 的 `show` 里有 `name`，但模板的标签表没有它。
+本机上这三条规则命中 0 条，所以真机报告**永远看不到**这个空格子——
+直到某台机器真的中 ELAM 为止。`verify.js` 现在遍历 `rules/*.json` 的所有 `show` 字段，
+断言每一个都在模板标签表里有中文条目，命中与否无关。
 
 ---
 
-## 已知答案测试：46 PASS / 0 FAIL
+## 已知答案测试：67 PASS / 0 FAIL
 
 判据先于扫描逻辑定义。跑 `powershell -File tools\selftest.ps1`：
 
 ```
-[1]  从真机采集建立基线                          [6]  驻留规则 vs 从原始事实独立重算的谓词
-[2]  同一份事实复扫：不得有任何 CHANGED          [7]  countGte 的标量语义（曾导致全员误报）
-[3]  夹具 B：把 URL 注回 Chrome → NEW + 旧结论 RESOLVED
-[4]  夹具 C：被劫持文件再次被写 → CHANGED 而非 NEW   [8]  植入一条假残留 → 必须 NEW，且不得吞掉邻居
-[5]  acknowledge 只降级不删规则                  [9]  未知探针名必须抛错，不许静默丢事实
-                                                [9b] 分组名/标题/指纹必须完整
-                                                [10] 每条"残留"都要独立复核为确实不存在
+[1]  浏览器夹具：命中集合必须逐条等于清单            [9]  countGte 的标量语义，正反两个方向
+[2]  7 条浏览器规则全部被触发                        [10] 植入一条假残留 → 必须 NEW，且不得吞掉邻居
+[3]  同一份事实复扫：不得有任何 CHANGED              [11] 未知探针名必须抛错，不许静默丢事实
+[4]  夹具 B：修好又回来 → NEW + 旧结论 RESOLVED      [12] 分组名/标题/建议/指纹必须完整
+[5]  夹具 C：文件再次被写 → CHANGED 而非 NEW         [13] 真机驻留事实 vs 独立重算的谓词
+[6]  夹具 D：只点亮引用了该字段的规则                [14] 每条"残留"都要独立复核为确实不存在
+[7]  acknowledge 只降级不删规则
+[8]  驻留夹具：7 条规则全触发，含干净机器上闲置的那 4 条
 ```
 
-[6] 和 [10] 是关键：**期望集合不是抄下来的快照，而是用独立逻辑从原始事实重算的。**
+**[1]–[12] 跑在 `tests/fixtures/` 里两份提交的合成采集上，换任何一台 Windows 结果都一样**——
+包括一台从没被劫持过的机器、一台没装浏览器的机器、以及 CI 里的一次性 runner。
+[13][14] 跑在 `out\` 下的真机采集上，缺文件时输出 `SKIP` 而不是失败（当前 0 SKIP）。
+
+夹具不是快照。清单 `$wantBrowser` / `$wantPers` 把每条规则映射到"这个夹具应当命中的对象集合"，
+`Check-Manifest` 双向断言：既不许少，也不许出现清单之外的结论（`no finding outside the manifest`）。
+所以往 `rules/` 里加一条规则，如果它在夹具上意外点亮了别的对象，测试会红。
+
+[13] 是关键的另一半：**期望集合不是抄下来的快照，而是用独立逻辑从原始事实重算的。**
 所以这台机器明天多一条或少一条启动项，测试不会红；
 但哪条规则的实现和它声称的判据漂移了，测试会红。
 
-[10] 专门用来防止第 8 条那个假阳性复发——任何被 `PS-01` 称为残留的行，
+[14] 专门用来防止第 8 条那个假阳性复发——任何被 `PS-01` 称为残留的行，
 都会在测试里重新 `Test-Path` 一次，且裸命令名直接判为缺陷。
+
+### CI
+
+`.github/workflows/ci.yml` 在 `windows-latest` 上按真实顺序跑完整链路：
+两个探针 → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` → `selftest.ps1` → `hygiene.ps1` → `node tools/verify.js`。
+
+其中一步是契约断言而不是"没报错就行"：**刚建立基线立刻复扫，`counts.NEW` 必须为 0**。
+这一条如果哪天变红，说明指纹计算引入了与事实无关的抖动（比如把时间戳算进了证据），
+而那正是"这个工具还能不能告诉你什么变了"的根基。
+
+> 该 workflow **尚未执行过一次**（仓库还没有 remote，也没推送过）。
+> 首次推送后如果它和预期不符，以 CI 日志为准，不要以这段描述为准。
 
 另有 `tools/layout-probe.html`：把报告塞进 360–1280px 的 iframe 里量 `scrollWidth`，用无头 Edge 跑完——
 
@@ -234,8 +279,10 @@ Auto 启动且不在 Windows 目录的服务、`Group=Early-Launch` 的 ELAM 驱
 
 - **Windows only**，且依赖 PowerShell 5.1 自带的 `Get-AuthenticodeSignature` / `Get-ScheduledTask`。
 - 浏览器规则目前只覆盖启动页/搜索引擎这一族劫持，没覆盖扩展策略、计划任务式重启器。
-- `PS-05`（IFEO）与 `PS-06`（LSP）的判据按实测结构实现，但本机没有可命中的样本，
-  属于"写对了但没被打过"的规则。首版不为它们编造成功案例。
+- `PS-05`（IFEO）与 `PS-06`（LSP）的判据按实测结构实现，本机没有可命中的样本。
+  夹具 `tests/fixtures/facts-persistence.json` 里各有一条专门打中它们，所以**谓词逻辑是被执行过的**;
+  但"真实世界里长什么样"这一层仍然只有 ELAM 那条有本机历史证据（360 的 `360elam64.sys`），
+  IFEO 与 LSP 的样本描述来自公开案例而不是本机观察。首版不为它们编造成功案例。
 - 基线是**按机器**的：换一台机器、或你主动装了一批软件，`CHANGED` 会很多，那是正常的。
 - `domain_blocklist` 是子串匹配，你主动把 `so.com` 设成首页也会被报。
   正确处置是 `ack.bat` 标记为已知，而不是把规则调瞎。
@@ -256,8 +303,10 @@ won't stick (sealed copy present? `sync.preferences` on?).
   arriving from a pull request or an LLM can never become executable input. Zero injection surface.
 - **Fingerprints cover only the evidence a rule cites**, so unrelated file writes don't light up every
   rule on that object.
-- **14 rules, 46 known-answer assertions.** Expected hit sets are recomputed from raw facts by
-  independent logic rather than snapshotted, so the suite survives a machine that changes.
+- **14 rules, 67 known-answer assertions.** [1]–[12] run on committed synthetic captures, so they
+  give the same verdict on a machine that has never been hijacked; [13]–[14] re-derive expected hit
+  sets from the real facts by independent logic rather than snapshotting, so the suite survives a
+  machine that changes.
 - Ships as a self-contained static HTML report. No server, no dependencies beyond PowerShell 5.1.
 
 ---
@@ -269,10 +318,14 @@ won't stick (sealed copy present? `sync.preferences` on?).
 这个项目所有的可信度都来自"每条规则都能被复述成一次具体的观察"。
 
 ```bash
-powershell -File tools\selftest.ps1     # 46 PASS 才算过
-node tools\verify.js                    # 结构 + 脱敏
+powershell -File tools\selftest.ps1     # 67 PASS 才算过（夹具部分在任何 Windows 上都应一致）
+node tools\verify.js                    # 结构 + 标签覆盖 + 脱敏
 powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCII 或带 BOM
 ```
+
+新规则如果在本机打不中（干净机器上 `PS-03`~`PS-06` 命中 0 条是正常状态），
+请把它同时在 `tests/fixtures/` 里造一条能打中的记录，并在 `tools\selftest.ps1` 的清单里写上预期对象——
+否则这条规则永远不会被执行到。
 
 `hygiene.ps1` 拦的是两类在 Windows 上不会报错的坑：LF-only 的 `.bat` 会被 cmd 执行一半；
 无 BOM 的 `.ps1` 会被 PowerShell 5.1 按活动代码页解码，注释里的中文变成乱码字节，
