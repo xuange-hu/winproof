@@ -1,5 +1,7 @@
-# NOTE: this workflow has not been executed yet - the repository has no remote and
-# nothing has been pushed. Treat the first run as unverified.
+# NOTE: this workflow has not run on GitHub yet - the repository has no remote and
+# nothing has been pushed. Every command in it has been run in order against a fresh
+# clone on Windows PowerShell 5.1 (which is how the Get-Content pitfall below was
+# found), but Actions-specific behaviour is unverified until the first green run.
 
 name: scan and tests
 
@@ -27,11 +29,15 @@ jobs:
         # A run that captures a baseline and immediately rescans must classify
         # every finding as PERSIST with zero NEW. That is the whole promise of
         # "what changed", so it is checked on a machine nobody has cleaned.
+        #
+        # ReadAllText, not Get-Content -Raw: Windows PowerShell 5.1 decodes a
+        # BOM-less file as the ANSI codepage, which mangles the CJK in findings.json
+        # and makes ConvertFrom-Json fail on a perfectly valid file.
         shell: powershell
         run: |
           & engine.ps1 -Mode baseline
           & engine.ps1 -Mode scan
-          $f = (Get-Content out\findings.json -Raw | ConvertFrom-Json)
+          $f = [IO.File]::ReadAllText((Resolve-Path out\findings.json).Path) | ConvertFrom-Json
           if ([int]$f.counts.NEW -ne 0) { throw "rescan reported $($f.counts.NEW) NEW rows against a baseline just taken" }
           Write-Output ("runner state: subjects=" + $f.subjects_total + " findings=" + @($f.findings).Count)
 

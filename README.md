@@ -203,6 +203,14 @@ Edge 在 `session` 下另存 `startup_urls_edge_enclave` / `_verify`（另一台
 直到某台机器真的中 ELAM 为止。`verify.js` 现在遍历 `rules/*.json` 的所有 `show` 字段，
 断言每一个都在模板标签表里有中文条目，命中与否无关。
 
+**17. `Get-Content -Raw` 在 5.1 里是按 ANSI 码页解的。**
+CI 里那步"建基线→立刻复扫→断言 `counts.NEW == 0`"最初写的是
+`Get-Content out\findings.json -Raw | ConvertFrom-Json`，本地一跑直接炸：
+`findings.json` 是无 BOM 的 UTF-8，5.1 用 ANSI 解，中文标题变成乱码字节后连 JSON 结构都解析不动
+（报"应为 : 或 }"），而文件本身完全合法。改成 `[IO.File]::ReadAllText()`。
+引擎自己读文件一直用的就是 `ReadAllText`，所以这个坑只在**外围脚本**里出现——
+也说明 CI 的每一步都得先在本地按同样顺序跑一遍，不能靠"看起来对"。
+
 ---
 
 ## 已知答案测试：67 PASS / 0 FAIL
@@ -244,8 +252,10 @@ Edge 在 `session` 下另存 `startup_urls_edge_enclave` / `_verify`（另一台
 这一条如果哪天变红，说明指纹计算引入了与事实无关的抖动（比如把时间戳算进了证据），
 而那正是"这个工具还能不能告诉你什么变了"的根基。
 
-> 该 workflow **尚未执行过一次**（仓库还没有 remote，也没推送过）。
-> 首次推送后如果它和预期不符，以 CI 日志为准，不要以这段描述为准。
+> 该 workflow **尚未在 GitHub 上跑过一次**（仓库还没有 remote，也没推送过）。
+> 但它的每一步命令都已在一个全新 `git clone` 里按同样顺序在 Windows PowerShell 5.1 下执行过——
+> 上面那条 `Get-Content` 的坑就是这么发现的。Actions 特有的行为（runner 权限、`shell: powershell` 的默认策略）
+> 仍以首次绿灯为准。
 
 另有 `tools/layout-probe.html`：把报告塞进 360–1280px 的 iframe 里量 `scrollWidth`，用无头 Edge 跑完——
 
