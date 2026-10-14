@@ -21,11 +21,10 @@
       "severity": "high",
       "when": {
         "all": [
-          { "fact": "doc_role", "op": "eq", "value": "secure" },
           { "fact": "startup_urls_bad", "op": "nonEmpty" }
         ]
       },
-      "show": ["startup_urls", "startup_mode", "bytes", "mtime"],
+      "show": ["startup_urls", "startup_mode", "doc_role", "bytes", "mtime"],
       "advice": [
         {
           "if": { "fact": "sync_preferences_enabled", "op": "eq", "value": true },
@@ -37,8 +36,8 @@
         }
       ],
       "why": "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
-      "verified_on": "2026-10-14",
-      "verified_evidence": "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。"
+      "verified_on": "2026-10-15",
+      "verified_evidence": "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。"
     },
     {
       "id": "BR-02",
@@ -67,11 +66,10 @@
       "severity": "info",
       "when": {
         "all": [
-          { "fact": "doc_role", "op": "eq", "value": "secure" },
           { "fact": "startup_mode", "op": "eq", "value": 4 }
         ]
       },
-      "show": ["startup_mode", "startup_urls"],
+      "show": ["startup_mode", "startup_urls", "doc_role"],
       "advice": [
         {
           "if_any": true,
@@ -79,8 +77,8 @@
         }
       ],
       "why": "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
-      "verified_on": "2026-10-14",
-      "verified_evidence": "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。"
+      "verified_on": "2026-10-15",
+      "verified_evidence": "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。"
     },
     {
       "id": "BR-04",

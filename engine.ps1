@@ -195,26 +195,27 @@ function New-BrowserSubjects($facts, $blocklist) {
         $s['doc_role'] = 'secure'
         if ($null -eq $secure) { $s['doc_role'] = 'plain_only' }
 
-        $urls = @()
-        $mode = $null
+        # Startup values come from the anchor: Secure Preferences when it exists,
+        # otherwise the plain Preferences. Reading them only from the secure copy
+        # silently dropped a profile that has no Secure Preferences at all - a
+        # hijacked session.startup_urls in a plain-only document reported nothing.
+        $urls = As-Array $anchor.startup_urls
+        $mode = $anchor.startup_mode
+        $bytes = [int]$anchor.bytes
+        $mtime = [string]$anchor.mtime
+        $path = [string]$anchor.path
+        $backups = As-Array $anchor.backups
+
+        # Seals and signatures stay scoped to the secure document on purpose:
+        # protection.macs and the *_edge_enclave key family only exist there, so a
+        # plain-only profile cannot invent sealed-copy findings.
         $seals = @()
         $orphans = @()
         $macs = @()
-        $bytes = 0
-        $mtime = ''
-        $path = ''
-        $backups = @()
-
         if ($null -ne $secure) {
-            $urls = As-Array $secure.startup_urls
-            $mode = $secure.startup_mode
             $seals = As-Array $secure.seal_keys
             $orphans = As-Array $secure.orphan_sigs
             $macs = As-Array $secure.macs_session
-            $bytes = [int]$secure.bytes
-            $mtime = [string]$secure.mtime
-            $path = [string]$secure.path
-            $backups = As-Array $secure.backups
         }
 
         $s['startup_urls'] = $urls

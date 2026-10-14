@@ -23,8 +23,12 @@ $privacy = @(
 foreach ($p in $privacy) {
     if ($p[0]) { $json = $json.Replace($p[0], $p[1]) }
 }
-$json = $json.Replace($env:COMPUTERNAME, '<host>')
-if ($env:COMPUTERNAME) { $json = $json.Replace('"computer": "' + $env:COMPUTERNAME + '"', '"computer": "<host>"') }
+# An empty oldValue makes .Replace() insert between every character, which would
+# corrupt the whole payload - so the hostname pass is guarded like the two above.
+if ($env:COMPUTERNAME) {
+    $json = $json.Replace($env:COMPUTERNAME, '<host>')
+    $json = $json.Replace('"computer": "' + $env:COMPUTERNAME + '"', '"computer": "<host>"')
+}
 
 # Inline JSON must not be able to close its own script element.
 $json = $json.Replace('</script>', '<\/script>')

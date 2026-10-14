@@ -150,6 +150,8 @@
     sync_preferences_enabled: ['同步 preferences', 'sync.preferences'],
     exit_type: ['上次退出状态', 'exit_type'],
     doc: ['文档', 'doc'],
+    doc_role: ['取值来源', 'doc_role'],
+    name: ['条目名称', 'name'],
     kind: ['驻留类型', 'kind'],
     command: ['启动命令', 'command'],
     exe: ['二进制路径', 'exe'],
@@ -180,6 +182,12 @@
     ifeo_debugger: 'IFEO 劫持', winsock_lsp: 'Winsock LSP'
   };
   var DRVSTART = { '0': 'BOOT_START（开机最早期）', '1': 'SYSTEM_START', '2': 'AUTO_START', '3': 'DEMAND_START', '4': 'DISABLED' };
+  // Which document the value was read from decides how a fix can fail: a sealed
+  // Secure Preferences restores plaintext deletions, a plain-only profile cannot.
+  var DOCROLE = {
+    secure: 'Secure Preferences（权威副本，会还原明文删除）',
+    plain_only: '仅明文 Preferences（该 Profile 没有 Secure Preferences）'
+  };
   var SEVN = { high: '高危', medium: '中危', low: '低危', info: '观察', good: '正常' };
   var STN = {
     NEW: '新发现', CHANGED: '已变化', PERSIST: '持续存在',
@@ -319,6 +327,7 @@
       if (k === 'sig_status' && v === '') txt = '无从校验 — 目标文件不存在';
       if (k === 'signer' && v === '') txt = '（无签名者信息，可能不是 PE 文件）';
       if (k === 'drv_start') txt = DRVSTART[String(v)] || String(v);
+      if (k === 'doc_role' && DOCROLE[v]) txt = DOCROLE[v];
       if (v === false && (k === 'exe_exists' || k === 'in_writable' || k === 'in_windows')) {
         txt = k === 'exe_exists' ? '否 — 二进制已丢失' : '否';
       }

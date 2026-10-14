@@ -1,0 +1,16 @@
+# The entry points are double-clicked .bat files. cmd.exe mis-parses LF-only
+# batch scripts in ways that surface as unrelated syntax errors, so checkout must
+# be CRLF no matter what core.autocrlf a contributor happens to have set.
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+
+# Parsed by PowerShell's JSON reader, Node, or a browser: LF everywhere keeps
+# diffs free of whole-file line-ending churn across platforms.
+*.json text eol=lf
+*.html text eol=lf
+*.yml  text eol=lf
+*.js   text eol=lf
+*.md   text eol=lf
+
+# Binary: any conversion corrupts it.
+*.png  -text
