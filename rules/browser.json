@@ -1,0 +1,172 @@
+{
+  "group": "browser",
+  "group_title": "浏览器启动页与搜索引擎",
+  "provenance": "以下判据全部在真实机器上取证实测（2026-10-14，Edge 4 profile + Chrome 1 profile），未实测的条件不进首版。",
+  "blocklist_note": "domain_blocklist 是子串匹配，用户主动设置的合法首页也可能命中；命中后请用 acknowledge 标记为已知，而不是删除规则。",
+  "domain_blocklist": [
+    "2345",
+    "pbgia",
+    "hao.360",
+    "mydown",
+    "so.com",
+    "360safe",
+    "duba",
+    "haosf",
+    "win23"
+  ],
+  "rules": [
+    {
+      "id": "BR-01",
+      "title": "浏览器启动页被劫持",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "doc_role", "op": "eq", "value": "secure" },
+          { "fact": "startup_urls_bad", "op": "nonEmpty" }
+        ]
+      },
+      "show": ["startup_urls", "startup_mode", "bytes", "mtime"],
+      "advice": [
+        {
+          "if": { "fact": "sync_preferences_enabled", "op": "eq", "value": true },
+          "text": "这个 Profile 开了 sync.preferences。手改文件会被云端配置回灌，请先在 edge://settings/onStartup 或 chrome://settings/onStartup 里改掉，再动文件。"
+        },
+        {
+          "if_any": true,
+          "text": "先把浏览器完全退出（含托盘后台进程），否则浏览器退出时会把内存里的旧值重新写回文件，你的修改会被覆盖。"
+        }
+      ],
+      "why": "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。"
+    },
+    {
+      "id": "BR-02",
+      "title": "存在密封副本，只删明文会被还原",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "doc_role", "op": "eq", "value": "secure" },
+          { "fact": "seal_keys", "op": "nonEmpty" }
+        ]
+      },
+      "show": ["seal_keys", "startup_urls_bad"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "Edge 在 session 下另存了一份加密密封值（*_edge_enclave 或 *_edge_lightweight 及其 _verify）。清理必须把整个键名族一起删掉，只删明文的 startup_urls 会被这份密封副本还原。"
+        }
+      ],
+      "why": "这是绝大多数手工清理失败的真正原因：明明删干净了，下次打开浏览器又回来了，看起来像\"没删掉\"，实际上是另一份副本被当成权威值重新落盘。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。"
+    },
+    {
+      "id": "BR-03",
+      "title": "启动模式被设为\"打开特定页面\"",
+      "severity": "info",
+      "when": {
+        "all": [
+          { "fact": "doc_role", "op": "eq", "value": "secure" },
+          { "fact": "startup_mode", "op": "eq", "value": 4 }
+        ]
+      },
+      "show": ["startup_mode", "startup_urls"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。"
+        }
+      ],
+      "why": "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。"
+    },
+    {
+      "id": "BR-04",
+      "title": "签名孤儿：此处曾被篡改并清理过",
+      "severity": "medium",
+      "when": {
+        "all": [
+          { "fact": "doc_role", "op": "eq", "value": "secure" },
+          { "fact": "orphan_sigs", "op": "nonEmpty" }
+        ]
+      },
+      "show": ["orphan_sigs", "macs_session"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "protection.macs.session 里留着 startup_urls / restore_on_startup 的签名，但 session 里已经没有对应明文。这说明这个值曾经存在后被删除（可能是你清的，也可能是清理工具清的）。它是历史证据，不是当前威胁，无需处理。"
+        }
+      ],
+      "why": "浏览器会对受保护键写签名，而 protection.macs 是两层结构（段名 -> 键名 -> 签名），不是很多工具以为的一层。签名是确定性的：同一 Profile 集合里相同缺失值会得到相同签名，所以删值留签名不会让文件损坏，浏览器下次写入时会重新签名。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Edge Default、Edge Profile 2、Chrome Default 三处的 macs.session 都含 startup_urls 签名而 session 无明文。"
+    },
+    {
+      "id": "BR-05",
+      "title": "清理后又回来了：劫持值复发",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "regrew_after_repair", "op": "eq", "value": true }
+        ]
+      },
+      "show": ["backups", "bytes", "mtime", "startup_urls_bad", "sync_preferences_enabled", "seal_keys"],
+      "advice": [
+        {
+          "if": { "fact": "sync_preferences_enabled", "op": "eq", "value": true },
+          "text": "复发点在时间上晚于上一次修复，且这个 Profile 开着 preferences 同步——云端配置回灌是最可能的来源。先断开该项同步再清理，否则每次同步都会把值带回来。"
+        },
+        {
+          "if_any": true,
+          "text": "复发点在时间上晚于上一次修复，但没开 preferences 同步——那更可能是某个仍在运行的程序在持续重写，按启动项和计划任务方向继续排查。"
+        }
+      ],
+      "why": "一次性扫描工具无法回答\"我上次清了，它为什么还在\"。把上一次修复留下的 .bak_ 备份时间戳和当前文件的修改时间放在一起比对，就能把\"复发\"从感觉变成一条带日期的证据。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。"
+    },
+    {
+      "id": "BR-06",
+      "title": "浏览器上次不是正常退出",
+      "severity": "low",
+      "when": {
+        "all": [
+          { "fact": "exit_type", "op": "eq", "value": "Crashed" }
+        ]
+      },
+      "show": ["exit_type", "doc", "mtime"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "exit_type=Crashed 通常意味着浏览器进程被强杀过（清理工具常这么干）。被强杀时内存里的旧值仍会在下次启动后写回配置文件，这会让\"已经删掉的劫持值\"看起来自己复活了。清理前应正常退出浏览器，并关掉 Edge 的启动加速 / 后台运行模式。"
+        }
+      ],
+      "why": "判断某个浏览器 Profile 是否正在被使用，用进程名不可靠（后台常驻进程一直存在）。非阻塞方式打开文件加锁、成功即无人占用，配合 exit_type 才是可靠信号。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。"
+    },
+    {
+      "id": "BR-07",
+      "title": "上次修复经受住了复查",
+      "severity": "good",
+      "when": {
+        "all": [
+          { "fact": "doc_role", "op": "eq", "value": "secure" },
+          { "fact": "repair_held", "op": "eq", "value": true }
+        ]
+      },
+      "show": ["backups", "mtime", "bytes", "seal_keys", "sync_preferences_enabled"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "上一次清理留下的备份里确实含恶意值，而当前文件已经没有——这次删除是真的生效了。把它和 BR-05 放在一起看：同一台机器、同一种劫持，为什么这个 Profile 没复发、那个复发了，差异就是这个 Profile 没有密封副本、也没开 preferences 同步。"
+        }
+      ],
+      "why": "清理工具只会说\"已删除\"，没有工具能说\"删除后没有复发\"。而后者才是判断处置方式对不对的唯一证据——没有它，你只能靠下次开机再看一眼。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "Chrome / Default 有 Secure Preferences.bak_20261010-152128（30814 字节，内含 2345 URL），当前文件 30745 字节、mtime 10-14 13:09，session 已无明文值且无密封副本。"
+    }
+  ]
+}

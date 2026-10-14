@@ -1,0 +1,16 @@
+# Everything under out/ and store/ is machine-specific evidence produced by a
+# run on one person's box: absolute paths, profile names, scheduled task names,
+# and command lines that can carry credentials in plaintext (a rasdial task
+# stores the dial-up password as an argument). None of it belongs in a commit,
+# and report.html is redacted but facts-*.json is not.
+out/
+store/
+
+# Recurrence timelines are built from the browser's own .bak_* siblings, which
+# live inside the profile directory, not here - listed so nobody assumes the
+# tool stages backups next to the code.
+*.bak_*
+
+*.log
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WinProof - Windows 变更取证报告</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212a; --line: #272d38;
+    --txt: #e6e9ef; --dim: #98a2b3; --faint: #6b7280;
+    --high: #ff5f56; --medium: #ffb020; --low: #7dd3fc; --info: #9aa4b2; --good: #35d39a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--txt);
+    font: 14px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 32px 22px 70px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 26px; }
+  h1 { margin: 0; font-size: 25px; letter-spacing: .3px; }
+  h1 span { color: var(--high); }
+  .sub { color: var(--dim); font-size: 13px; margin-top: 7px; }
+  .meta { color: var(--faint); font-size: 12px; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 18px; }
+  .meta b { color: var(--dim); font-weight: 600; }
+
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px; }
+  .stat .n { font-size: 27px; font-weight: 700; line-height: 1.1; }
+  .stat .l { font-size: 11.5px; color: var(--dim); margin-top: 3px; }
+  .stat.high .n { color: var(--high); } .stat.medium .n { color: var(--medium); }
+  .stat.good .n { color: var(--good); } .stat.info .n { color: var(--info); }
+  .stat.new .n { color: var(--high); } .stat.resolved .n { color: var(--good); }
+
+  .verdict { border-radius: 10px; padding: 14px 16px; margin-bottom: 26px; border: 1px solid; font-size: 14px; }
+  .verdict.red { background: #2a1517; border-color: #59262b; }
+  .verdict.amber { background: #2a2115; border-color: #59461f; }
+  .verdict.green { background: #14261f; border-color: #24513f; }
+  .verdict b { display: block; margin-bottom: 4px; font-size: 15px; }
+
+  h2 { font-size: 16px; margin: 30px 0 12px; padding-bottom: 7px; border-bottom: 1px solid var(--line); }
+  h2 .cnt { color: var(--faint); font-weight: 400; font-size: 13px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
+          border-radius: 10px; padding: 15px 17px; margin-bottom: 12px; }
+  .card.high { border-left-color: var(--high); } .card.medium { border-left-color: var(--medium); }
+  .card.low { border-left-color: var(--low); } .card.info { border-left-color: var(--info); }
+  .card.good { border-left-color: var(--good); }
+  .cardhead { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .rid { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--faint); }
+  .ct { font-size: 15px; font-weight: 650; }
+  .badge { font-size: 10.5px; padding: 2px 7px; border-radius: 20px; border: 1px solid var(--line);
+           color: var(--dim); letter-spacing: .4px; }
+  .badge.NEW { color: #ffd7d3; border-color: #6b2c31; background: #2d1518; }
+  .badge.CHANGED { color: #ffe6bf; border-color: #6b5228; background: #2b2214; }
+  .badge.PERSIST { color: var(--dim); }
+  .badge.KNOWN { color: var(--faint); }
+  .badge.UNBASELINED { color: #bfe3ff; border-color: #2c4d6b; background: #142330; }
+  .subj { font-size: 12.5px; color: var(--dim); margin-top: 5px; font-family: ui-monospace, Consolas, monospace; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 11px; font-size: 12.5px; }
+  td { padding: 5px 9px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-all; }
+  td.k { color: var(--dim); width: 168px; white-space: nowrap; }
+  td.k .zh { display: block; color: var(--faint); font-size: 11px; }
+  tr:last-child td { border-bottom: none; }
+  .val { font-family: ui-monospace, Consolas, monospace; }
+  .hit { color: var(--high); font-weight: 600; }
+  .miss { color: var(--good); font-weight: 600; }
+
+  .advice { margin-top: 12px; background: var(--panel2); border-radius: 8px; padding: 10px 13px;
+            font-size: 13px; border: 1px solid var(--line); }
+  .advice .lbl { color: var(--medium); font-weight: 650; margin-right: 6px; }
+  details { margin-top: 9px; }
+  summary { cursor: pointer; color: var(--faint); font-size: 12.5px; }
+  .why, .vev { font-size: 12.5px; color: var(--dim); margin-top: 7px; padding-left: 11px;
+               border-left: 2px solid var(--line); }
+  .vev { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+  /* recurrence timeline: the money shot */
+  .tl { margin: 14px 0 4px; padding: 13px 15px; background: #12151b; border: 1px solid var(--line); border-radius: 8px; }
+  .tl .row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; }
+  .tl .row + .row { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--line); }
+  .tl .when { font-size: 11.5px; color: var(--dim); }
+  .tl .when .tag { display: block; font-size: 10.5px; color: var(--faint); margin-top: 2px; }
+  .tl .state { font-size: 13px; font-weight: 650; }
+  .tl .url { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--dim);
+             word-break: break-all; margin-top: 3px; }
+  .tl .delta { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line);
+               font-size: 12.5px; color: var(--dim); }
+  .tl .delta b { color: var(--txt); }
+
+  .resolved-list { font-size: 12.5px; color: var(--dim); }
+  .resolved-list div { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
+           font-size: 12px; color: var(--faint); }
+  footer code { background: var(--panel); padding: 2px 6px; border-radius: 4px; color: var(--dim);
+                font-family: ui-monospace, Consolas, monospace; }
+  .empty { color: var(--faint); font-size: 13px; padding: 16px; text-align: center;
+           border: 1px dashed var(--line); border-radius: 10px; }
+
+  /* Persistence cards are mostly long Windows paths. Below this width the fixed
+     168px label column plus an unbreakable path would force the page sideways,
+     so the evidence table stacks label-over-value and every field may break. */
+  @media (max-width: 720px) {
+    .wrap { padding: 22px 12px 46px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    table, tr, td { display: block; width: auto; }
+    td.k { width: auto; white-space: normal; border-bottom: none; padding-bottom: 1px; }
+    td.val { padding-top: 1px; }
+    .tl .row { grid-template-columns: 1fr; gap: 3px; }
+    .subj { word-break: break-all; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Win<span>Proof</span> 取证报告</h1>
+    <div class="sub">只读采集 · 声明式规则 · 基线比对 — 回答「什么变了、什么时候变的、哪种处置方式才不会被还原」</div>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+  <div id="verdict"></div>
+  <main id="cards"></main>
+  <div id="resolved"></div>
+
+  <footer>
+    <div>本次求值：规则 <b id="f-rules"></b> 条 × 对象 <b id="f-subjects"></b> 个，探针 <span id="f-probes"></span>。规则判据均在本机取证实测，未实测的条件不进首版。</div>
+    <div style="margin-top:8px">域名黑名单（子串匹配，命中可能是你主动设置的首页——用 <code>ack.bat &lt;key&gt;</code> 标记为已知，不要删规则）：<span id="f-bl"></span></div>
+    <div style="margin-top:8px">本工具不修改任何文件、注册表或服务。每条建议都需要你手动执行，因为「正确的处置方式」取决于密封副本与同步开关是否存在，而这些判定未必适用于你的机器。</div>
+  </footer>
+</div>
+
+<script id="wp-data" type="application/json">__WP_DATA__</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('wp-data').textContent);
+  var BL = (D.domain_blocklist || []).map(function (s) { return String(s).toLowerCase(); });
+  var F = {
+    startup_urls: ['当前启动页 URL', 'startup_urls'],
+    startup_urls_bad: ['命中黑名单', 'startup_urls_bad'],
+    startup_mode: ['启动模式', 'restore_on_startup'],
+    bytes: ['文件字节数', 'bytes'],
+    mtime: ['文件修改时间', 'mtime'],
+    seal_keys: ['密封副本键', 'seal_keys'],
+    orphan_sigs: ['孤立签名键', 'orphan_sigs'],
+    macs_session: ['macs.session 键', 'macs'],
+    backups: ['修复备份', 'backups'],
+    sync_preferences_enabled: ['同步 preferences', 'sync.preferences'],
+    exit_type: ['上次退出状态', 'exit_type'],
+    doc: ['文档', 'doc'],
+    kind: ['驻留类型', 'kind'],
+    command: ['启动命令', 'command'],
+    exe: ['二进制路径', 'exe'],
+    location: ['注册位置', 'location'],
+    exe_exists: ['文件是否存在', 'exe_exists'],
+    signer: ['签名者', 'signer'],
+    sig_status: ['签名状态', 'sig_status'],
+    in_windows: ['位于 Windows 目录', 'in_windows'],
+    in_writable: ['用户可写目录', 'in_writable'],
+    exe_mtime: ['二进制修改时间', 'exe_mtime'],
+    exe_bytes: ['二进制字节数', 'exe_bytes'],
+    svc_state: ['服务状态', 'svc_state'],
+    task_state: ['任务状态', 'task_state'],
+    drv_start: ['驱动加载类型', 'drv_start'],
+    host_effective: ['hosts 有效条目', 'host_effective'],
+    host_count: ['hosts 总行数', 'host_count'],
+    host_mtime: ['hosts 修改时间', 'host_mtime']
+  };
+  // Long paths and quoted command lines are the bulk of a persistence finding:
+  // they must break inside the report.
+  var HITV = {
+    NotSigned: '未签名', HashMismatch: '签名与内容不符', NotTrusted: '证书不受信',
+    Invalid: '签名无效', UnknownError: '签名检查出错'
+  };
+  var KIND = {
+    run_key: '注册表 Run', startup_folder: '启动文件夹', scheduled_task: '计划任务',
+    service: '服务', elam_driver: 'Early-Launch 驱动', hosts_file: 'hosts 文件',
+    ifeo_debugger: 'IFEO 劫持', winsock_lsp: 'Winsock LSP'
+  };
+  var DRVSTART = { '0': 'BOOT_START（开机最早期）', '1': 'SYSTEM_START', '2': 'AUTO_START', '3': 'DEMAND_START', '4': 'DISABLED' };
+  var SEVN = { high: '高危', medium: '中危', low: '低危', info: '观察', good: '正常' };
+  var STN = {
+    NEW: '新发现', CHANGED: '已变化', PERSIST: '持续存在',
+    KNOWN: '已知', UNBASELINED: '无基线', RESOLVED: '已消失'
+  };
+
+  // PowerShell 5.1 serialises a 1-element array as an object and an empty array
+  // as {}, so every list field has to be normalised before it is trusted.
+  function norm(v) {
+    if (v === null || v === undefined) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? [v] : []; }
+    return [v];
+  }
+  function isBad(u) {
+    var s = String(u).toLowerCase();
+    for (var i = 0; i < BL.length; i++) if (s.indexOf(BL[i]) >= 0) return true;
+    return false;
+  }
+  function el(t, c, x) {
+    var n = document.createElement(t);
+    if (c) n.className = c;
+    if (x !== undefined) n.textContent = x;
+    return n;
+  }
+
+  // ---- header + stats -------------------------------------------------------
+  var meta = document.getElementById('meta');
+  [['机器', D.computer], ['用户', D.user], ['系统', D.os_version],
+   ['PowerShell', D.ps_version], ['扫描时间', D.scanned_at],
+   ['基线时间', D.baseline_at || '尚未建立']].forEach(function (p) {
+    var d = el('div'); d.innerHTML = '<b>' + p[0] + '</b> ' + esc(p[1]); meta.appendChild(d);
+  });
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  var sd = D.severity_counts || {}, cd = D.counts || {};
+  var stats = [
+    ['high', sd.high || 0, '高危'], ['new', cd.NEW || 0, '本次新增'],
+    ['medium', sd.medium || 0, '中危'], ['resolved', cd.RESOLVED || 0, '已消失'],
+    ['good', sd.good || 0, '正常项']
+  ];
+  var sb = document.getElementById('stats');
+  stats.forEach(function (s) {
+    var d = el('div', 'stat ' + s[0]);
+    d.appendChild(el('div', 'n', String(s[1])));
+    d.appendChild(el('div', 'l', s[2]));
+    sb.appendChild(d);
+  });
+
+  var vd = document.getElementById('verdict');
+  if (!D.baseline_at) {
+    vd.appendChild(el('div', 'verdict amber'));
+    vd.lastChild.innerHTML = '<b>尚未建立基线，因此无法判断「什么变了」</b>' +
+      '当前所有条目都按无基线处理。运行 <code>baseline.bat</code> 把此刻的状态固化为参照点；' +
+      '此后每次 <code>scan.bat</code> 都会把它们分成 新发现 / 已变化 / 已消失。' +
+      '基线不会自动更新——否则篡改者只要等你重新采集一次就把自己洗白了。';
+  } else if ((cd.NEW || 0) + (cd.CHANGED || 0) > 0) {
+    vd.appendChild(el('div', 'verdict red'));
+    vd.lastChild.innerHTML = '<b>自基线（' + esc(D.baseline_at) + '）以来出现 ' +
+      ((cd.NEW || 0) + (cd.CHANGED || 0)) + ' 项变化</b>变化项排在最前面。这就是「上次清了又回来」类问题的取证入口。';
+  } else {
+    vd.appendChild(el('div', 'verdict green'));
+    vd.lastChild.innerHTML = '<b>与基线一致，无新增变化</b>持续存在的旧条目按灰度显示。';
+  }
+
+  // ---- timeline for recurrence / held-evidence -----------------------------
+  function timeline(ev) {
+    var baks = norm(ev.backups), liveBad = norm(ev.startup_urls_bad).map(String);
+    if (!baks.length) return null;
+    var box = el('div', 'tl');
+    baks.forEach(function (b) {
+      var r = el('div', 'row');
+      var w = el('div', 'when');
+      w.appendChild(el('div', '', b.mtime));
+      w.appendChild(el('div', 'tag', '修复备份 · ' + Number(b.bytes).toLocaleString() + ' B'));
+      var st = el('div', 'state');
+      var bu = norm(b.urls).map(String), buBad = bu.filter(isBad);
+      st.appendChild(el('div', buBad.length ? 'hit' : 'miss',
+        buBad.length ? '备份中含恶意值：' + buBad.length + ' 条' : '备份中无恶意值'));
+      bu.slice(0, 2).forEach(function (u) {
+        st.appendChild(el('div', 'url', u + (isBad(u) ? '   ← 命中黑名单' : '')));
+      });
+      r.appendChild(w); r.appendChild(st); box.appendChild(r);
+    });
+    var r2 = el('div', 'row');
+    var w2 = el('div', 'when');
+    w2.appendChild(el('div', '', ev.mtime));
+    w2.appendChild(el('div', 'tag', '当前文件 · ' + Number(ev.bytes).toLocaleString() + ' B'));
+    var st2 = el('div', 'state');
+    st2.appendChild(el('div', liveBad.length ? 'hit' : 'miss',
+      liveBad.length ? '仍然存在：' + liveBad.join(' , ') : '已清空，未复发'));
+    r2.appendChild(w2); r2.appendChild(st2); box.appendChild(r2);
+
+    var d0 = new Date(String(baks[0].mtime).replace(/-/g, '/'));
+    var d1 = new Date(String(ev.mtime).replace(/-/g, '/'));
+    var days = (d1 - d0) / 86400000;
+    var dl = el('div', 'delta');
+    dl.innerHTML = '<b>跨度 ' + (isFinite(days) ? days.toFixed(1) : '?') + ' 天</b> · 体积 ' +
+      Number(baks[0].bytes).toLocaleString() + ' → ' + Number(ev.bytes).toLocaleString() + ' B（' +
+      (ev.bytes - baks[0].bytes >= 0 ? '+' : '') + (ev.bytes - baks[0].bytes).toLocaleString() + ' B）· ' +
+      (liveBad.length
+        ? '结论：修复之后值又回来了，属于 <b>复发</b>'
+        : '结论：修复之后没有复发，本次处置方式正确');
+    box.appendChild(dl);
+    return box;
+  }
+
+  function evidenceTable(ev) {
+    var t = el('table');
+    Object.keys(ev).forEach(function (k) {
+      if (k === 'backups' && norm(ev.backups).length) return; // shown as timeline
+      var tr = document.createElement('tr');
+      var names = F[k] || [k, k];
+      var td = el('td', 'k');
+      td.appendChild(el('div', '', names[0]));
+      td.appendChild(el('span', 'zh', names[1]));
+      var v = ev[k], txt;
+      if (Array.isArray(v) || (v && typeof v === 'object' && Object.keys(v).length)) {
+        var items = norm(v);
+        txt = items.map(function (x) {
+          return (x && typeof x === 'object') ? JSON.stringify(x) : String(x);
+        }).join('\n');
+        if (!items.length) txt = '（无）';
+      } else if (v === null || v === undefined || v === '' ||
+                 (typeof v === 'object' && !Object.keys(v).length)) {
+        txt = '（无）';
+      } else {
+        txt = String(v);
+      }
+      // Enum-ish fields get a human reading, not the raw Win32 token.
+      if (k === 'kind' && KIND[v]) txt = KIND[v];
+      if (k === 'sig_status' && HITV[v]) txt = v + '（' + HITV[v] + '）';
+      if (k === 'sig_status' && v === '') txt = '无从校验 — 目标文件不存在';
+      if (k === 'signer' && v === '') txt = '（无签名者信息，可能不是 PE 文件）';
+      if (k === 'drv_start') txt = DRVSTART[String(v)] || String(v);
+      if (v === false && (k === 'exe_exists' || k === 'in_writable' || k === 'in_windows')) {
+        txt = k === 'exe_exists' ? '否 — 二进制已丢失' : '否';
+      }
+      if (v === true && k === 'exe_exists') txt = '是';
+      var tv = el('td', 'val');
+      tv.innerHTML = esc(txt).replace(/\n/g, '<br>');
+      if (k === 'startup_urls_bad' && norm(v).length) tv.className = 'val hit';
+      if (k === 'sync_preferences_enabled') tv.className = 'val ' + (v ? 'hit' : 'miss');
+      if (k === 'exit_type' && v === 'Crashed') tv.className = 'val hit';
+      if (k === 'exe_exists' && v === false) tv.className = 'val hit';
+      if (k === 'sig_status' && HITV[v]) tv.className = 'val hit';
+      if (k === 'in_writable' && v === true) tv.className = 'val hit';
+      if (k === 'host_effective' && Number(v) > 0) tv.className = 'val hit';
+      tr.appendChild(td); tr.appendChild(tv); t.appendChild(tr);
+    });
+    return t;
+  }
+
+  // ---- cards ---------------------------------------------------------------
+  var order = ['high', 'medium', 'low', 'good', 'info'];
+  var main = document.getElementById('cards');
+  var groups = {};
+  (D.findings || []).forEach(function (f) { (groups[f.severity] = groups[f.severity] || []).push(f); });
+
+  order.forEach(function (sv) {
+    var list = groups[sv] || [];
+    if (!list.length) return;
+    var h = el('h2', null);
+    h.innerHTML = SEVN[sv] + ' <span class="cnt">' + list.length + ' 项</span>';
+    main.appendChild(h);
+    list.forEach(function (f) {
+      var c = el('div', 'card ' + sv);
+      var head = el('div', 'cardhead');
+      head.appendChild(el('span', 'rid', f.rule_id));
+      head.appendChild(el('span', 'ct', f.title));
+      head.appendChild(el('span', 'badge ' + f.state, STN[f.state] || f.state));
+      c.appendChild(head);
+      var subjTxt = f.subject;
+      var ki = subjTxt.indexOf(' / ');
+      var kn = ki > 0 ? KIND[subjTxt.slice(0, ki)] : null;
+      if (kn) subjTxt = kn + subjTxt.slice(ki);
+      c.appendChild(el('div', 'subj', subjTxt + '  ·  ' + (f.group_title || '')));
+      var ev = f.evidence || {};
+      if ((sv === 'high' || sv === 'good') && ev.backups) {
+        var tl = timeline(ev); if (tl) c.appendChild(tl);
+      }
+      c.appendChild(evidenceTable(ev));
+      if (f.advice) {
+        var a = el('div', 'advice');
+        a.innerHTML = '<span class="lbl">处置</span>' + esc(f.advice);
+        c.appendChild(a);
+      }
+      if (f.why) {
+        var d = document.createElement('details');
+        d.appendChild(el('summary', null, '为什么这条判据值得存在'));
+        d.appendChild(el('div', 'why', f.why));
+        if (f.verified_evidence) {
+          var s2 = document.createElement('summary'); s2.textContent = '本机实测证据';
+          d.appendChild(s2);
+          d.appendChild(el('div', 'vev', f.verified_evidence));
+        }
+        c.appendChild(d);
+      }
+      var k = el('div', 'subj', 'ack key: ' + f.key);
+      k.style.marginTop = '8px'; k.style.color = 'var(--faint)'; k.style.fontSize = '11px';
+      c.appendChild(k);
+      main.appendChild(c);
+    });
+  });
+
+  if (!(D.findings || []).length) {
+    main.appendChild(el('div', 'empty', '没有命中任何规则。这不等于机器干净——它可能意味着你的情况还没有对应的实测规则。'));
+  }
+
+  var rd = document.getElementById('resolved');
+  if ((D.resolved || []).length) {
+    var h = el('h2', null);
+    h.innerHTML = '已消失 <span class="cnt">' + D.resolved.length + ' 项（相对基线）</span>';
+    rd.appendChild(h);
+    var box = el('div', 'resolved-list');
+    D.resolved.forEach(function (r) {
+      box.appendChild(el('div', '', r.rule_id + ' · ' + r.title + ' · ' + r.subject + '（基线中记录于 ' + r.since + '）'));
+    });
+    rd.appendChild(box);
+  }
+
+  document.getElementById('f-rules').textContent = D.rules_total;
+  document.getElementById('f-subjects').textContent = D.subjects_total;
+  document.getElementById('f-probes').textContent = norm(D.probes_run).join(', ');
+  document.getElementById('f-bl').textContent = BL.join(', ');
+})();
+</script>
+</body>
+</html>

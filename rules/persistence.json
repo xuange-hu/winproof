@@ -1,0 +1,168 @@
+{
+  "group": "persistence",
+  "group_title": "开机驻留：启动项、服务、驱动与网络层",
+  "provenance": "本机实测分布（2026-10-14）：58 条驻留项 / 真实残留 1 / 未签名 3 / 可写目录常驻 7（含 Defender 自身）。以下判据按这个真实分布定级，不是猜的。",
+  "rules": [
+    {
+      "id": "PS-01",
+      "title": "自启动项指向已经不存在的文件",
+      "severity": "medium",
+      "when": {
+        "all": [
+          { "fact": "kind", "op": "in", "value": ["run_key", "startup_folder", "scheduled_task", "service", "elam_driver", "ifeo_debugger"] },
+          { "fact": "exe", "op": "nonEmpty" },
+          { "fact": "exe_exists", "op": "eq", "value": false }
+        ]
+      },
+      "show": ["kind", "command", "exe", "exe_exists", "location", "sig_status", "svc_state", "task_state"],
+      "advice": [
+        {
+          "if": { "fact": "kind", "op": "eq", "value": "service" },
+          "text": "服务注册表还在但二进制已删。确认不是你自己停用的之后：sc query <名称> 看状态，sc delete <名称> 清掉注册。它每次开机都会启动失败一次，也会给真正的恶意驻留打掩护。"
+        },
+        {
+          "if": { "fact": "kind", "op": "eq", "value": "scheduled_task" },
+          "text": "计划任务的目标已丢失。schtasks /query /tn \"<任务名>\" /v 看触发器，确认无用后 schtasks /delete /tn \"<任务名>\" /f。"
+        },
+        {
+          "if_any": true,
+          "text": "卸载残留：注册值还在，文件已经没了。启动项直接删这个键值即可（HKCU 下的不需要管理员权限）。"
+        }
+      ],
+      "why": "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。"
+    },
+    {
+      "id": "PS-02",
+      "title": "开机自动运行的程序没有有效数字签名",
+      "severity": "medium",
+      "when": {
+        "all": [
+          { "fact": "exe_exists", "op": "eq", "value": true },
+          { "fact": "in_windows", "op": "eq", "value": false },
+          { "fact": "sig_status", "op": "in", "value": ["NotSigned", "HashMismatch", "NotTrusted"] }
+        ]
+      },
+      "show": ["kind", "exe", "sig_status", "command", "exe_mtime", "exe_bytes"],
+      "advice": [
+        {
+          "if": { "fact": "sig_status", "op": "eq", "value": "HashMismatch" },
+          "text": "签名校验不过（HashMismatch）比完全未签名更值得警惕：文件被改过但签名信息还在。先看这个程序该不该由你更新，再决定是否重装修复。"
+        },
+        {
+          "if_any": true,
+          "text": "未签名不等于恶意——大量开源工具和便携软件就不签名。但它意味着没有任何东西能告诉你这个文件是不是厂商发的那个版本。若这个程序你会持续使用，记下此刻的 sha256，下次这项变成 CHANGED 时就是文件被替换了。"
+        }
+      ],
+      "why": "这里用签名者归属而不是厂商关键词黑名单。关键词列表只能抓到别人已经写进去的那几家厂商，而「这个每次开机都跑的二进制没有有效签名」能抓到你机器上实际存在的东西。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。"
+    },
+    {
+      "id": "PS-03",
+      "title": "出现了非预期的 Early-Launch 驱动",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "kind", "op": "eq", "value": "elam_driver" },
+          { "fact": "name", "op": "notIn", "value": ["WdBoot"] }
+        ]
+      },
+      "show": ["name", "exe", "drv_start", "signer", "sig_status", "command"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "Early-Launch 驱动在绝大多数安全软件之前加载。除了杀软自己的 ELAM 驱动（如各厂商的 elam 件），你不应有第二个成员。先确认 signer，再决定是不是要移除——这个级别的驻留能把自己保护的进程列为白名单。"
+        }
+      ],
+      "why": "这是本机实测过的真实威胁模型：360 的下载器曾往这台机器里塞过 360elam64.sys（BOOT_START 的 ELAM 驱动）。清掉文件后注册表键还在，只有按 Group=Early-Launch 枚举才看得见它，按文件名搜是搜不到的。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机此刻 Early-Launch 成员只有 WdBoot（signer=Microsoft Windows Early Launch Anti-malware Publisher），所以这条规则现在不应命中——它命中 0 条才是正确状态。清理前该集合里曾同时存在 WdBoot 与 360elam64。"
+    },
+    {
+      "id": "PS-04",
+      "title": "hosts 文件存在非 localhost 的映射",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "kind", "op": "eq", "value": "hosts_file" },
+          { "fact": "host_effective", "op": "countGte", "value": 1 }
+        ]
+      },
+      "show": ["host_effective", "host_count", "command", "host_mtime", "location"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "逐行确认这些映射是不是你自己（或某个屏蔽工具、激活工具）加的。要恢复：不是删行，而是把整个文件换回系统默认——激活类工具改 hosts 时通常不会告诉你它挡了哪些域名。"
+        }
+      ],
+      "why": "hosts 是最省事的劫持位置：不需要权限、不需要驻留进程，改完就一直生效，而且绝大多数清理工具根本不检查它。localhost 那两行是系统自带的，把它们算进去会让每台机器都误报一次。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机 hosts 只有 127.0.0.1 localhost，有效条目 0，因此这条规则此刻不应命中。"
+    },
+    {
+      "id": "PS-05",
+      "title": "IFEO Debugger 会替换程序启动的进程",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "kind", "op": "eq", "value": "ifeo_debugger" }
+        ]
+      },
+      "show": ["name", "command", "exe", "signer", "sig_status", "location"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "Image File Execution Options 下的 Debugger 值会让系统在你启动 <name> 时改为运行另一个程序。这个位置被用来劫持任意程序，最常用于让安全软件永远启动不了。删这个 Debugger 值（键本身留着无害，它是给调试器用的）。"
+        }
+      ],
+      "why": "它是 Windows 上破坏力最大的单点驻留：能精确针对某个具名进程生效，进程列表里看不出异常，而且需要管理员权限才能写入——所以一旦出现，说明写入者已经提过权了。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机 IFEO 下无 Debugger 值，这条规则此刻不应命中；判据与键路径已按实测结构实现。"
+    },
+    {
+      "id": "PS-06",
+      "title": "Winsock LSP 提供方不是系统 DLL",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "kind", "op": "eq", "value": "winsock_lsp" },
+          { "fact": "in_windows", "op": "eq", "value": false }
+        ]
+      },
+      "show": ["name", "exe", "signer", "sig_status", "location"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "命名空间分层提供方能拦改这台机器上任何程序的 TCP 连接。确认 signer 属于哪个软件（加速器、代理客户端、某些安全软件会装）。要清掉时不要直接删注册表项：netsh winsock reset 才能同时修好目录顺序。"
+        }
+      ],
+      "why": "360 类软件历史上就在这里装过滤层。这个位置的条目数量少、变动少，因此一条非系统的 LSP 就是很硬的信号——和 40 条启动项残留完全不同。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机 5 个 LSP 提供方全部为 Microsoft Windows 签名的系统 DLL，in_windows 均为 true，所以这条规则此刻不应命中。"
+    },
+    {
+      "id": "PS-07",
+      "title": "常驻程序放在用户可写目录",
+      "severity": "low",
+      "when": {
+        "all": [
+          { "fact": "exe_exists", "op": "eq", "value": true },
+          { "fact": "in_writable", "op": "eq", "value": true },
+          { "fact": "signer", "op": "notIn", "value": ["Microsoft Windows", "Microsoft Windows Publisher", "Microsoft Corporation"] }
+        ]
+      },
+      "show": ["kind", "exe", "signer", "sig_status", "exe_mtime", "exe_bytes"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "这不是恶意指标，是驻留位置偏好：ProgramData 和 AppData 里的 exe 任何以你身份运行的程序都能改写它，而不需要管理员权限。合法软件也常这么放（更新器、国产办公软件），所以这条只给低危。真正的用法是反过来——如果一个你从没装过的程序出现在这里，或者这项在两次扫描之间变成 CHANGED，那就是文件被替换了。"
+        }
+      ],
+      "why": "必须排除微软签名，否则 Defender 自己会被报成可疑：WinDefend 和 MDCoreSvc 的实际二进制就位于 C:\\ProgramData\\Microsoft\\Windows Defender 下。这是把判据从「看起来可疑」改成「能被解释」的一步。",
+      "verified_on": "2026-10-14",
+      "verified_evidence": "本机命中：service/Rd_Service（C:\\ProgramData\\host\\rdservice.exe，签名者济南快安网络科技）、scheduled_task 里的 3 条金山 WPS 任务、以及 1 条未签名的 OpenClaw Gateway；WinDefend、MDCoreSvc 被签名者条件正确排除。"
+    }
+  ]
+}

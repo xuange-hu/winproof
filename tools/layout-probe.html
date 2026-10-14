@@ -1,0 +1,66 @@
+<!doctype html>
+<!--
+  Layout probe. The report is a static file, so its rendering can be measured
+  deterministically: load it into an iframe of a known width and read back
+  scrollWidth vs clientWidth from the inner document (same-origin over file://).
+  Run headless:
+    msedge --headless=new --window-size=900,400 --dump-dom layout-probe.html
+  The answer lands in <pre id="out">, which is what --dump-dom prints.
+-->
+<meta charset="utf-8">
+<style>body{margin:0;font:13px monospace}iframe{border:1px solid #444;display:block;margin:6px}</style>
+<div id="out">running</div>
+<script>
+var WIDTHS = [1280, 1024, 860, 720, 600, 420, 360];
+var results = [];
+var i = 0;
+
+function step() {
+  if (i >= WIDTHS.length) {
+    var pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(results, null, 1);
+    document.body.innerHTML = '';
+    document.body.appendChild(pre);
+    return;
+  }
+  var w = WIDTHS[i++];
+  var f = document.createElement('iframe');
+  f.style.width = w + 'px';
+  f.style.height = '700px';
+  f.src = '../out/report.html';
+  f.onload = function () {
+    try {
+      var d = f.contentDocument.documentElement;
+      var over = d.scrollWidth - d.clientWidth;
+      var worst = null;
+      // Only report elements that overflow by a real amount; the usual culprit
+      // is an unbreakable Windows path inside a table cell.
+      f.contentDocument.querySelectorAll('*').forEach(function (n) {
+        var r = n.getBoundingClientRect();
+        if (r.right > d.clientWidth + 2) {
+          var ex = (n.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+          if (!worst || r.right > worst.right) worst = { tag: n.tagName, cls: String(n.className).slice(0, 24), right: Math.round(r.right), txt: ex };
+        }
+      });
+      results.push({
+        width: w, scrollW: d.scrollWidth, clientW: d.clientWidth, overflowPx: over, worst: worst,
+        // The card header is rid + title + state badge in one flex row; a missing
+        // gap there is the kind of thing only a real layout can answer.
+        head: (function () {
+          var rid = f.contentDocument.querySelector('.card .rid');
+          var ct = f.contentDocument.querySelector('.card .ct');
+          if (!rid || !ct) return null;
+          return { ridRight: Math.round(rid.getBoundingClientRect().right),
+                   ctLeft: Math.round(ct.getBoundingClientRect().left),
+                   sep: Math.round(ct.getBoundingClientRect().left - rid.getBoundingClientRect().right) };
+        })()
+      });
+    } catch (e) {
+      results.push({ width: w, error: String(e.message) });
+    }
+    step();
+  };
+  document.body.appendChild(f);
+}
+step();
+</script>
