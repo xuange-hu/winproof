@@ -1,7 +1,8 @@
-# NOTE: this workflow has not run on GitHub yet - the repository has no remote and
-# nothing has been pushed. Every command in it has been run in order against a fresh
-# clone on Windows PowerShell 5.1 (which is how the Get-Content pitfall below was
-# found), but Actions-specific behaviour is unverified until the first green run.
+# First real run was 2026-10-16 and it failed before any step executed: three
+# `run: & script.ps1` lines are not PowerShell quoting, they are YAML anchor
+# indicators, so the file did not parse and the run had zero jobs. Fixed by
+# quoting the scalar. Everything else in here has been run in order on a fresh
+# Windows clone under PowerShell 5.1.
 
 name: scan and tests
 
@@ -42,16 +43,19 @@ jobs:
           Write-Output ("runner state: subjects=" + $f.subjects_total + " findings=" + @($f.findings).Count)
 
       - name: Render the report
+        # A leading & is an YAML anchor indicator, not PowerShell's call operator:
+        # unquoted `run: & report.ps1` makes the whole workflow file fail to parse
+        # (GitHub then reports the run under the file path with zero jobs).
         shell: powershell
-        run: & report.ps1
+        run: '& report.ps1'
 
       - name: Contract tests (fixtures + live re-derivation)
         shell: powershell
-        run: & tools\selftest.ps1
+        run: '& tools\selftest.ps1'
 
       - name: Repository hygiene (bat CRLF, ps1 encoding)
         shell: powershell
-        run: & tools\hygiene.ps1
+        run: '& tools\hygiene.ps1'
 
       - name: Report integrity, label coverage and redaction
         run: node tools/verify.js
