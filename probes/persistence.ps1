@@ -12,12 +12,25 @@ $ErrorActionPreference = 'Continue'
 
 $signCache = @{}
 
+function Test-Target([string]$p, [switch]$Leaf) {
+    # Registry values routinely hold command strings with embedded quotes or
+    # characters that are illegal in a path, and Test-Path then throws an
+    # ArgumentException rather than returning false - seen on a GitHub-hosted
+    # runner, where it printed a red error mid-probe. A missing target must
+    # degrade to "not found", never to noise on stderr.
+    if ([string]::IsNullOrWhiteSpace($p)) { return $false }
+    try {
+        if ($Leaf) { return [bool](Test-Path -LiteralPath $p -PathType Leaf -ErrorAction Stop) }
+        return [bool](Test-Path -LiteralPath $p -ErrorAction Stop)
+    } catch { return $false }
+}
+
 function Get-SignInfo([string]$exe) {
     if ([string]::IsNullOrWhiteSpace($exe)) { return $null }
     if ($signCache.ContainsKey($exe)) { return $signCache[$exe] }
     $r = [ordered]@{ exists = $false; signer = ''; status = ''; subject = '' }
     try {
-        if (Test-Path -LiteralPath $exe) {
+        if (Test-Target $exe) {
             $r['exists'] = $true
             $sig = Get-AuthenticodeSignature -LiteralPath $exe -ErrorAction SilentlyContinue
             $r['status'] = [string]$sig.Status
@@ -64,11 +77,11 @@ function Get-ExeFromCommand([string]$cmd) {
         $exe = $tokens[0]
         $used = 1
         if ($tokens.Count -gt 1) {
-            if (Test-Path -LiteralPath $c) { $exe = $c; $used = $tokens.Count }
+            if (Test-Target $c) { $exe = $c; $used = $tokens.Count }
             else {
                 for ($i = 1; $i -lt $tokens.Count; $i++) {
                     $cand = ($tokens[0..$i] -join ' ')
-                    if ((Test-Path -LiteralPath $cand) -or ($cand -match '\.(exe|dll|com|bat|cmd|ps1)$')) {
+                    if ((Test-Target $cand) -or ($cand -match '\.(exe|dll|com|bat|cmd|ps1)$')) {
                         $exe = $cand
                         $used = $i + 1
                         break
@@ -104,10 +117,10 @@ function Resolve-BareCommand([string]$name) {
     foreach ($d in $dirs) {
         foreach ($ext in @('.exe', '.com', '.cmd', '.bat')) {
             $cand = Join-Path $d ($name + $ext)
-            if (Test-Path -LiteralPath $cand) { return $cand }
+            if (Test-Target $cand) { return $cand }
         }
         $cand = Join-Path $d $name
-        if (Test-Path -LiteralPath $cand -PathType Leaf) { return $cand }
+        if (Test-Target $cand -Leaf) { return $cand }
     }
     return ''
 }
@@ -174,7 +187,7 @@ function New-Entry($kind, $name, $loc, $cmd) {
             if ($w -and $low.StartsWith($w)) { $e['in_writable'] = $true; break }
         }
         try {
-            if (Test-Path -LiteralPath $exe) {
+            if (Test-Target $exe) {
                 $fi = Get-Item -LiteralPath $exe -Force
                 $e['exe_mtime'] = $fi.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')
                 $e['exe_bytes'] = [int]$fi.Length

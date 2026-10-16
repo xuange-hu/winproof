@@ -31,15 +31,24 @@ jobs:
         # every finding as PERSIST with zero NEW. That is the whole promise of
         # "what changed", so it is checked on a machine nobody has cleaned.
         #
+        # `.\engine.ps1`, not `engine.ps1`: Actions runs the block as a script in
+        # D:\a\_temp and PowerShell does not resolve a bare script name against the
+        # working directory, so the unqualified form failed only in CI.
+        #
         # ReadAllText, not Get-Content -Raw: Windows PowerShell 5.1 decodes a
         # BOM-less file as the ANSI codepage, which mangles the CJK in findings.json
         # and makes ConvertFrom-Json fail on a perfectly valid file.
         shell: powershell
         run: |
-          & engine.ps1 -Mode baseline
-          & engine.ps1 -Mode scan
+          & .\engine.ps1 -Mode baseline
+          & .\engine.ps1 -Mode scan
           $f = [IO.File]::ReadAllText((Resolve-Path out\findings.json).Path) | ConvertFrom-Json
-          if ([int]$f.counts.NEW -ne 0) { throw "rescan reported $($f.counts.NEW) NEW rows against a baseline just taken" }
+          if ([int]$f.counts.NEW -ne 0) {
+              foreach ($n in @($f.findings | Where-Object { $_.state -eq 'NEW' })) {
+                  Write-Output ("NEW row: " + $n.rule_id + " | " + $n.subject)
+              }
+              throw "rescan reported $($f.counts.NEW) NEW rows against a baseline just taken"
+          }
           Write-Output ("runner state: subjects=" + $f.subjects_total + " findings=" + @($f.findings).Count)
 
       - name: Render the report
@@ -47,7 +56,7 @@ jobs:
         # unquoted `run: & report.ps1` makes the whole workflow file fail to parse
         # (GitHub then reports the run under the file path with zero jobs).
         shell: powershell
-        run: '& report.ps1'
+        run: '& .\report.ps1'
 
       - name: Contract tests (fixtures + live re-derivation)
         shell: powershell
