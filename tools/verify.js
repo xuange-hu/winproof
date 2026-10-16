@@ -68,22 +68,33 @@ const factFiles = fs.readdirSync(path.join(root, 'out'))
 const user = process.env.USERNAME || '';
 const prof = process.env.USERPROFILE || '';
 const host = process.env.COMPUTERNAME || '';
+// The report embeds the findings as JSON, and ConvertTo-Json escapes every
+// backslash, so a home path is present as C:\\Users\\<name>. Counting only the
+// raw form would report "0 occurrences" for a path that is really there - the
+// escaped form has to be searched too or this check proves nothing.
+const profEsc = prof ? prof.split('\\').join('\\\\') : '';
 const probes = {
   username: user ? (html.split(user).length - 1) : 0,
   userprofile: prof ? (html.split(prof).length - 1) : 0,
+  userprofile_escaped: profEsc ? (html.split(profEsc).length - 1) : 0,
   hostname: host ? (html.split(host).length - 1) : 0
 };
 console.log('username "' + user + '" occurrences in report: ' + probes.username);
-console.log('userprofile occurrences: ' + probes.userprofile);
+console.log('userprofile raw occurrences: ' + probes.userprofile);
+console.log('userprofile JSON-escaped occurrences: ' + probes.userprofile_escaped);
 console.log('hostname occurrences: ' + probes.hostname);
-if (probes.userprofile > 0) fail('absolute home path leaked');
+if (probes.userprofile > 0 || probes.userprofile_escaped > 0) fail('absolute home path leaked');
+// The bare username is only printed, never asserted: a short or generic account
+// name ("admin", "app") legitimately occurs inside words like "Administrator",
+// so treating any hit as a leak would fail CI on innocent forks. The home path
+// above is the unambiguous test, and it covers the name wherever a path appears.
 
 // The facts files are local-only output and are gitignored, so full paths there
 // are expected and are not a leak. They are printed to make the difference
 // explicit: report.html must be 0, facts files must be non-zero.
 for (const f of factFiles) {
   console.log(f.name + ' keeps paths (expected, local only): ' +
-    (f.text.split(prof).length - 1) + ' occurrences');
+    ((f.text.split(prof).length - 1) + (profEsc ? (f.text.split(profEsc).length - 1) : 0)) + ' occurrences');
 }
 
 // A scheduled task on this box runs `rasdial <connection> <user> <password>`, so
