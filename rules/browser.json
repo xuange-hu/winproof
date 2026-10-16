@@ -1,7 +1,7 @@
 {
   "group": "browser",
   "group_title": "浏览器启动页与搜索引擎",
-  "provenance": "以下判据全部在真实机器上取证实测（2026-10-14，Edge 4 profile + Chrome 1 profile），未实测的条件不进首版。",
+  "provenance": "以下判据全部在真实机器上取证实测（2026-10-14 建规，2026-10-16 补 BR-08 并复验 BR-05：Edge 4 profile + Chrome 1 profile + content_settings 台账 1707 条），未实测的条件不进首版。",
   "blocklist_note": "domain_blocklist 是子串匹配，用户主动设置的合法首页也可能命中；命中后请用 acknowledge 标记为已知，而不是删除规则。",
   "domain_blocklist": [
     "2345",
@@ -123,7 +123,7 @@
       ],
       "why": "一次性扫描工具无法回答\"我上次清了，它为什么还在\"。把上一次修复留下的 .bak_ 备份时间戳和当前文件的修改时间放在一起比对，就能把\"复发\"从感觉变成一条带日期的证据。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。"
+      "verified_evidence": "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。"
     },
     {
       "id": "BR-06",
@@ -165,6 +165,30 @@
       "why": "清理工具只会说\"已删除\"，没有工具能说\"删除后没有复发\"。而后者才是判断处置方式对不对的唯一证据——没有它，你只能靠下次开机再看一眼。",
       "verified_on": "2026-10-14",
       "verified_evidence": "Chrome / Default 有 Secure Preferences.bak_20261010-152128（30814 字节，内含 2345 URL），当前文件 30745 字节、mtime 10-14 13:09，session 已无明文值且无密封副本。"
+    },
+    {
+      "id": "BR-08",
+      "title": "黑名单域名仍持有内容设置例外",
+      "severity": "medium",
+      "when": {
+        "all": [
+          { "fact": "perm_grants_bad", "op": "nonEmpty" }
+        ]
+      },
+      "show": ["perm_grants_bad", "perm_bad_settings", "perm_total_keys", "startup_urls_bad", "sync_preferences_enabled"],
+      "advice": [
+        {
+          "if": { "fact": "startup_urls_bad", "op": "isEmpty" },
+          "text": "启动页已经干净，但浏览器仍然记得这个域名——这一条证明的是\"页面被真正加载过\"，而 BR-01 只能证明\"配置里写了它\"。撤销入口：edge://settings/content/all 或 chrome://settings/content/all 按域名搜索逐条删除；若列表里搜不到该域名，说明这个类型没有 UI 开关，只能清 Profile 或接受它作为历史记录。"
+        },
+        {
+          "if_any": true,
+          "text": "这个域名的启动页此刻仍在，例外项和它是同一批残留。先按 BR-01 处置启动页，再回到 edge://settings/content/all（或 chrome://settings/content/all）按域名搜索删除这些条目，否则一次加载就会重新写入新的例外。"
+        }
+      ],
+      "why": "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
+      "verified_on": "2026-10-16",
+      "verified_evidence": "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。"
     }
   ]
 }

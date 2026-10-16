@@ -88,6 +88,13 @@ $wantBrowser = [ordered]@{
     'BR-05' = @('Chrome / Default', 'Edge / Profile 1')
     'BR-06' = @('Chrome / Profile 3', 'Edge / Profile 1')
     'BR-07' = @('Edge / Profile 2')
+    # BR-08 is deliberately pinned to three subjects, one per shape of the same
+    # problem: Profile 1 is hijacked now and also holds grants, Edge / Default is
+    # clean at the startup page but still holds a grant, Chrome / Profile 3 and
+    # Edge / Profile 2 hold none at all. That split is what makes the rule's
+    # conditional advice branch observable inside the fixture instead of only on a
+    # machine that happens to be infected.
+    'BR-08' = @('Chrome / Default', 'Edge / Default', 'Edge / Profile 1')
 }
 $wantPers = [ordered]@{
     'PS-01' = @('run_key / ZzResidueGhost', 'service / ZzSvcGone', 'scheduled_task / \ZzTaskGone')
@@ -126,14 +133,14 @@ $browserBase = Load (Join-Path $work 'b0.json')
 Check-Manifest $browserBase $wantBrowser
 Expect 'fixture exposes 5 profiles' ([int]$browserBase.subjects_total -eq 5)
 
-Write-Output '[2] live capture and fixture must not be confusable: all 7 browser rules exercised'
+Write-Output '[2] live capture and fixture must not be confusable: all 8 browser rules exercised'
 $brIds = @($browserBase.findings | ForEach-Object { $_.rule_id } | Select-Object -Unique)
-Expect ('all 7 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 7)
+Expect ('all 8 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 8)
 
 Write-Output '[3] rescan the same facts: nothing may report as changed'
 Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $work 'store'); OutFile = (Join-Path $work 'scan-same.json') }
 $r0 = StateMap (Join-Path $work 'scan-same.json')
-Expect 'all 14 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 14)
+Expect 'all 17 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 17)
 Expect 'zero NEW' ([int]$r0.doc.counts.NEW -eq 0)
 Expect 'zero RESOLVED' ([int]$r0.doc.counts.RESOLVED -eq 0)
 
@@ -163,7 +170,7 @@ Expect 'counts.NEW == 2' ([int]$rB.doc.counts.NEW -eq 2)
 Expect 'counts.RESOLVED == 1' ([int]$rB.doc.counts.RESOLVED -eq 1)
 Expect 'neighbour Edge/Profile 1 unaffected' ($rB.map['BR-01|Edge / Profile 1'] -eq 'PERSIST')
 Expect 'neighbour Chrome/Default unaffected' ($rB.map['BR-05|Chrome / Default'] -eq 'PERSIST')
-Expect 'finding set is 14 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 15)
+Expect 'finding set is 17 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 18)
 
 # --- [5] fixture C: the hijacked file is rewritten again ----------------------
 # Same findings, different evidence values: this is the CHANGED path, and it must
@@ -186,7 +193,7 @@ Expect 'BR-02 Edge P1 stays PERSIST (seal keys unchanged)' ($rC.map['BR-02|Edge 
 # reported as changed when the evidence it actually cites changed - otherwise
 # every file write would light up every rule on that profile.
 Expect 'BR-03 Edge P1 stays PERSIST (its own evidence did not change)' ($rC.map['BR-03|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'no finding lost' (@($rC.doc.findings).Count -eq 14)
+Expect 'no finding lost' (@($rC.doc.findings).Count -eq 17)
 Expect 'zero NEW on a metadata rewrite' ([int]$rC.doc.counts.NEW -eq 0)
 # Exactly three rows move, and they are the three whose cited evidence moved:
 # BR-01 and BR-05 show bytes/mtime, and BR-06 shows mtime as well - a rewrite
@@ -218,7 +225,11 @@ Expect 'BR-03 Edge/Default is NEW (mode became 4)' ($rD.map['BR-03|Edge / Defaul
 Expect 'BR-02 Edge/Default is CHANGED (it cites startup_urls_bad)' ($rD.map['BR-02|Edge / Default'] -eq 'CHANGED')
 Expect 'BR-04 Edge/Default stays PERSIST (signatures untouched)' ($rD.map['BR-04|Edge / Default'] -eq 'PERSIST')
 Expect 'no BR-05 without a repair backup' ($null -eq $rD.map['BR-05|Edge / Default'])
-Expect 'exactly the three cited-evidence rows move' ([int]$rD.doc.counts.NEW + [int]$rD.doc.counts.CHANGED -eq 3)
+# BR-08 cites startup_urls_bad on purpose: an exception grant for a domain is only
+# as serious as whether that domain is still being loaded at startup. So injecting
+# a URL must move this profile's grant row to CHANGED rather than leave it frozen.
+Expect 'BR-08 Edge/Default is CHANGED (it also cites startup_urls_bad)' ($rD.map['BR-08|Edge / Default'] -eq 'CHANGED')
+Expect 'exactly the four cited-evidence rows move' ([int]$rD.doc.counts.NEW + [int]$rD.doc.counts.CHANGED -eq 4)
 
 # --- [7] acknowledge ----------------------------------------------------------
 Write-Output '[7] acknowledge demotes without deleting the rule'
@@ -227,7 +238,7 @@ Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $w
 $rA = StateMap (Join-Path $work 'scan-ack.json')
 Expect 'BR-06 Chrome/Profile 3 is KNOWN' ($rA.map['BR-06|Chrome / Profile 3'] -eq 'KNOWN')
 Expect 'the other BR-06 stays PERSIST (ack is per-subject)' ($rA.map['BR-06|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'finding still present after ack (14 total)' (@($rA.doc.findings).Count -eq 14)
+Expect 'finding still present after ack (17 total)' (@($rA.doc.findings).Count -eq 17)
 # low severity on this fixture is exactly the two BR-06 rows, so the count is the
 # proof that KNOWN rows are excluded from the severity histogram rather than the
 # list - the report must not still show "2 low" for something the user owns.
@@ -357,6 +368,24 @@ Expect 'browser findings point at a document path' ($badPath.Count -eq 0)
 $syncBranch = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-05' -and $_.subject -eq 'Edge / Profile 1' } | ForEach-Object { [string]$_.advice })
 $plainBranch = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-05' -and $_.subject -eq 'Chrome / Default' } | ForEach-Object { [string]$_.advice })
 Expect 'conditional advice really branches (sync on vs off give different text)' ($syncBranch[0] -ne $plainBranch[0])
+
+# BR-08 has the same two-text structure driven by a different fact, and its filter
+# is the one place where an over-broad match would print a stranger's domain next
+# to an accusation. The fixture plants clean origins alongside dirty ones, so both
+# directions are pinned: the branch has to differ, and no clean origin may appear
+# in the evidence of any BR-08 row.
+$b08sync = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-08' -and $_.subject -eq 'Edge / Default' } | ForEach-Object { [string]$_.advice })
+$b08live = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-08' -and $_.subject -eq 'Edge / Profile 1' } | ForEach-Object { [string]$_.advice })
+Expect 'BR-08 advice branches (grant-only profile vs still-hijacked profile)' ($b08sync[0] -ne $b08live[0])
+$clean = @('www.google.com', 'www.bilibili.com', '10086.91.com', 'wustacm.cn')
+$leakedClean = @()
+foreach ($f in @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-08' })) {
+    foreach ($g in @($f.evidence.perm_grants_bad)) {
+        foreach ($c in $clean) { if (([string]$g) -like ('*' + $c + '*')) { $leakedClean += (([string]$f.subject) + ' -> ' + ([string]$g)) } }
+    }
+}
+Expect ('BR-08 evidence contains only blocklisted origins (' + $leakedClean.Count + ' leaks)') ($leakedClean.Count -eq 0)
+foreach ($l in $leakedClean) { Write-Output ('     ! ' + $l) }
 
 # --- [13] live rules vs a predicate recomputed from the real capture ----------
 # The expected hit set here is recomputed from the raw facts by independent

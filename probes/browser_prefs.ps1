@@ -43,6 +43,9 @@ function Get-FileFacts($path, $brand, $profile, $doc) {
         exit_type      = ''
         search_urls    = @()
         homepage       = ''
+        perm_grants    = @()
+        perm_keys_total = 0
+        perm_settings  = 0
     }
 
     $j = $null
@@ -111,6 +114,49 @@ function Get-FileFacts($path, $brand, $profile, $doc) {
 
     if ($j.homepage) { $f.homepage = [string]$j.homepage }
 
+    # --- content setting exceptions ------------------------------------------
+    # This table is the browser's own record of which origins it actually loaded
+    # and what it decided to allow them, so it answers a question the startup
+    # value cannot: a hijacked URL in session.startup_urls only proves the
+    # configuration, a grant here proves the page was reached. Keys are
+    # "<scheme>://<host>:<port>,*", one entry per setting type.
+    #
+    # Everything is captured, no filtering by reputation: the probe does not know
+    # the blocklist and must not decide what is suspicious. Each row is
+    # "setting|origin|last_written_local" because Chrome/Edge store the write
+    # time as WebKit microseconds (100 ns ticks since 1601-01-01 UTC) and a
+    # timeline is only readable once converted.
+    $cs = $null
+    if ($j.profile -and $j.profile.content_settings -and $j.profile.content_settings.exceptions) {
+        $cs = $j.profile.content_settings.exceptions
+    }
+    if ($null -ne $cs) {
+        $epUtc = [datetime]::SpecifyKind([datetime]'1601-01-01 00:00:00', [datetimekind]::Utc)
+        foreach ($sname in @($cs.PSObject.Properties.Name | Sort-Object)) {
+            $node = $cs.$sname
+            if ($null -eq $node) { continue }
+            $keys = @($node.PSObject.Properties.Name)
+            if ($keys.Count -eq 0) { continue }
+            $f.perm_settings += 1
+            foreach ($k in $keys) {
+                if ($null -eq $k) { continue }
+                $ks = [string]$k
+                if ($ks -eq '') { continue }
+                $f.perm_keys_total += 1
+                $written = ''
+                $lm = ''
+                try { $lm = [string]$node.$ks.last_modified } catch { $lm = '' }
+                if ($lm -match '^\d{8,}$') {
+                    try {
+                        $written = $epUtc.AddSeconds(([double]$lm / 1000000.0)).ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss')
+                    } catch { $written = '' }
+                }
+                $f.perm_grants += ($sname + '|' + $ks + '|' + $written)
+            }
+        }
+        $f.perm_grants = @($f.perm_grants | Sort-Object)
+    }
+
     return [pscustomobject]$f
 }
 
@@ -143,4 +189,6 @@ if ($OutFile -eq '') {
 }
 New-Item -ItemType Directory -Force -Path (Split-Path $OutFile) | Out-Null
 [IO.File]::WriteAllText($OutFile, $json, (New-Object Text.UTF8Encoding $false))
-Write-Output ('browser_prefs: files=' + $all.Count + ' missing_roots=' + $missing.Count + ' -> ' + $OutFile)
+$gAll = 0
+foreach ($x in $all) { $gAll += [int]$x.perm_keys_total }
+Write-Output ('browser_prefs: files=' + $all.Count + ' missing_roots=' + $missing.Count + ' perm_grants=' + $gAll + ' -> ' + $OutFile)

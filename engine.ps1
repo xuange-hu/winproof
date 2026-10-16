@@ -171,6 +171,23 @@ function Get-BadUrls($urls, $blocklist) {
     return @($bad | Select-Object -Unique)
 }
 
+# Content setting rows arrive as "setting|origin|written". Matching has to look at
+# the origin field only: a blocklist token may legally appear in a setting name,
+# and the port/pattern suffix carries no reputation.
+function Get-BadGrants($grants, $blocklist) {
+    $bad = @()
+    foreach ($g in As-Array $grants) {
+        $parts = ([string]$g) -split '\|'
+        if ($parts.Count -lt 2) { continue }
+        $origin = [string]$parts[1]
+        if ([string]::IsNullOrWhiteSpace($origin)) { continue }
+        foreach ($b in $blocklist) {
+            if ($origin.ToLower().Contains([string]$b.ToLower())) { $bad += ([string]$g); break }
+        }
+    }
+    return @($bad | Select-Object -Unique)
+}
+
 function New-BrowserSubjects($facts, $blocklist) {
     $byProfile = @{}
     foreach ($f in As-Array $facts.files) {
@@ -235,6 +252,8 @@ function New-BrowserSubjects($facts, $blocklist) {
         # cross-document facts: sync and exit state live in the other file
         $syncOn = $false
         $exitType = ''
+        $grants = @()
+        $gTotal = 0
         foreach ($d in $docs) {
             if ($d.sync_prefs) { $syncOn = $true }
             if ([string]$d.exit_type -eq 'Crashed') { $exitType = 'Crashed' }
@@ -242,10 +261,21 @@ function New-BrowserSubjects($facts, $blocklist) {
             foreach ($b in As-Array $d.backups) {
                 if (-not ($backups | Where-Object { $_.name -eq $b.name })) { $backups += $b }
             }
+            # Content setting exceptions are stored in the plain Preferences, the
+            # file that has no signed copy and no hijacked startup value. Merging
+            # them into the same subject is what lets one card say "the config is
+            # clean and the browser still remembers loading that origin".
+            foreach ($g in As-Array $d.perm_grants) {
+                if (-not ($grants -contains [string]$g)) { $grants += [string]$g }
+            }
+            $gTotal += [int]$d.perm_keys_total
         }
         $s['sync_preferences_enabled'] = $syncOn
         $s['exit_type'] = $exitType
         $s['backups'] = $backups
+        $s['perm_total_keys'] = $gTotal
+        $s['perm_grants_bad'] = Get-BadGrants $grants $blocklist
+        $s['perm_bad_settings'] = @($s['perm_grants_bad'] | ForEach-Object { ([string]$_ -split '\|')[0] } | Select-Object -Unique)
 
         # recurrence: a repair backup that already contained a bad URL, and the
         # live file still containing one, with the live file newer than the backup
