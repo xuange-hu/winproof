@@ -1,5 +1,11 @@
 # WinProof · Windows 驻留取证与基线比对
 
+[![scan and tests](https://github.com/xuange-hu/winproof/actions/workflows/ci.yml/badge.svg)](https://github.com/xuange-hu/winproof/actions/workflows/ci.yml)
+![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
+![powershell](https://img.shields.io/badge/powershell-5.1%20only-informational)
+![deps](https://img.shields.io/badge/dependencies-0-green)
+![license](https://img.shields.io/badge/license-MIT-blue)
+
 > 不是又一个"清理工具"。它回答的是清理工具回答不了的那三个问题：
 > **什么东西变了 · 什么时候变的 · 你刚才那个处置方式会不会被还原。**
 
@@ -8,26 +14,29 @@
 
 ---
 
-## 为什么需要它：一个真实的对照实验
+## 为什么需要它：两次修复，两种结局
 
-我的 Edge 启动页被 `2345.pbgia.com` 劫持过两次。两次都用同一种"删掉 `startup_urls`"的手法处理，
-结果一个复发、一个至今干净。差别不是运气，是两个可观测的结构差异：
+我的 Edge 启动页被 `2345.pbgia.com` 劫持，我处置过两次（10-10、10-16），两次都被还原——但**还原的原因不同**，
+而这两个原因都是可以在文件里观测到的。这是本项目存在的理由。
 
 | | Edge / Profile 1 | Chrome / Default |
 |---|---|---|
 | 修复备份 | `bak_20261010-221049` · 71,212 B · 含恶意 URL | `bak_20261010-152128` · 30,814 B · 含恶意 URL |
-| 当前文件 | 145,715 B · 2026-10-14 21:58 | 30,745 B · 2026-10-14 13:09 |
-| 当前 `startup_urls` | **`http://2345.pbgia.com/win23` 回来了** | 空 |
-| 密封副本 | `startup_urls_edge_enclave` + `_verify`（4 个键） | 无 |
-| `sync.preferences` | 开 | 关 |
-| **结论** | **复发**（BR-05 高危） | **修复保持**（BR-07 正常） |
+| 第一次处置（10-10，只删明文键） | **复发** | **保持干净** |
+| 差别 | 4 个 `*_edge_enclave` 密封键 + `_verify` | 无密封副本 |
+| 第二次处置（10-16 14:18，删明文键 **并且**删掉整个密封键族） | **还是复发**：15:55:30 Edge 后台进程启动，15:55:40 `restore_on_startup=4` + 恶意 URL 重新落盘（148,932 B） | 不适用 |
+| 复发时磁盘上还有没有这份值 | 没有——明文 `Preferences` 的 `session` 是空的，密封键也已被删 | — |
+| 所以来源是什么 | `sync.preferences` = 开 ⇒ **云端配置把它灌回来的** | — |
+| 结论 | **文件级修复在这类 Profile 上只能顶到下一次浏览器启动**，必须走 `edge://settings/onStartup`，让云端副本一起被改掉 | **修复保持**（BR-07） |
 
-同一个处置动作，在两个结构不同的对象上一个失效一个有效——**而"失效"在文件层面看起来和"成功"完全一样**：
-明文键确实被删掉了。是 Edge 从 `_edge_enclave` 密封副本里把它还原的。
+同一个处置动作，在三个结构不同的对象上得到三种结果：**没被还原**、**被本地密封副本还原**、
+**被云端还原**。而在文件层面，三者的"删掉了"看起来一模一样。
 
-市面上的工具不报告这件事，因为它们都只做一次快照式的"扫描—删除"。
-WinProof 把**基线**做成一等公民：`baseline.bat` 固化此刻的状态，之后每次 `scan.bat`
-把每条结论分类成 `新发现 / 已变化 / 持续存在 / 已消失`。
+> 市面上没有工具报告这件事，因为它们都只做一次快照式的"扫描—删除"。
+> WinProof 把**基线**做成一等公民：`baseline.bat` 固化此刻的状态，之后每次 `scan.bat`
+> 把每条结论分类成 `新发现 / 已变化 / 持续存在 / 已知 / 已消失`。
+> 上面那条时间线不是我手写的：它来自探针读到的 `.bak_` 备份文件名里的时间戳、两个文档各自的
+> `mtime`，以及备份文件**内部**的 `startup_urls` 值——修复动作留下的痕迹本身就是证据。
 
 > 基线**永不自动更新**。否则往你机器里写东西的那位，只要等你重新采集一次基线就把自己洗白了。
 
@@ -47,24 +56,66 @@ ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」�
 
 ---
 
+## 检测清单：15 条规则，每条都能被复述成一次具体观察
+
+不是"清单长所以显得全"。每条规则后面写的是**它在你机器上长什么样**——
+`rules/*.json` 里的 `verified_evidence` 字段必须填作者本人跑出来的命中数和对象名，否则不进主干。
+
+**浏览器启动页与搜索引擎**（8 条）
+
+| 规则 | 严重度 | 判据一句话 | 为什么单独列出来 |
+|---|---|---|---|
+| BR-01 | 高危 | `session.restore_on_startup=4` 且 `startup_urls` 命中域名黑名单 | 不改 hosts、不装服务、不在任务管理器里，只写两个 JSON 键 |
+| BR-02 | 高危 | 存在 `*_edge_enclave` / `*_edge_lightweight` 密封键族 | **手工清理失败的真正原因**：明文删干净了，另一份副本被当成权威源还原回来 |
+| BR-03 | 观察 | 启动模式=4（打开特定页面）但 URL 不在黑名单 | 单独看不算劫持，和 BR-01 一起看才是"有人改过这里" |
+| BR-04 | 中危 | `protection.macs` 里有签名、明文键却没了 | 篡改者不必伪造签名——删值留签名就足以让浏览器认为这段是权威的 |
+| BR-05 | 高危 | 当前值命中黑名单，且修复备份里也命中、且当前文件更新 | 一次性扫描器答不出"我上次清了，它为什么还在"；这条把两次时间戳放在一起 |
+| BR-06 | 低危 | `profile.exit_type != Normal`（非阻塞加锁探测，不看进程名） | 后台常驻进程让"进程名 = 在用"永远误判；独占打开失败才是证据 |
+| BR-07 | 正常 | 修复备份里含恶意值，当前明文已干净 | 唯一能证明"处置方式对了"的信号；其余工具只会说"已删除" |
+| BR-08 | 中危 | `content_settings.exceptions` 台账里有黑名单源 | 权限、Cookie、`media_engagement` 都是**页面真被加载过**的留痕，明文删掉后它们还在 |
+
+**开机驻留：启动项、服务、驱动与网络层**（7 条）
+
+| 规则 | 严重度 | 判据一句话 | 为什么单独列出来 |
+|---|---|---|---|
+| PS-01 | 中危 | Run 键 / 服务 / 计划任务指向已不存在的文件 | 卸载残留比恶意软件常见得多，且它让"我有 40 个启动项"这个指标彻底失去意义 |
+| PS-02 | 中危 | 每次开机都跑的二进制没有有效 Authenticode 签名 | 用签名者归属，不用厂商关键词黑名单——关键词只能抓到别人已经写进去的那几家 |
+| PS-03 | 高危 | `Group=Early-Launch` 里出现 `WdBoot` 之外的成员 | 本机实测威胁模型：360 下载器塞过 `360elam64.sys`，BOOT_START，比普通驱动早一个启动阶段 |
+| PS-04 | 高危 | hosts 里有非 `localhost` 的映射 | 不需权限、不需驻留进程，改完一直生效，而且多数清理工具根本不检查 |
+| PS-05 | 高危 | IFEO 下存在 `Debugger` | 破坏力最大的单点驻留：只对具名进程生效、进程列表看不出异常、需要管理员权限才能写 |
+| PS-06 | 高危 | Winsock LSP 提供方不是系统 DLL | 这个位置条目少、变动少，所以一条非系统提供方是很硬的信号 |
+| PS-07 | 低危 | 常驻二进制位于用户可写目录（精确排除三个微软签名名） | 必须排除微软签名，否则 Defender 自己的 `MpCmdRun` / `MsMpEng` 会被报成可疑 |
+
+黑名单目前 9 个 token（`2345` `pbgia` `hao.360` `mydown` `so.com` `360safe` `duba` `haosf` `win23`），
+在 `rules/browser.json` 里是数据不是代码，换机器、加域名都不用碰引擎。它用的是**子串匹配**，
+所以你主动把 `so.com` 设成首页也会被报——正确处置是 `ack.bat` 标记为已知，而不是把规则调瞎。
+
+---
+
 ## 这台机器上它实际报了什么
 
 ```
-engine: subjects=62 rules=14 findings=20 high=4 resolved=0
+engine: subjects=63 rules=15 findings=22 high=4 resolved=2
+counts: NEW=4 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 ```
 
 | 严重度 | 规则 | 命中 | 对象 |
 |---|---|---|---|
-| 高危 | BR-01 启动页被劫持 | 1 | Edge / Profile 1 |
+| 高危 | BR-01 启动页被劫持 | 1 | Edge / Profile 1 —— 状态 `已变化`，就是上面那次云端回灌 |
 | 高危 | BR-02 存在密封副本，只删明文会被还原 | 2 | Edge / Default、Edge / Profile 1 |
 | 高危 | BR-05 清理后又回来了 | 1 | Edge / Profile 1 |
-| 中危 | BR-04 签名孤儿（此处曾被篡改并清理过） | 3 | Edge ×2、Chrome ×1 |
+| 中危 | BR-04 签名孤儿（此处曾被篡改并清理过） | 4 | Edge ×3、Chrome ×1 |
+| 中危 | BR-08 黑名单域名仍持有内容设置例外 | 3 | Edge / Profile 1、Edge / Default、Chrome / Default |
 | 中危 | PS-01 自启动项指向已不存在的文件 | 1 | service / AndrowsSvr |
-| 中危 | PS-02 开机自启程序无有效签名 | 3 | Lively、Authenticator、OpenClaw Gateway |
-| 低危 | BR-06 浏览器上次不是正常退出 | 2 | Edge / Profile 1、Chrome / Default |
+| 中危 | PS-02 开机自启程序无有效签名 | 2 | Authenticator、OpenClaw Gateway |
+| 低危 | BR-06 浏览器上次不是正常退出 | 1 | Edge / Profile 1 |
 | 低危 | PS-07 常驻程序位于用户可写目录 | 5 | Rd_Service、3 条 WPS 任务、OpenClaw |
 | 观察 | BR-03 启动模式被设为"打开特定页面" | 1 | Edge / Profile 1 |
 | 正常 | BR-07 上次修复经受住了复查 | 1 | Chrome / Default |
+
+`已消失`（RESOLVED）两条同样重要：`PS-02 / run_key / Lively`（我把那个自启项删了）和
+`BR-06 / Chrome / Default`（那个 Profile 后来正常退出过一次）。基线是 10-15 拍的，
+所以"消失"能被说出来——一个只会列当前问题的工具做不到这一点。
 
 **PS-03 / PS-04 / PS-05 / PS-06 命中 0 条，这是正确状态而不是漏报。**
 Early-Launch 成员只有 `WdBoot`、hosts 只有 `127.0.0.1 localhost`、IFEO 下没有 `Debugger`、
@@ -185,7 +236,11 @@ Edge 在 `session` 下另存 `startup_urls_edge_enclave` / `_verify`（另一台
 但也意味着真机自检永远不会执行它们：谓词写反了也只有出事那天才知道。
 `tests/fixtures/facts-persistence.json` 因此造了这四种状态各一份，
 [8] 断言 7 条驻留规则**全部**命中且命中集合与清单完全一致。
-同理 `BR-01/BR-05` 的"sync 开/关"两个建议分支、`PS-01` 的三个处置分支，都在夹具里各有一个专属对象。
+同理 `BR-01/BR-05` 的"sync 开/关"两个建议分支、`PS-01` 的三个处置分支、`BR-08` 的
+"启动页已干净 vs 仍在被劫持"两个建议分支，都在夹具里各有一个专属对象。
+`BR-08` 还多一条：夹具在每个 Profile 里都掺了几个正常域名（google / bilibili / 一个裸 IP），
+断言这些一个都不许出现在证据里——黑名单是子串匹配，这条断言就是它的护栏
+（`so.com` 会匹配 `www.so.com`，但也随时可能匹配到别人的域名后缀，所以必须钉住）。
 
 **15. 锚定文档选了却没用：只有明文 `Preferences` 的 Profile 被静默放过。**
 `New-BrowserSubjects` 先算出 `$anchor = Secure Preferences ?? Preferences`，
@@ -211,15 +266,59 @@ CI 里那步"建基线→立刻复扫→断言 `counts.NEW == 0`"最初写的是
 引擎自己读文件一直用的就是 `ReadAllText`，所以这个坑只在**外围脚本**里出现——
 也说明 CI 的每一步都得先在本地按同样顺序跑一遍，不能靠"看起来对"。
 
+**18. `run: & report.ps1` 不是 PowerShell 引号，是 YAML 锚点。**
+仓库推上去之后第一次 CI 绿灯变红，但**日志里一个 step 都没有**——因为
+三条 `run: & xxx.ps1` 里的 `&` 是 YAML 的 anchor 指示符，整个文件解析失败，job 数为 0，
+run 的标题直接显示成文件路径。修复是给标量加引号（`run: '& report.ps1'`）。
+教训有两层：`&` 开头的命令务必整条加引号；以及判断 workflow 有没有跑，要看 job 列表，
+不能只看 conclusion——没有 job 的 run 也会给你一个红色的叉。
+
+**19. Actions 里 `& engine.ps1` 找不到命令，本地手敲却可以。**
+`shell: powershell` 的 step 脚本工作目录是仓库根，但裸文件名不会按 CWD 解析，
+必须写 `& .\engine.ps1`。这个坑是第二次红才暴露的，也正是第 18 条修复之后才走得到的那一步——
+所以"先把 workflow 跑起来"本身就是一种测试。同时把断言改成自证的：
+`NEW != 0` 时先把每一行 `rule_id | subject` 打出来再 throw，
+否则日志里只有一句"rescan reported 3 NEW rows"，没人知道是哪三条。
+
+**20. `Test-Path -LiteralPath` 遇到非法字符是**抛异常**，不是返回 `$false`。**
+本地一直绿的 `persistence.ps1` 在 runner 上第一次就崩了：某条注册表值里的命令行带了换行/控制字符，
+`Test-Path -LiteralPath` 直接 `ArgumentException: Illegal characters in path` 把整个探针带走。
+修法是加一层 `Test-Target`：`try { Test-Path -LiteralPath $p -ErrorAction Stop } catch { $false }`。
+更深一层是设计约束——**探针遍历的是别人写进注册表的字符串**，
+"这个路径根本不成其为路径"必须是一种正常结果，不能是异常；
+`Test-Path` 返回 false 的直觉在 `-LiteralPath` + 非法字符这个组合上不成立。
+
+**21. 计划任务最后那一跳，绕不开提权。**
+`\自动拨号` 把宽带账号密码明文写在 `rasdial` 参数里。把值搬进 CurrentUser DPAPI blob 之后，
+把任务的 Action 换成 wrapper 这一步，`Set-ScheduledTask`、`Register-ScheduledTask`、
+`schtasks /change` 三条路径全部 `0x80070005`——即使这个任务的 Author 就是当前用户。
+原因是无密码的 S4U principal 需要 `SeTcbPrivilege`；
+连"把 LogonType 从 S4U 改成 Interactive"这一种看起来只是降权的修改，未提权同样被拒。
+所以交付形态只能是自提权的双击脚本。附带一条无法本机证伪的隐患：
+S4U 上下文里 DPAPI CurrentUser 能不能解出主密钥，**不提权就测不出来**（建同类探针任务本身就要提权），
+因此 wrapper 用退出码把这条不确定性变成可观测：解不出→`7`，脚本收到 `7` 立刻回滚成原明文参数形态，
+宁可保留已知风险也不留下一个不会拨号的机器。
+
+**22. "我复查过了"的证据窗口太短。**
+10-16 14:18 做完文件级修复（删明文键 + 删整个 `*_edge_enclave` 键族，写盘前逐键比对其余顶层值字节一致），
+随后完整启动/关闭一次浏览器复查——干净，`BR-07 正常`。
+15:55:30 Edge 后台进程（Startup boost）自己起来了，**15:55:40 恶意值就回来了**，
+此时明文 `Preferences` 的 `session` 是空的、磁盘上已无该值的任何本地副本。
+所以"复发"的来源是 `sync.preferences` 的云端配置，而不是本地残留——
+而我的复查只覆盖了"下一次我手动打开浏览器"，没覆盖"它自己起来的那一次"。
+验证处置是否成立，窗口必须跨过**真正会重写这个文件的那个触发器**，
+而不是跨过我最容易想到的那个动作。这也是 `BR-05` 存在的意义：它不需要我再聪明一次，
+它只需要我明天再跑一遍 `scan.bat`。
+
 ---
 
-## 已知答案测试：67 PASS / 0 FAIL
+## 已知答案测试：70 PASS / 0 FAIL
 
 判据先于扫描逻辑定义。跑 `powershell -File tools\selftest.ps1`：
 
 ```
 [1]  浏览器夹具：命中集合必须逐条等于清单            [9]  countGte 的标量语义，正反两个方向
-[2]  7 条浏览器规则全部被触发                        [10] 植入一条假残留 → 必须 NEW，且不得吞掉邻居
+[2]  8 条浏览器规则全部被触发                        [10] 植入一条假残留 → 必须 NEW，且不得吞掉邻居
 [3]  同一份事实复扫：不得有任何 CHANGED              [11] 未知探针名必须抛错，不许静默丢事实
 [4]  夹具 B：修好又回来 → NEW + 旧结论 RESOLVED      [12] 分组名/标题/建议/指纹必须完整
 [5]  夹具 C：文件再次被写 → CHANGED 而非 NEW         [13] 真机驻留事实 vs 独立重算的谓词
@@ -252,10 +351,11 @@ CI 里那步"建基线→立刻复扫→断言 `counts.NEW == 0`"最初写的是
 这一条如果哪天变红，说明指纹计算引入了与事实无关的抖动（比如把时间戳算进了证据），
 而那正是"这个工具还能不能告诉你什么变了"的根基。
 
-> 该 workflow **尚未在 GitHub 上跑过一次**（仓库还没有 remote，也没推送过）。
-> 但它的每一步命令都已在一个全新 `git clone` 里按同样顺序在 Windows PowerShell 5.1 下执行过——
-> 上面那条 `Get-Content` 的坑就是这么发现的。Actions 特有的行为（runner 权限、`shell: powershell` 的默认策略）
-> 仍以首次绿灯为准。
+> 这个 workflow 已经**在 GitHub 上真实跑过三轮**：第一、二次红，第三次绿。
+> 两次红都不是环境抖动，而是两个本地永远碰不到的真缺陷——
+> YAML 锚点让整个文件解析失败（一个 job 都没起来），以及 `& engine.ps1` 不解析相对路径。
+> 详见上面第 18、19 条。首条绿灯 run 的编号是 3，仓库里留着这两次失败的记录，
+> 因为"CI 一次过"对这个项目反而是可疑的信号。
 
 另有 `tools/layout-probe.html`：把报告塞进 360–1280px 的 iframe 里量 `scrollWidth`，用无头 Edge 跑完——
 
@@ -273,7 +373,10 @@ msedge --headless=new --allow-file-access-from-files --virtual-time-budget=20000
 
 **`browser_prefs.ps1`** — Edge / Chrome 全部 Profile 的 `Preferences` + `Secure Preferences`：
 启动页 URL、启动模式、密封键族、`protection.macs` 与孤立签名、`sync.preferences`、
-`profile.exit_type`、以及**历史修复备份的内容**（备份里当时有没有恶意值，是复发判定的时间轴证据）。
+`profile.exit_type`、`profile.content_settings.exceptions` **全量台账**
+（`setting|origin|最后写入时间`，本机一次扫描 1700 余条；WebKit 微秒时间戳在探针里就换算成本地时间，
+因为"这台机器什么时候真的加载过那个页面"必须是可读的），
+以及**历史修复备份的内容**（备份里当时有没有恶意值，是复发判定的时间轴证据）。
 
 **`persistence.ps1`** — 8 类开机驻留面：
 Run / RunOnce（5 个视图，含 WOW6432Node）、启动文件夹、非 `\Microsoft\` 路径的计划任务、
@@ -288,7 +391,15 @@ Auto 启动且不在 Windows 目录的服务、`Group=Early-Launch` 的 ELAM 驱
 ## 局限（说在前面）
 
 - **Windows only**，且依赖 PowerShell 5.1 自带的 `Get-AuthenticodeSignature` / `Get-ScheduledTask`。
-- 浏览器规则目前只覆盖启动页/搜索引擎这一族劫持，没覆盖扩展策略、计划任务式重启器。
+- 浏览器规则覆盖启动页/搜索引擎这一族劫持，加上 `BR-08` 之后也覆盖"恶意源留下的权限与访问台账"，
+  但**仍未覆盖**扩展策略、`Preferences` 之外的搜索引擎篡改、以及计划任务式的浏览器重启器。
+- `BR-08` 的证据是 `content_settings` 台账，它会**随浏览器的写入自己缩水**：本机 19:05 手测 Profile 1 有
+  1355 条，Edge 在 19:24:58 自己回写这个文件，19:27 采集只剩 1251 条，同一段时间里
+  `trackers_data|https://cdn.weather.hao.360.cn:443,*` 这条命中也从 12:38 有、19:27 无。
+  所以它是"访问过、当时怎么决定的"证据，不是永久记录；`已消失` 不等于"用户撤销了授权"。
+- **报告无法证明一次处置是持久的**——今天实测到的结论。开着 `sync.preferences` 的 Profile，
+  文件级修复会被云端在下一个浏览器启动周期里还原，而工具只能在**下一次扫描时**把这件事报成 `已变化`。
+  这是这类工具的本质限制，写在这里而不是藏在"清理完成"的话术里。
 - `PS-05`（IFEO）与 `PS-06`（LSP）的判据按实测结构实现，本机没有可命中的样本。
   夹具 `tests/fixtures/facts-persistence.json` 里各有一条专门打中它们，所以**谓词逻辑是被执行过的**;
   但"真实世界里长什么样"这一层仍然只有 ELAM 那条有本机历史证据（360 的 `360elam64.sys`），
@@ -313,11 +424,19 @@ won't stick (sealed copy present? `sync.preferences` on?).
   arriving from a pull request or an LLM can never become executable input. Zero injection surface.
 - **Fingerprints cover only the evidence a rule cites**, so unrelated file writes don't light up every
   rule on that object.
-- **14 rules, 67 known-answer assertions.** [1]–[12] run on committed synthetic captures, so they
+- **15 rules, 70 known-answer assertions.** [1]–[12] run on committed synthetic captures, so they
   give the same verdict on a machine that has never been hijacked; [13]–[14] re-derive expected hit
   sets from the real facts by independent logic rather than snapshotting, so the suite survives a
   machine that changes.
+- **A remediation that gets reverted is a finding, not a success.** Browser profiles with
+  `sync.preferences` on will have a file-level fix pushed back by the cloud on the next browser
+  start — measured here: repaired 14:18, verified clean, background Edge started 15:55:30 and the
+  hijacked value was rewritten at 15:55:40. `BR-05` reports that with both timestamps; `BR-08`
+  additionally reads the `content_settings` ledger, which proves the page was actually *loaded*
+  (with the write time decoded from WebKit microseconds) even after the startup entry is gone.
 - Ships as a self-contained static HTML report. No server, no dependencies beyond PowerShell 5.1.
+- CI has really run red twice before going green: a YAML anchor indicator in `run: & script.ps1`
+  (zero jobs started) and an unresolvable relative `& engine.ps1`. Both are documented above.
 
 ---
 
@@ -328,7 +447,7 @@ won't stick (sealed copy present? `sync.preferences` on?).
 这个项目所有的可信度都来自"每条规则都能被复述成一次具体的观察"。
 
 ```bash
-powershell -File tools\selftest.ps1     # 67 PASS 才算过（夹具部分在任何 Windows 上都应一致）
+powershell -File tools\selftest.ps1     # 70 PASS 才算过（夹具部分在任何 Windows 上都应一致）
 node tools\verify.js                    # 结构 + 标签覆盖 + 脱敏
 powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCII 或带 BOM
 ```
