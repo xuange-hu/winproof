@@ -365,22 +365,60 @@ function New-PersistenceSubjects($facts) {
 
 # --- load rules --------------------------------------------------------------
 
+# Every human-visible string in a rule file carries a second wording under
+# i18n.en, so one evaluation pass can be rendered in either language. The
+# overlay is wording-only by construction: it has no access to when / show /
+# severity, so a translation cannot change what fires.
+# A missing wording is an error rather than a silent fallback, because a report
+# that mixes two languages without saying so is worse than one that refuses to
+# run - and a contributed rule that forgot its English wording must not reach
+# main either.
+function Get-EnWording($rule, [string]$where) {
+    $en = Get-Field (Get-Field $rule 'i18n') 'en'
+    if ($null -eq $en) { throw ('rule ' + [string]$rule.id + ' in ' + $where + ' has no i18n.en wording') }
+    foreach ($slot in @('title', 'why', 'verified_evidence')) {
+        if ([string]::IsNullOrWhiteSpace([string](Get-Field $en $slot))) {
+            throw ('rule ' + [string]$rule.id + ' in ' + $where + ' has an empty i18n.en.' + $slot)
+        }
+    }
+    $adv = @(As-Array (Get-Field $en 'advice'))
+    $src = @(As-Array (Get-Field $rule 'advice'))
+    if ($adv.Count -ne $src.Count) {
+        throw ('rule ' + [string]$rule.id + ' in ' + $where + ': i18n.en.advice has ' + $adv.Count +
+            ' branches, advice has ' + $src.Count)
+    }
+    foreach ($a in $adv) {
+        if ([string]::IsNullOrWhiteSpace([string]$a)) {
+            throw ('rule ' + [string]$rule.id + ' in ' + $where + ' has an empty translated advice branch')
+        }
+    }
+    return $en
+}
+
 $ruleFiles = @(Get-ChildItem (Join-Path $root 'rules\*.json') -ErrorAction SilentlyContinue)
 if ($ruleFiles.Count -eq 0) { throw 'no rule files under rules/' }
 
 $allRules = @()
 $blocklist = @()
 $groups = @{}
+$groupsEn = @{}
 foreach ($rf in $ruleFiles) {
     $doc = Read-Json $rf.FullName
+    $gname = [string]$doc.group
     $blocklist += As-Array $doc.domain_blocklist
-    $groups[[string]$doc.group] = [string]$doc.group_title
+    $groups[$gname] = [string]$doc.group_title
+    $gen = Get-Field (Get-Field $doc 'i18n') 'en'
+    if ($null -eq $gen -or [string]::IsNullOrWhiteSpace([string](Get-Field $gen 'group_title'))) {
+        throw ($rf.Name + ' has no i18n.en.group_title')
+    }
+    $groupsEn[$gname] = [string]$gen.group_title
     foreach ($r in As-Array $doc.rules) {
         # Parentheses matter: in argument mode a bare `[string]$doc.group` is not
         # an expression - PowerShell takes `[string]` as a literal token and the
         # value becomes the string "[string]@{...}.group", which then misses every
         # later hashtable lookup. This silently blanked the group title in reports.
-        Add-Member -InputObject $r -MemberType NoteProperty -Name '_group' -Value ([string]$doc.group) -Force
+        Add-Member -InputObject $r -MemberType NoteProperty -Name '_group' -Value $gname -Force
+        Add-Member -InputObject $r -MemberType NoteProperty -Name '_en' -Value (Get-EnWording $r $rf.Name) -Force
         $allRules += $r
     }
 }
@@ -417,15 +455,36 @@ foreach ($s in $subjects) {
         if (-not (Test-Clause $r.when $s)) { continue }
 
         $advice = ''
+        $adviceIdx = -1
+        $ai = -1
         foreach ($a in As-Array $r.advice) {
+            $ai += 1
             if (Has-Field $a 'if') {
-                if (Test-Clause (Get-Field $a 'if') $s) { $advice = [string](Get-Field $a 'text'); break }
+                if (Test-Clause (Get-Field $a 'if') $s) { $advice = [string](Get-Field $a 'text'); $adviceIdx = $ai; break }
             }
         }
         if ($advice -eq '') {
+            $ai = -1
             foreach ($a in As-Array $r.advice) {
-                if (Has-Field $a 'if_any') { $advice = [string](Get-Field $a 'text'); break }
+                $ai += 1
+                if (Has-Field $a 'if_any') { $advice = [string](Get-Field $a 'text'); $adviceIdx = $ai; break }
             }
+        }
+
+        # The same branch, in the other wording. Indexing rather than matching on
+        # text: the branch chosen above is a property of the facts, and a
+        # translation must follow it, not re-derive it.
+        $advEn = ''
+        if ($adviceIdx -ge 0) {
+            $list = @(As-Array (Get-Field $r._en 'advice'))
+            if ($adviceIdx -lt $list.Count) { $advEn = [string]$list[$adviceIdx] }
+        }
+        $i18nEn = [ordered]@{
+            title             = [string](Get-Field $r._en 'title')
+            advice            = $advEn
+            why               = [string](Get-Field $r._en 'why')
+            verified_evidence = [string](Get-Field $r._en 'verified_evidence')
+            group_title       = [string]$groupsEn[[string]$r._group]
         }
 
         # Evidence is serialised to compact JSON rather than stringified, so an
@@ -458,6 +517,7 @@ foreach ($s in $subjects) {
             verified_on = [string]$r.verified_on
             verified_evidence = [string]$r.verified_evidence
             detail_path = [string]$s['path']
+            i18n        = [pscustomobject]@{ en = [pscustomobject]$i18nEn }
         }
     }
 }
@@ -507,15 +567,30 @@ foreach ($f in $findings) {
 $resolved = @()
 if ($null -ne $baseline) {
     $nowKeys = @($findings | ForEach-Object { $_.key })
+    # A retired row is described by the live rule file, not by the baseline
+    # snapshot: the baseline may predate a rename, and a report that printed the
+    # old Chinese title beside a new English one would be claiming two names for
+    # one rule. The snapshot is only the fallback for a rule that has since been
+    # deleted, and an empty English title is what lets the renderer say so.
+    $titleZh = @{}
+    $titleEn = @{}
+    foreach ($r in $allRules) {
+        $titleZh[[string]$r.id] = [string]$r.title
+        $titleEn[[string]$r.id] = [string](Get-Field $r._en 'title')
+    }
     foreach ($b in As-Array $baseline.findings) {
         if (-not ($nowKeys -contains [string]$b.key)) {
+            $rid = [string]$b.rule_id
+            $zh = [string]$b.title
+            if ($titleZh.ContainsKey($rid)) { $zh = [string]$titleZh[$rid] }
             $resolved += [pscustomobject]@{
                 key      = [string]$b.key
-                rule_id  = [string]$b.rule_id
-                title    = [string]$b.title
+                rule_id  = $rid
+                title    = $zh
                 subject  = [string]$b.subject
                 severity = [string]$b.severity
                 since    = [string]$baselineAt
+                i18n     = [pscustomobject]@{ en = [pscustomobject]@{ title = [string]$titleEn[$rid] } }
             }
         }
     }

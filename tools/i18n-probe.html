@@ -1,0 +1,123 @@
+<!doctype html>
+<!--
+  Bilingual render probe. A report file always carries BOTH wordings in its DOM:
+  the static chrome as hidden .zh-only / .en-only spans, and the rule text twice
+  (original + i18n overlay) inside <script id="wp-data">. So grepping the dumped
+  HTML for Chinese proves nothing - an English page full of hidden Chinese would
+  "fail", and a page that translated nothing would "pass" the CJK test only by
+  accident of where the text sits.
+
+  This probe therefore asks the layout, not the source: it loads the report at
+  ?lang=en and ?lang=zh, walks every text node, and keeps only the ones that
+  actually occupy a box on screen (getClientRects). What remains is the prose a
+  reader sees, and that is what must be free of the other language, of
+  "undefined", and of unformatted %1 placeholders.
+
+  Run headless:
+    msedge --headless=new --window-size=1280,900 ^
+      --user-data-dir=C:\absolute\path\to\profile ^
+      --dump-dom tools\i18n-probe.html
+  The answer lands in <pre> at the end of the document.
+-->
+<meta charset="utf-8">
+<style>body{margin:0;font:13px monospace;padding:8px}pre{white-space:pre-wrap}</style>
+<div id="out">running</div>
+<script>
+// Path is relative to this probe, and can be overridden with ?src= so the same
+// tool can check a live report, the fixture demo, or a scratch build.
+var SRC = (/(?:^|[?&])src=([^&]+)/.exec(location.search) || [])[1] || '../out/report.html';
+var DEFECTS = [
+  ['undefined', /undefined/g],
+  ['NaN', /NaN/g],
+  ['[object Object]', /\[object Object\]/g],
+  ['unfilled %N', /%\d/g],
+  ['raw &amp;lt;', /&(?:amp)?lt;|&(?:amp)?gt;/g]
+];
+
+function visibleText(doc) {
+  var out = [];
+  var walker = doc.createTreeWalker(doc.documentElement, NodeFilter.SHOW_TEXT, null);
+  for (var n = walker.nextNode(); n; n = walker.nextNode()) {
+    var s = (n.nodeValue || '').replace(/\s+/g, ' ').trim();
+    if (!s) continue;
+    var p = n.parentElement;
+    if (!p) continue;
+    // display:none ancestors (the inactive language, collapsed details) produce
+    // no client rects at all - that is exactly what we want to skip.
+    if (!p.getClientRects().length) continue;
+    var r = p.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) continue;
+    out.push({ text: s, cls: String(p.className || p.tagName) });
+  }
+  return out;
+}
+
+// Han ideographs (both blocks), CJK punctuation and half/fullwidth forms. Written
+// with escapes on purpose: a literal range like " -〿" reads as an ASCII space to
+// a copy editor and silently matches every Latin sentence on the page.
+var CJK = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/;
+var CJKG = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]+/g;
+var results = [];
+var langs = ['en', 'zh'];
+var i = 0;
+
+function step() {
+  if (i >= langs.length) {
+    var pre = document.createElement('pre');
+    pre.textContent = JSON.stringify(results, null, 1);
+    document.body.innerHTML = '';
+    document.body.appendChild(pre);
+    return;
+  }
+  var lang = langs[i++];
+  var f = document.createElement('iframe');
+  f.style.width = '1280px';
+  f.style.height = '4000px';   // tall: below the fold, cards still lay out
+  f.src = SRC + (SRC.indexOf('?') >= 0 ? '&' : '?') + 'lang=' + lang;
+  f.onload = function () {
+    var rec = { lang: lang, src: SRC };
+    try {
+      var d = f.contentDocument;
+      rec.dataLang = d.documentElement.getAttribute('data-lang');
+      rec.demo = d.documentElement.getAttribute('data-demo') || '';
+      var nodes = visibleText(d);
+      rec.visibleNodes = nodes.length;
+      rec.chars = nodes.reduce(function (a, x) { return a + x.text.length; }, 0);
+      rec.cjkNodes = nodes.filter(function (x) { return CJK.test(x.text); }).length;
+      // Chinese survives an English render only when it is data, not prose: a
+      // signer company name, a task path like \自动拨号, a hosts line. Listing the
+      // distinct runs is what tells those two apart, so this is the number that
+      // decides whether the overlay is complete.
+      var runs = {};
+      nodes.forEach(function (x) {
+        (x.text.match(CJKG) || []).forEach(function (c) { runs[c] = (runs[c] || 0) + 1; });
+      });
+      rec.cjkRuns = Object.keys(runs).sort().slice(0, 24);
+      rec.samples = nodes.filter(function (x) { return CJK.test(x.text); })
+        .slice(0, 6).map(function (x) { return x.cls + ' :: ' + x.text.slice(0, 70); });
+      rec.defects = {};
+      DEFECTS.forEach(function (p) {
+        var hits = nodes.filter(function (x) { return p[1].test(x.text); });
+        if (hits.length) rec.defects[p[0]] = hits.slice(0, 3).map(function (x) { return x.text.slice(0, 60); });
+      });
+      rec.cards = d.querySelectorAll('.card').length;
+      rec.langButtons = d.querySelectorAll('.langbtn').length;
+      rec.pressed = (function () {
+        var b = d.querySelector('.langbtn[aria-pressed="true"]');
+        return b ? b.textContent.trim() : null;
+      })();
+      rec.titles = Array.prototype.slice.call(d.querySelectorAll('.card .ct'), 0, 2)
+        .map(function (e) { return e.textContent.trim().replace(/\s+/g, ' '); });
+      // Evidence rows: the label column must be translated, the raw field name
+      // underneath is deliberately English and must stay untouched.
+      rec.rawKeyNodes = nodes.filter(function (x) { return x.cls === 'raw'; }).length;
+    } catch (e) {
+      rec.error = String(e && e.message);
+    }
+    results.push(rec);
+    step();
+  };
+  document.body.appendChild(f);
+}
+step();
+</script>

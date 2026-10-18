@@ -1,6 +1,11 @@
 {
   "group": "browser",
   "group_title": "浏览器启动页与搜索引擎",
+  "i18n": {
+    "en": {
+      "group_title": "Browser startup page and default search engine"
+    }
+  },
   "provenance": "以下判据全部在真实机器上取证实测（2026-10-14 建规，2026-10-16 补 BR-08 并复验 BR-05：Edge 4 profile + Chrome 1 profile + content_settings 台账 1708 条；同日补 BR-09/BR-10，其中 BR-09 本机命中 0 条并写明了为什么 Edge 不可判定，BR-10 本机 5 个 Profile 全命中），未实测的条件不进首版。",
   "blocklist_note": "domain_blocklist 是子串匹配，用户主动设置的合法首页也可能命中；命中后请用 acknowledge 标记为已知，而不是删除规则。",
   "domain_blocklist": [
@@ -37,7 +42,18 @@
       ],
       "why": "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
       "verified_on": "2026-10-15",
-      "verified_evidence": "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。"
+      "verified_evidence": "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
+      "i18n": {
+        "en": {
+          "title": "The browser startup page is hijacked",
+          "advice": [
+            "This profile has sync.preferences switched on. A hand edit of the file gets pushed back by the cloud configuration, so change it first in edge://settings/onStartup or chrome://settings/onStartup, and only then touch the file.",
+            "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten."
+          ],
+          "why": "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
+          "verified_evidence": "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document."
+          }
+      }
     },
     {
       "id": "BR-02",
@@ -58,7 +74,17 @@
       ],
       "why": "这是绝大多数手工清理失败的真正原因：明明删干净了，下次打开浏览器又回来了，看起来像\"没删掉\"，实际上是另一份副本被当成权威值重新落盘。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。"
+      "verified_evidence": "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
+      "i18n": {
+        "en": {
+          "title": "A sealed copy exists: deleting the plaintext alone will be reverted",
+          "advice": [
+            "Edge keeps an additional sealed, encrypted value under session (the *_edge_enclave or *_edge_lightweight family plus its _verify). Cleaning means deleting the whole key-name family; deleting only the plaintext startup_urls gets restored from this sealed copy."
+          ],
+          "why": "This is the real reason most manual cleanups fail: you clearly deleted it, and it is back the next time the browser opens. It looks like \"it was not deleted\", when in fact another copy was treated as authoritative and written back.",
+          "verified_evidence": "Profile 1 spells it enclave, Default spells it lightweight; a given profile contains only one of the two spellings, so the match has to be on the suffix family rather than on a specific key name."
+          }
+      }
     },
     {
       "id": "BR-03",
@@ -78,7 +104,17 @@
       ],
       "why": "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
       "verified_on": "2026-10-15",
-      "verified_evidence": "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。"
+      "verified_evidence": "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
+      "i18n": {
+        "en": {
+          "title": "Startup mode is set to \"open specific pages\"",
+          "advice": [
+            "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited."
+          ],
+          "why": "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
+          "verified_evidence": "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that."
+          }
+      }
     },
     {
       "id": "BR-04",
@@ -99,7 +135,17 @@
       ],
       "why": "浏览器会对受保护键写签名，而 protection.macs 是两层结构（段名 -> 键名 -> 签名），不是很多工具以为的一层。签名是确定性的：同一 Profile 集合里相同缺失值会得到相同签名，所以删值留签名不会让文件损坏，浏览器下次写入时会重新签名。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "Edge Default、Edge Profile 2、Chrome Default 三处的 macs.session 都含 startup_urls 签名而 session 无明文。"
+      "verified_evidence": "Edge Default、Edge Profile 2、Chrome Default 三处的 macs.session 都含 startup_urls 签名而 session 无明文。",
+      "i18n": {
+        "en": {
+          "title": "Orphan signature: this position was tampered with and cleaned up",
+          "advice": [
+            "protection.macs.session still carries the signature of startup_urls / restore_on_startup while session no longer holds the plaintext. That means the value existed once and was deleted (by you, or by a cleaning tool). It is historical evidence, not a current threat, and needs no action."
+          ],
+          "why": "The browser signs protected keys, and protection.macs is a two-level structure (section -> key -> signature), not the single level many tools assume. The signatures are deterministic: within the same profile set, the same missing value yields the same signature. So deleting the value and leaving the signature does not corrupt the file - the browser simply re-signs on its next write.",
+          "verified_evidence": "macs.session in Edge Default, Edge Profile 2 and Chrome Default all contain a startup_urls signature while session holds no plaintext."
+          }
+      }
     },
     {
       "id": "BR-05",
@@ -123,7 +169,18 @@
       ],
       "why": "一次性扫描工具无法回答\"我上次清了，它为什么还在\"。把上一次修复留下的 .bak_ 备份时间戳和当前文件的修改时间放在一起比对，就能把\"复发\"从感觉变成一条带日期的证据。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。"
+      "verified_evidence": "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
+      "i18n": {
+        "en": {
+          "title": "It came back after being cleaned: the hijacked value recurred",
+          "advice": [
+            "The recurrence is later than the previous repair in time, and this profile synchronises preferences - a cloud configuration write-back is the most likely source. Break that sync category before cleaning, otherwise every sync cycle brings the value back.",
+            "The recurrence is later than the previous repair, but preferences sync is off - then some still-running program is more likely rewriting the file. Keep looking along the startup-entry and scheduled-task paths."
+          ],
+          "why": "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
+          "verified_evidence": "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it."
+          }
+      }
     },
     {
       "id": "BR-06",
@@ -143,7 +200,17 @@
       ],
       "why": "判断某个浏览器 Profile 是否正在被使用，用进程名不可靠（后台常驻进程一直存在）。非阻塞方式打开文件加锁、成功即无人占用，配合 exit_type 才是可靠信号。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。"
+      "verified_evidence": "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。",
+      "i18n": {
+        "en": {
+          "title": "The browser did not exit normally last time",
+          "advice": [
+            "exit_type=Crashed usually means browser processes were killed - cleaning tools do this a lot. After a kill, the value still held in memory gets written back into the config file after the next start, which makes an already-deleted hijack value look like it resurrected itself. Exit the browser properly before cleaning, and turn off Edge startup boost / background running."
+          ],
+          "why": "Deciding whether a browser profile is in use cannot be done by process name (background processes are always there). Opening the file with an exclusive non-blocking lock and succeeding is the reliable signal, together with exit_type.",
+          "verified_evidence": "Preferences of both Edge Profile 1 and Chrome Default carry exit_type=Crashed."
+          }
+      }
     },
     {
       "id": "BR-07",
@@ -164,7 +231,17 @@
       ],
       "why": "清理工具只会说\"已删除\"，没有工具能说\"删除后没有复发\"。而后者才是判断处置方式对不对的唯一证据——没有它，你只能靠下次开机再看一眼。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "Chrome / Default 有 Secure Preferences.bak_20261010-152128（30814 字节，内含 2345 URL），当前文件 30745 字节、mtime 10-14 13:09，session 已无明文值且无密封副本。"
+      "verified_evidence": "Chrome / Default 有 Secure Preferences.bak_20261010-152128（30814 字节，内含 2345 URL），当前文件 30745 字节、mtime 10-14 13:09，session 已无明文值且无密封副本。",
+      "i18n": {
+        "en": {
+          "title": "The previous repair survived the re-check",
+          "advice": [
+            "The backup left by the last cleanup really did contain the malicious value, and the current file no longer does - this deletion actually took effect. Read it together with BR-05: same machine, same hijack, so why did this profile not recur and that one did? The difference is that this profile has no sealed copy and no preferences sync."
+          ],
+          "why": "Cleaning tools only ever say \"deleted\". No tool says \"deleted, and it did not come back\". The second one is the only evidence that the remediation was the right one - without it you can only look again after the next boot.",
+          "verified_evidence": "Chrome / Default has Secure Preferences.bak_20261010-152128 (30814 bytes, containing the 2345 URL); the live file is 30745 bytes with mtime 10-14 13:09, session holds no plaintext value and there is no sealed copy."
+          }
+      }
     },
     {
       "id": "BR-08",
@@ -188,7 +265,18 @@
       ],
       "why": "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
       "verified_on": "2026-10-16",
-      "verified_evidence": "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。"
+      "verified_evidence": "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
+      "i18n": {
+        "en": {
+          "title": "A blacklisted domain still holds content-setting exceptions",
+          "advice": [
+            "The startup page is already clean, but the browser still remembers this domain - this row proves that the page was really loaded, where BR-01 can only prove that the configuration mentioned it. Revoking: search the domain in edge://settings/content/all or chrome://settings/content/all and delete the rows one by one; if the domain cannot be found in that list, this setting type has no UI switch and the only options are clearing the profile or accepting it as history.",
+            "This domain's startup page is still present right now, and these exceptions are residue from the same episode. Handle the startup page per BR-01 first, then come back to edge://settings/content/all (or chrome://settings/content/all), search the domain and delete these rows - otherwise a single load writes new exceptions."
+          ],
+          "why": "profile.content_settings.exceptions is the browser's own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
+          "verified_evidence": "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile's ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it."
+          }
+      }
     },
     {
       "id": "BR-09",
@@ -209,7 +297,19 @@
       ],
       "why": "启动页劫持决定你打开浏览器看到什么，搜索引擎劫持决定你搜什么出来什么——后者更隐蔽，因为它只在真的搜索时才暴露。判据取 keyword 而不是 search_url，是因为预置引擎（Google/Bing）的 URL 全是 {google:baseURL} 这类占位符，只有 keyword 这个裸域名稳定；而劫持者不是预置引擎，它一定带一条字面 URL，所以两个都读才能同时覆盖两种情况。enforced_by_policy 单列出来是因为它把\"你自己装错了\"和\"有东西替你决定了\"分开，这两种处置方式完全不同。",
       "verified_on": "2026-10-16",
-      "verified_evidence": "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。"
+      "verified_evidence": "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
+      "i18n": {
+        "en": {
+          "title": "The default search engine was replaced, or is locked by policy",
+          "advice": [
+            "The default engine's keyword/URL matches the blocklist. Revoking: pick the right engine in edge://settings/search or chrome://settings/searchEngines, press \"make default\", then delete the blacklisted entry; if it cannot be deleted from the list, it arrived through policy or an extension - read the next piece of advice. Note that this item cannot be determined on Edge at all (see BR-10), so this row only means something for Chrome and for manually added engines.",
+            "This engine has enforced_by_policy=true: the user did not choose it, a group policy or registry policy did, so the browser settings page can neither change nor remove it. Check the search/extension policy keys under HKLM\\SOFTWARE\\Policies\\Google\\Chrome and HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge; on a corporate device IT may have installed it, in which case ack.bat marks it as known.",
+            "Read the keyword and URL in the evidence and decide whether this engine is the one you chose."
+          ],
+          "why": "Startup-page hijacking decides what you see when you open the browser; search-engine hijacking decides what your searches return - the latter is more subtle because it only shows up when you actually search. The criterion uses keyword rather than search_url because prepopulated engines (Google/Bing) have URLs that are all placeholders like {google:baseURL}, so only the bare-domain keyword is stable; a hijacker is not prepopulated and always carries a literal URL, so both have to be read to cover both cases. enforced_by_policy is listed separately because it separates \"you installed the wrong thing\" from \"something decided for you\", and those two have completely different remediations.",
+          "verified_evidence": "Of the 5 profiles on this machine only Chrome / Default exposes default_search_provider_data as a readable object: keyword=google.com, short_name=Google, enforced_by_policy=false, so this machine yields 0 hits and that is the correct state. The 4 Edge profiles store a 40-character hex digest plus _encrypted_hash at the same position (measured: \"template_url_data\":\"31C06AB2...\" in Secure Preferences), so the engine name cannot be read - BR-10 states that blind spot instead of treating it as clean. Extracting from Web Data (SQLite) was attempted and rejected: every Edge profile contains the baidu/sogou/so.com/360 set of prepopulated engine strings, because that table is the list of available engines, not the selected one - using it as a criterion would report every Chinese-language Edge as hijacked. The fixture contains two planted rows: one with a blocklisted keyword, one with enforced_by_policy=true."
+          }
+      }
     },
     {
       "id": "BR-10",
@@ -226,7 +326,18 @@
       ],
       "why": "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
       "verified_on": "2026-10-16",
-      "verified_evidence": "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。"
+      "verified_evidence": "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
+      "i18n": {
+        "en": {
+          "title": "This tool has blind spots on this object",
+          "advice": [
+            "This profile has no Secure Preferences. The sealed copy, the signature protection and the default search engine only exist in that file, so any \"clean\" this tool gives for it means only \"nothing in the plaintext\". Either this profile has never had protected settings written by the browser, or it is not a standard profile - please confirm by hand whether you created it.",
+            "This row is not a threat, it is the coverage boundary this tool declares about itself: every item in the evidence is something this scan could not see. They should not be ignored, because \"nothing was found\" and \"could not look\" are two different conclusions when it comes to what you should do."
+          ],
+          "why": "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
+          "verified_evidence": "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot."
+          }
+      }
     }
   ]
 }

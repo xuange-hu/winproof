@@ -7,7 +7,42 @@ the tree rather than pretending the history was planned.
 
 ## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.0.0...HEAD)
 
-Nothing pending.
+### Added
+
+- **The report is bilingual.** Each rule file carries its own English wording under `i18n.en`
+  (`title`, one `advice` per branch, `why`, `verified_evidence`) plus a document-level
+  `i18n.en.group_title`; the engine attaches it to every finding in the same pass that computes the
+  fingerprint, and the renderer chooses the language when the page opens — `navigator.language`,
+  overridable with `?lang=en` / `?lang=zh`, with a toggle in the header. Where the script never runs,
+  the page is still a complete Chinese report.
+- **The overlay is wording only, and that is enforced in three places.** It cannot reach `when`, `show`
+  or `severity`; a missing or short overlay aborts the run at rule-load time; and
+  `tools/selftest.ps1 [16]` re-runs the engine against a scratch copy whose English wording was
+  deliberately perturbed and requires byte-identical fingerprints. `findings.json`, `store\baseline.json`
+  and every fingerprint stay locale-free, so a translation edit can never turn `PERSIST` rows into
+  `CHANGED`. 81 assertions → 90.
+- **`tools/i18n-probe.html`** measures the wording the way `layout-probe.html` measures the geometry:
+  it loads the report at both locales, keeps only text nodes that occupy a box on screen, and reports
+  the distinct Chinese runs that survive an English render. Grepping the file cannot answer this
+  question, because the file always contains both languages.
+- **`tools/verify.js`** now evaluates the renderer's locale tables out of the template and fails on a
+  row that is not a `[zh, en]` pair, on an English half that is still Chinese, on a translated sentence
+  that dropped a `%1` placeholder, on a rule whose overlay is short, and on a committed demo whose rows
+  carry no English wording. Chinese inside English is allowed on purpose where it is the evidence
+  (a signer company name, a task path) and is asserted as a ratio instead.
+- **`docs/report-zh.png`**, and `docs/report.png` re-shot: the README now shows the same run in both
+  languages. The layout claim was re-measured for both wordings — 7 widths, 0 horizontal overflow each.
+
+### Changed
+
+- `tools/layout-probe.html` forwards its own `?lang=` to the iframe and records the locale in each
+  result row, so a dump says which wording it measured.
+- `render/template.html`: evidence keys render under a `raw` class instead of `zh`, the byte-delta and
+  signature-status strings go through the locale tables rather than carrying full-width parentheses
+  into both languages, and the footer counters use `data-f` attributes because two language copies
+  cannot share an `id`.
+- `README.md` / `README.zh-CN.md` / `CONTRIBUTING.md` document the overlay requirement, the new
+  assertion count and the second screenshot.
 
 ## [1.0.0] — 2026-10-18
 

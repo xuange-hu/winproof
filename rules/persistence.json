@@ -1,6 +1,11 @@
 {
   "group": "persistence",
   "group_title": "开机驻留：启动项、服务、驱动与网络层",
+  "i18n": {
+    "en": {
+      "group_title": "Boot-time persistence: startup entries, services, drivers, network layer"
+    }
+  },
   "provenance": "本机实测分布（2026-10-14）：58 条驻留项 / 真实残留 1 / 未签名 3 / 可写目录常驻 7（含 Defender 自身）。以下判据按这个真实分布定级，不是猜的。",
   "rules": [
     {
@@ -31,7 +36,19 @@
       ],
       "why": "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。"
+      "verified_evidence": "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
+      "i18n": {
+        "en": {
+          "title": "A startup entry points at a file that no longer exists",
+          "advice": [
+            "The service registry key is still there but the binary was deleted. After confirming you did not disable it yourself: sc query <name> for the state, sc delete <name> to clear the registration. It fails to start at every boot, and it also gives genuinely malicious persistence somewhere to hide.",
+            "The scheduled task's target is gone. schtasks /query /tn \"<task name>\" /v to see the trigger, and once you have confirmed it is useless: schtasks /delete /tn \"<task name>\" /f.",
+            "Uninstall residue: the registry value is still there, the file is not. Delete this value for a startup entry (under HKCU that needs no administrator rights)."
+          ],
+          "why": "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
+          "verified_evidence": "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target."
+          }
+      }
     },
     {
       "id": "PS-02",
@@ -57,7 +74,18 @@
       ],
       "why": "这里用签名者归属而不是厂商关键词黑名单。关键词列表只能抓到别人已经写进去的那几家厂商，而「这个每次开机都跑的二进制没有有效签名」能抓到你机器上实际存在的东西。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。"
+      "verified_evidence": "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
+      "i18n": {
+        "en": {
+          "title": "A program that runs at every boot has no valid digital signature",
+          "advice": [
+            "A failing signature check (HashMismatch) deserves more suspicion than being unsigned at all: the file was modified while its signature information stayed in place. First establish whether this program is yours to update, then decide whether a reinstall is the fix.",
+            "Unsigned does not mean malicious - plenty of open-source tools and portable apps ship unsigned. But it means nothing can tell you whether this file is the version the vendor published. If you will keep using this program, record its sha256 now: the day this row turns CHANGED, the file was replaced."
+          ],
+          "why": "This uses signer attribution rather than a vendor keyword blocklist. A keyword list can only ever catch the handful of vendors somebody already typed into it, while \"this binary that runs at every boot has no valid signature\" catches what is actually on your machine.",
+          "verified_evidence": "Three hits on this machine: run_key/Lively (D:\\lively wallpaper, NotSigned), startup_folder/Authenticator App · 2FA.lnk, scheduled_task/\\OpenClaw Gateway."
+          }
+      }
     },
     {
       "id": "PS-03",
@@ -78,7 +106,17 @@
       ],
       "why": "这是本机实测过的真实威胁模型：360 的下载器曾往这台机器里塞过 360elam64.sys（BOOT_START 的 ELAM 驱动）。清掉文件后注册表键还在，只有按 Group=Early-Launch 枚举才看得见它，按文件名搜是搜不到的。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机此刻 Early-Launch 成员只有 WdBoot（signer=Microsoft Windows Early Launch Anti-malware Publisher），所以这条规则现在不应命中——它命中 0 条才是正确状态。清理前该集合里曾同时存在 WdBoot 与 360elam64。"
+      "verified_evidence": "本机此刻 Early-Launch 成员只有 WdBoot（signer=Microsoft Windows Early Launch Anti-malware Publisher），所以这条规则现在不应命中——它命中 0 条才是正确状态。清理前该集合里曾同时存在 WdBoot 与 360elam64。",
+      "i18n": {
+        "en": {
+          "title": "An unexpected Early-Launch driver is present",
+          "advice": [
+            "Early-Launch drivers load before almost every security product. Apart from the antivirus's own ELAM driver (each vendor ships an elam component), you should not have a second member. Check the signer first, then decide whether to remove it - persistence at this level can whitelist the processes it protects."
+          ],
+          "why": "This is a threat model measured on this machine: a 360 downloader once put 360elam64.sys (a BOOT_START ELAM driver) into it. After the file was cleaned the registry key remained, and it is only visible when enumerating by Group=Early-Launch - searching by file name will not find it.",
+          "verified_evidence": "At the moment the only Early-Launch member on this machine is WdBoot (signer=Microsoft Windows Early Launch Anti-malware Publisher), so this rule should not fire now - 0 hits is the correct state for it. Before the cleanup, WdBoot and 360elam64 were present in that group at the same time."
+          }
+      }
     },
     {
       "id": "PS-04",
@@ -99,7 +137,17 @@
       ],
       "why": "hosts 是最省事的劫持位置：不需要权限、不需要驻留进程，改完就一直生效，而且绝大多数清理工具根本不检查它。localhost 那两行是系统自带的，把它们算进去会让每台机器都误报一次。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机 hosts 只有 127.0.0.1 localhost，有效条目 0，因此这条规则此刻不应命中。"
+      "verified_evidence": "本机 hosts 只有 127.0.0.1 localhost，有效条目 0，因此这条规则此刻不应命中。",
+      "i18n": {
+        "en": {
+          "title": "The hosts file contains a mapping other than localhost",
+          "advice": [
+            "Check line by line whether you added these mappings yourself (or some blocking tool, or an activation tool). To restore: do not delete lines, replace the whole file with the system default - activation tools that edit hosts do not usually tell you which domains they silenced."
+          ],
+          "why": "hosts is the cheapest hijack position of all: no privilege, no resident process, effective forever once written, and most cleaning tools do not even look at it. The two localhost lines ship with the system, and counting them would make every machine a false positive.",
+          "verified_evidence": "This machine's hosts contains only 127.0.0.1 localhost, 0 effective entries, so this rule should not fire right now."
+          }
+      }
     },
     {
       "id": "PS-05",
@@ -119,7 +167,17 @@
       ],
       "why": "它是 Windows 上破坏力最大的单点驻留：能精确针对某个具名进程生效，进程列表里看不出异常，而且需要管理员权限才能写入——所以一旦出现，说明写入者已经提过权了。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机 IFEO 下无 Debugger 值，这条规则此刻不应命中；判据与键路径已按实测结构实现。"
+      "verified_evidence": "本机 IFEO 下无 Debugger 值，这条规则此刻不应命中；判据与键路径已按实测结构实现。",
+      "i18n": {
+        "en": {
+          "title": "An IFEO Debugger replaces the process that starts a program",
+          "advice": [
+            "A Debugger value under Image File Execution Options makes Windows run a different program when you launch <name>. This position is used to hijack arbitrary programs, most often to keep security software from ever starting. Delete the Debugger value (leaving the key itself is harmless - it exists for debuggers)."
+          ],
+          "why": "It is the most destructive single-point persistence on Windows: it can target one named process exactly, nothing looks wrong in a process list, and writing it requires administrator rights - so if one appears, whoever wrote it had already escalated.",
+          "verified_evidence": "No Debugger values under IFEO on this machine, so this rule should not fire right now; the predicate and the key paths are implemented against the measured structure."
+          }
+      }
     },
     {
       "id": "PS-06",
@@ -140,7 +198,17 @@
       ],
       "why": "360 类软件历史上就在这里装过滤层。这个位置的条目数量少、变动少，因此一条非系统的 LSP 就是很硬的信号——和 40 条启动项残留完全不同。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机 5 个 LSP 提供方全部为 Microsoft Windows 签名的系统 DLL，in_windows 均为 true，所以这条规则此刻不应命中。"
+      "verified_evidence": "本机 5 个 LSP 提供方全部为 Microsoft Windows 签名的系统 DLL，in_windows 均为 true，所以这条规则此刻不应命中。",
+      "i18n": {
+        "en": {
+          "title": "The Winsock LSP provider is not a system DLL",
+          "advice": [
+            "A layered service provider can intercept and modify TCP connections of any program on this machine. Establish which software the signer belongs to (accelerators, proxy clients, some security products install here). To clear it, do not delete the registry entry directly: only netsh winsock reset also repairs the catalog order."
+          ],
+          "why": "360-class software historically installed filter layers exactly here. This position has very few entries and very little churn, so a single non-system LSP is a hard signal - completely unlike 40 rows of startup residue.",
+          "verified_evidence": "All 5 LSP providers on this machine are system DLLs signed by Microsoft Windows with in_windows=true, so this rule should not fire right now."
+          }
+      }
     },
     {
       "id": "PS-07",
@@ -162,7 +230,17 @@
       ],
       "why": "必须排除微软签名，否则 Defender 自己会被报成可疑：WinDefend 和 MDCoreSvc 的实际二进制就位于 C:\\ProgramData\\Microsoft\\Windows Defender 下。这是把判据从「看起来可疑」改成「能被解释」的一步。",
       "verified_on": "2026-10-14",
-      "verified_evidence": "本机命中：service/Rd_Service（C:\\ProgramData\\host\\rdservice.exe，签名者济南快安网络科技）、scheduled_task 里的 3 条金山 WPS 任务、以及 1 条未签名的 OpenClaw Gateway；WinDefend、MDCoreSvc 被签名者条件正确排除。"
+      "verified_evidence": "本机命中：service/Rd_Service（C:\\ProgramData\\host\\rdservice.exe，签名者济南快安网络科技）、scheduled_task 里的 3 条金山 WPS 任务、以及 1 条未签名的 OpenClaw Gateway；WinDefend、MDCoreSvc 被签名者条件正确排除。",
+      "i18n": {
+        "en": {
+          "title": "A resident binary lives in a user-writable directory",
+          "advice": [
+            "This is not a maliciousness indicator, it is a location preference: an exe in ProgramData or AppData can be rewritten by any process running as you, without administrator rights. Legitimate software puts files there too (updaters, office suites), which is why this row is only low severity. The real use is the inverse - if a program you never installed appears here, or if this row turns CHANGED between two scans, then the file was replaced."
+          ],
+          "why": "Microsoft signatures must be excluded here or Defender reports itself: the actual binaries behind WinDefend and MDCoreSvc live under C:\\ProgramData\\Microsoft\\Windows Defender. This is the step that moves the criterion from \"looks suspicious\" to \"can be explained\".",
+          "verified_evidence": "Hits on this machine: service/Rd_Service (C:\\ProgramData\\host\\rdservice.exe, signer 济南快安网络科技 - a Chinese network-software vendor), three Kingsoft WPS scheduled tasks, and one unsigned OpenClaw Gateway; WinDefend and MDCoreSvc are correctly excluded by the signer condition."
+          }
+      }
     }
   ]
 }

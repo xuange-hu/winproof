@@ -16,6 +16,12 @@
     font: 14px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
     -webkit-font-smoothing: antialiased;
   }
+  /* One file, two wordings. The static parts of the page carry both and the
+     language is picked by an attribute on <html>, so a report whose script never
+     runs still shows a complete Chinese page instead of a blank one. */
+  .en-only { display: none; }
+  html[data-lang="en"] .en-only { display: inline; }
+  html[data-lang="en"] .zh-only { display: none; }
   .wrap { max-width: 1020px; margin: 0 auto; padding: 32px 22px 70px; }
   header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 26px; }
   .notice { display: none; }
@@ -30,6 +36,13 @@
   .sub { color: var(--dim); font-size: 13px; margin-top: 7px; }
   .meta { color: var(--faint); font-size: 12px; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 18px; }
   .meta b { color: var(--dim); font-weight: 600; }
+
+  .langbar { float: right; display: flex; gap: 6px; align-items: center; }
+  .langbtn { font: 11.5px/1 ui-monospace, Consolas, monospace; color: var(--faint);
+             background: transparent; border: 1px solid var(--line); border-radius: 6px;
+             padding: 5px 8px; cursor: pointer; }
+  .langbtn:hover { color: var(--dim); border-color: #3a424f; }
+  .langbtn[aria-pressed="true"] { color: var(--txt); border-color: #455064; background: var(--panel2); }
 
   .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
   .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px; }
@@ -68,7 +81,7 @@
   table { width: 100%; border-collapse: collapse; margin-top: 11px; font-size: 12.5px; }
   td { padding: 5px 9px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-all; }
   td.k { color: var(--dim); width: 168px; white-space: nowrap; }
-  td.k .zh { display: block; color: var(--faint); font-size: 11px; }
+  td.k .raw { display: block; color: var(--faint); font-size: 11px; }
   tr:last-child td { border-bottom: none; }
   .val { font-family: ui-monospace, Consolas, monospace; }
   .hit { color: var(--high); font-weight: 600; }
@@ -118,6 +131,7 @@
   @media (max-width: 720px) {
     .wrap { padding: 22px 12px 46px; }
     .stats { grid-template-columns: repeat(2, 1fr); }
+    .langbar { float: none; margin-bottom: 10px; }
     table, tr, td { display: block; width: auto; }
     td.k { width: auto; white-space: normal; border-bottom: none; padding-bottom: 1px; }
     td.val { padding-top: 1px; }
@@ -129,15 +143,27 @@
 <body>
 <div class="wrap">
   <div class="notice" id="demo-notice">
-    <b>这是一份示例报告，不是你的机器。</b>
-    它由仓库自带的合成夹具 <code>tests/fixtures/*.json</code> 渲染，里面每一条结论都是设计出来的：
-    被劫持的启动页、密封副本、云端回灌、指向不存在文件的残留、以及读不出来的盲区。
-    夹具的作用就是让任何一台 Windows（包括一台从没被劫持过的）都能跑出与这里完全一致的判定。
-    在你自己机器上跑 <code>scan.bat</code>，这份报告会变成真的。
+    <span class="zh-only"><b>这是一份示例报告，不是你的机器。</b>
+      它由仓库自带的合成夹具 <code>tests/fixtures/*.json</code> 渲染，里面每一条结论都是设计出来的：
+      被劫持的启动页、密封副本、云端回灌、指向不存在文件的残留、以及读不出来的盲区。
+      夹具的作用就是让任何一台 Windows（包括一台从没被劫持过的）都能跑出与这里完全一致的判定。
+      在你自己机器上跑 <code>scan.bat</code>，这份报告会变成真的。</span>
+    <span class="en-only"><b>This is a demo report, not your machine.</b>
+      It is rendered from the synthetic captures shipped in this repository
+      (<code>tests/fixtures/*.json</code>), and every conclusion on it was designed to be here: a hijacked
+      startup page, a sealed copy, a cloud write-back, residue pointing at a file that no longer exists, and
+      surfaces the tool cannot read. That is what a fixture is for - any Windows box, including one that was
+      never hijacked, produces exactly these verdicts. Run <code>scan.bat</code> on your own machine and this
+      report becomes real.</span>
   </div>
   <header>
-    <h1>Win<span>Proof</span> 取证报告</h1>
-    <div class="sub">只读采集 · 声明式规则 · 基线比对 — 回答「什么变了、什么时候变的、哪种处置方式才不会被还原」</div>
+    <div class="langbar" id="langbar"></div>
+    <h1>Win<span>Proof</span>
+      <span class="zh-only">取证报告</span><span class="en-only">forensic report</span></h1>
+    <div class="sub">
+      <span class="zh-only">只读采集 · 声明式规则 · 基线比对 — 回答「什么变了、什么时候变的、哪种处置方式才不会被还原」</span>
+      <span class="en-only">read-only capture · declarative rules · baseline diff — what changed, when it changed, and which remediation will not be reverted</span>
+    </div>
     <div class="meta" id="meta"></div>
   </header>
 
@@ -147,20 +173,29 @@
   <div id="resolved"></div>
 
   <footer>
-    <div>本次求值：规则 <b id="f-rules"></b> 条 × 对象 <b id="f-subjects"></b> 个，探针 <span id="f-probes"></span>。规则判据均在本机取证实测，未实测的条件不进首版。</div>
-    <div style="margin-top:8px">域名黑名单（子串匹配，命中可能是你主动设置的首页——用 <code>ack.bat &lt;key&gt;</code> 标记为已知，不要删规则）：<span id="f-bl"></span></div>
-    <div style="margin-top:8px">本工具不修改任何文件、注册表或服务。每条建议都需要你手动执行，因为「正确的处置方式」取决于密封副本与同步开关是否存在，而这些判定未必适用于你的机器。</div>
+    <div>
+      <span class="zh-only">本次求值：规则 <b data-f="rules"></b> 条 × 对象 <b data-f="subjects"></b> 个，探针 <span data-f="probes"></span>。规则判据均在本机取证实测，未实测的条件不进首版。</span>
+      <span class="en-only">This evaluation: <b data-f="rules"></b> rules × <b data-f="subjects"></b> objects, probes <span data-f="probes"></span>. Every shipped criterion was measured on a real machine; an unmeasured condition does not reach the first version.</span>
+    </div>
+    <div style="margin-top:8px">
+      <span class="zh-only">域名黑名单（子串匹配，命中可能是你主动设置的首页——用 <code>ack.bat &lt;key&gt;</code> 标记为已知，不要删规则）：<span data-f="bl"></span></span>
+      <span class="en-only">Domain blocklist (substring match, so a hit may be a homepage you set yourself - mark it known with <code>ack.bat &lt;key&gt;</code> instead of deleting the rule): <span data-f="bl"></span></span>
+    </div>
+    <div style="margin-top:8px">
+      <span class="zh-only">本工具不修改任何文件、注册表或服务。每条建议都需要你手动执行，因为「正确的处置方式」取决于密封副本与同步开关是否存在，而这些判定未必适用于你的机器。</span>
+      <span class="en-only">This tool modifies no file, registry key or service. Every suggestion has to be executed by you, because the correct remediation depends on whether a sealed copy and a sync switch exist - and that judgement does not necessarily transfer to your machine.</span>
+    </div>
   </footer>
 </div>
 
 <script id="wp-data" type="application/json">{
     "schema":  "winproof/1",
-    "scanned_at":  "2026-10-18 15:10:29",
+    "scanned_at":  "2026-10-18 16:00:04",
     "computer":  "<host>",
     "user":  "<user>",
     "os_version":  "10.0.26200.0",
     "ps_version":  "5.1.26100.9711",
-    "baseline_at":  "2026-10-18 15:10:29",
+    "baseline_at":  "2026-10-18 16:00:04",
     "probes_run":  [
                        "browser_prefs",
                        "persistence"
@@ -215,6 +250,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 2\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser startup page is hijacked",
+                                                 "advice":  "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten.",
+                                                 "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
+                                                 "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "NEW"
                      },
                      {
@@ -238,6 +282,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser startup page is hijacked",
+                                                 "advice":  "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten.",
+                                                 "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
+                                                 "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -261,6 +314,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser startup page is hijacked",
+                                                 "advice":  "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten.",
+                                                 "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
+                                                 "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -284,6 +346,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser startup page is hijacked",
+                                                 "advice":  "This profile has sync.preferences switched on. A hand edit of the file gets pushed back by the cloud configuration, so change it first in edge://settings/onStartup or chrome://settings/onStartup, and only then touch the file.",
+                                                 "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
+                                                 "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -309,6 +380,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A sealed copy exists: deleting the plaintext alone will be reverted",
+                                                 "advice":  "Edge keeps an additional sealed, encrypted value under session (the *_edge_enclave or *_edge_lightweight family plus its _verify). Cleaning means deleting the whole key-name family; deleting only the plaintext startup_urls gets restored from this sealed copy.",
+                                                 "why":  "This is the real reason most manual cleanups fail: you clearly deleted it, and it is back the next time the browser opens. It looks like \"it was not deleted\", when in fact another copy was treated as authoritative and written back.",
+                                                 "verified_evidence":  "Profile 1 spells it enclave, Default spells it lightweight; a given profile contains only one of the two spellings, so the match has to be on the suffix family rather than on a specific key name.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -336,6 +416,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A sealed copy exists: deleting the plaintext alone will be reverted",
+                                                 "advice":  "Edge keeps an additional sealed, encrypted value under session (the *_edge_enclave or *_edge_lightweight family plus its _verify). Cleaning means deleting the whole key-name family; deleting only the plaintext startup_urls gets restored from this sealed copy.",
+                                                 "why":  "This is the real reason most manual cleanups fail: you clearly deleted it, and it is back the next time the browser opens. It looks like \"it was not deleted\", when in fact another copy was treated as authoritative and written back.",
+                                                 "verified_evidence":  "Profile 1 spells it enclave, Default spells it lightweight; a given profile contains only one of the two spellings, so the match has to be on the suffix family rather than on a specific key name.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -372,6 +461,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "It came back after being cleaned: the hijacked value recurred",
+                                                 "advice":  "The recurrence is later than the previous repair in time, and this profile synchronises preferences - a cloud configuration write-back is the most likely source. Break that sync category before cleaning, otherwise every sync cycle brings the value back.",
+                                                 "why":  "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
+                                                 "verified_evidence":  "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -405,6 +503,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 2\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "It came back after being cleaned: the hijacked value recurred",
+                                                 "advice":  "The recurrence is later than the previous repair, but preferences sync is off - then some still-running program is more likely rewriting the file. Keep looking along the startup-entry and scheduled-task paths.",
+                                                 "why":  "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
+                                                 "verified_evidence":  "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "NEW"
                      },
                      {
@@ -438,6 +545,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "It came back after being cleaned: the hijacked value recurred",
+                                                 "advice":  "The recurrence is later than the previous repair, but preferences sync is off - then some still-running program is more likely rewriting the file. Keep looking along the startup-entry and scheduled-task paths.",
+                                                 "why":  "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
+                                                 "verified_evidence":  "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -462,6 +578,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机此刻 Early-Launch 成员只有 WdBoot（signer=Microsoft Windows Early Launch Anti-malware Publisher），所以这条规则现在不应命中——它命中 0 条才是正确状态。清理前该集合里曾同时存在 WdBoot 与 360elam64。",
                          "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzThirdPartyElam",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "An unexpected Early-Launch driver is present",
+                                                 "advice":  "Early-Launch drivers load before almost every security product. Apart from the antivirus\u0027s own ELAM driver (each vendor ships an elam component), you should not have a second member. Check the signer first, then decide whether to remove it - persistence at this level can whitelist the processes it protects.",
+                                                 "why":  "This is a threat model measured on this machine: a 360 downloader once put 360elam64.sys (a BOOT_START ELAM driver) into it. After the file was cleaned the registry key remained, and it is only visible when enumerating by Group=Early-Launch - searching by file name will not find it.",
+                                                 "verified_evidence":  "At the moment the only Early-Launch member on this machine is WdBoot (signer=Microsoft Windows Early Launch Anti-malware Publisher), so this rule should not fire now - 0 hits is the correct state for it. Before the cleanup, WdBoot and 360elam64 were present in that group at the same time.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -485,6 +610,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机 hosts 只有 127.0.0.1 localhost，有效条目 0，因此这条规则此刻不应命中。",
                          "detail_path":  "C:\\Windows\\System32\\drivers\\etc\\hosts",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The hosts file contains a mapping other than localhost",
+                                                 "advice":  "Check line by line whether you added these mappings yourself (or some blocking tool, or an activation tool). To restore: do not delete lines, replace the whole file with the system default - activation tools that edit hosts do not usually tell you which domains they silenced.",
+                                                 "why":  "hosts is the cheapest hijack position of all: no privilege, no resident process, effective forever once written, and most cleaning tools do not even look at it. The two localhost lines ship with the system, and counting them would make every machine a false positive.",
+                                                 "verified_evidence":  "This machine\u0027s hosts contains only 127.0.0.1 localhost, 0 effective entries, so this rule should not fire right now.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -509,6 +643,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机 IFEO 下无 Debugger 值，这条规则此刻不应命中；判据与键路径已按实测结构实现。",
                          "detail_path":  "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\notepad.exe",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "An IFEO Debugger replaces the process that starts a program",
+                                                 "advice":  "A Debugger value under Image File Execution Options makes Windows run a different program when you launch \u003cname\u003e. This position is used to hijack arbitrary programs, most often to keep security software from ever starting. Delete the Debugger value (leaving the key itself is harmless - it exists for debuggers).",
+                                                 "why":  "It is the most destructive single-point persistence on Windows: it can target one named process exactly, nothing looks wrong in a process list, and writing it requires administrator rights - so if one appears, whoever wrote it had already escalated.",
+                                                 "verified_evidence":  "No Debugger values under IFEO on this machine, so this rule should not fire right now; the predicate and the key paths are implemented against the measured structure.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -532,6 +675,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机 5 个 LSP 提供方全部为 Microsoft Windows 签名的系统 DLL，in_windows 均为 true，所以这条规则此刻不应命中。",
                          "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Winsock2\\LSP",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The Winsock LSP provider is not a system DLL",
+                                                 "advice":  "A layered service provider can intercept and modify TCP connections of any program on this machine. Establish which software the signer belongs to (accelerators, proxy clients, some security products install here). To clear it, do not delete the registry entry directly: only netsh winsock reset also repairs the catalog order.",
+                                                 "why":  "360-class software historically installed filter layers exactly here. This position has very few entries and very little churn, so a single non-system LSP is a hard signal - completely unlike 40 rows of startup residue.",
+                                                 "verified_evidence":  "All 5 LSP providers on this machine are system DLLs signed by Microsoft Windows with in_windows=true, so this rule should not fire right now.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -560,6 +712,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Edge Default、Edge Profile 2、Chrome Default 三处的 macs.session 都含 startup_urls 签名而 session 无明文。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "Orphan signature: this position was tampered with and cleaned up",
+                                                 "advice":  "protection.macs.session still carries the signature of startup_urls / restore_on_startup while session no longer holds the plaintext. That means the value existed once and was deleted (by you, or by a cleaning tool). It is historical evidence, not a current threat, and needs no action.",
+                                                 "why":  "The browser signs protected keys, and protection.macs is a two-level structure (section -\u003e key -\u003e signature), not the single level many tools assume. The signatures are deterministic: within the same profile set, the same missing value yields the same signature. So deleting the value and leaving the signature does not corrupt the file - the browser simply re-signs on its next write.",
+                                                 "verified_evidence":  "macs.session in Edge Default, Edge Profile 2 and Chrome Default all contain a startup_urls signature while session holds no plaintext.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -591,6 +752,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
+                                                 "advice":  "This domain\u0027s startup page is still present right now, and these exceptions are residue from the same episode. Handle the startup page per BR-01 first, then come back to edge://settings/content/all (or chrome://settings/content/all), search the domain and delete these rows - otherwise a single load writes new exceptions.",
+                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
+                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -627,6 +797,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
+                                                 "advice":  "This domain\u0027s startup page is still present right now, and these exceptions are residue from the same episode. Handle the startup page per BR-01 first, then come back to edge://settings/content/all (or chrome://settings/content/all), search the domain and delete these rows - otherwise a single load writes new exceptions.",
+                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
+                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -654,6 +833,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
+                                                 "advice":  "The startup page is already clean, but the browser still remembers this domain - this row proves that the page was really loaded, where BR-01 can only prove that the configuration mentioned it. Revoking: search the domain in edge://settings/content/all or chrome://settings/content/all and delete the rows one by one; if the domain cannot be found in that list, this setting type has no UI switch and the only options are clearing the profile or accepting it as history.",
+                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
+                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -684,6 +872,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 2\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The default search engine was replaced, or is locked by policy",
+                                                 "advice":  "The default engine\u0027s keyword/URL matches the blocklist. Revoking: pick the right engine in edge://settings/search or chrome://settings/searchEngines, press \"make default\", then delete the blacklisted entry; if it cannot be deleted from the list, it arrived through policy or an extension - read the next piece of advice. Note that this item cannot be determined on Edge at all (see BR-10), so this row only means something for Chrome and for manually added engines.",
+                                                 "why":  "Startup-page hijacking decides what you see when you open the browser; search-engine hijacking decides what your searches return - the latter is more subtle because it only shows up when you actually search. The criterion uses keyword rather than search_url because prepopulated engines (Google/Bing) have URLs that are all placeholders like {google:baseURL}, so only the bare-domain keyword is stable; a hijacker is not prepopulated and always carries a literal URL, so both have to be read to cover both cases. enforced_by_policy is listed separately because it separates \"you installed the wrong thing\" from \"something decided for you\", and those two have completely different remediations.",
+                                                 "verified_evidence":  "Of the 5 profiles on this machine only Chrome / Default exposes default_search_provider_data as a readable object: keyword=google.com, short_name=Google, enforced_by_policy=false, so this machine yields 0 hits and that is the correct state. The 4 Edge profiles store a 40-character hex digest plus _encrypted_hash at the same position (measured: \"template_url_data\":\"31C06AB2...\" in Secure Preferences), so the engine name cannot be read - BR-10 states that blind spot instead of treating it as clean. Extracting from Web Data (SQLite) was attempted and rejected: every Edge profile contains the baidu/sogou/so.com/360 set of prepopulated engine strings, because that table is the list of available engines, not the selected one - using it as a criterion would report every Chinese-language Edge as hijacked. The fixture contains two planted rows: one with a blocklisted keyword, one with enforced_by_policy=true.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "CHANGED"
                      },
                      {
@@ -711,6 +908,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The default search engine was replaced, or is locked by policy",
+                                                 "advice":  "This engine has enforced_by_policy=true: the user did not choose it, a group policy or registry policy did, so the browser settings page can neither change nor remove it. Check the search/extension policy keys under HKLM\\SOFTWARE\\Policies\\Google\\Chrome and HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge; on a corporate device IT may have installed it, in which case ack.bat marks it as known.",
+                                                 "why":  "Startup-page hijacking decides what you see when you open the browser; search-engine hijacking decides what your searches return - the latter is more subtle because it only shows up when you actually search. The criterion uses keyword rather than search_url because prepopulated engines (Google/Bing) have URLs that are all placeholders like {google:baseURL}, so only the bare-domain keyword is stable; a hijacker is not prepopulated and always carries a literal URL, so both have to be read to cover both cases. enforced_by_policy is listed separately because it separates \"you installed the wrong thing\" from \"something decided for you\", and those two have completely different remediations.",
+                                                 "verified_evidence":  "Of the 5 profiles on this machine only Chrome / Default exposes default_search_provider_data as a readable object: keyword=google.com, short_name=Google, enforced_by_policy=false, so this machine yields 0 hits and that is the correct state. The 4 Edge profiles store a 40-character hex digest plus _encrypted_hash at the same position (measured: \"template_url_data\":\"31C06AB2...\" in Secure Preferences), so the engine name cannot be read - BR-10 states that blind spot instead of treating it as clean. Extracting from Web Data (SQLite) was attempted and rejected: every Edge profile contains the baidu/sogou/so.com/360 set of prepopulated engine strings, because that table is the list of available engines, not the selected one - using it as a criterion would report every Chinese-language Edge as hijacked. The fixture contains two planted rows: one with a blocklisted keyword, one with enforced_by_policy=true.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -737,6 +943,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
                          "detail_path":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A startup entry points at a file that no longer exists",
+                                                 "advice":  "Uninstall residue: the registry value is still there, the file is not. Delete this value for a startup entry (under HKCU that needs no administrator rights).",
+                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
+                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -763,6 +978,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
                          "detail_path":  "\\ZzTaskGone",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A startup entry points at a file that no longer exists",
+                                                 "advice":  "The scheduled task\u0027s target is gone. schtasks /query /tn \"\u003ctask name\u003e\" /v to see the trigger, and once you have confirmed it is useless: schtasks /delete /tn \"\u003ctask name\u003e\" /f.",
+                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
+                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -789,6 +1013,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
                          "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzSvcGone",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A startup entry points at a file that no longer exists",
+                                                 "advice":  "The service registry key is still there but the binary was deleted. After confirming you did not disable it yourself: sc query \u003cname\u003e for the state, sc delete \u003cname\u003e to clear the registration. It fails to start at every boot, and it also gives genuinely malicious persistence somewhere to hide.",
+                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
+                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -813,6 +1046,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\ZzOld Helper.lnk",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A program that runs at every boot has no valid digital signature",
+                                                 "advice":  "Unsigned does not mean malicious - plenty of open-source tools and portable apps ship unsigned. But it means nothing can tell you whether this file is the version the vendor published. If you will keep using this program, record its sha256 now: the day this row turns CHANGED, the file was replaced.",
+                                                 "why":  "This uses signer attribution rather than a vendor keyword blocklist. A keyword list can only ever catch the handful of vendors somebody already typed into it, while \"this binary that runs at every boot has no valid signature\" catches what is actually on your machine.",
+                                                 "verified_evidence":  "Three hits on this machine: run_key/Lively (D:\\lively wallpaper, NotSigned), startup_folder/Authenticator App · 2FA.lnk, scheduled_task/\\OpenClaw Gateway.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -837,6 +1079,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
                          "detail_path":  "\\ZzHashDrift",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A program that runs at every boot has no valid digital signature",
+                                                 "advice":  "A failing signature check (HashMismatch) deserves more suspicion than being unsigned at all: the file was modified while its signature information stayed in place. First establish whether this program is yours to update, then decide whether a reinstall is the fix.",
+                                                 "why":  "This uses signer attribution rather than a vendor keyword blocklist. A keyword list can only ever catch the handful of vendors somebody already typed into it, while \"this binary that runs at every boot has no valid signature\" catches what is actually on your machine.",
+                                                 "verified_evidence":  "Three hits on this machine: run_key/Lively (D:\\lively wallpaper, NotSigned), startup_folder/Authenticator App · 2FA.lnk, scheduled_task/\\OpenClaw Gateway.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -857,6 +1108,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser did not exit normally last time",
+                                                 "advice":  "exit_type=Crashed usually means browser processes were killed - cleaning tools do this a lot. After a kill, the value still held in memory gets written back into the config file after the next start, which makes an already-deleted hijack value look like it resurrected itself. Exit the browser properly before cleaning, and turn off Edge startup boost / background running.",
+                                                 "why":  "Deciding whether a browser profile is in use cannot be done by process name (background processes are always there). Opening the file with an exclusive non-blocking lock and succeeding is the reliable signal, together with exit_type.",
+                                                 "verified_evidence":  "Preferences of both Edge Profile 1 and Chrome Default carry exit_type=Crashed.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -877,6 +1137,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser did not exit normally last time",
+                                                 "advice":  "exit_type=Crashed usually means browser processes were killed - cleaning tools do this a lot. After a kill, the value still held in memory gets written back into the config file after the next start, which makes an already-deleted hijack value look like it resurrected itself. Exit the browser properly before cleaning, and turn off Edge startup boost / background running.",
+                                                 "why":  "Deciding whether a browser profile is in use cannot be done by process name (background processes are always there). Opening the file with an exclusive non-blocking lock and succeeding is the reliable signal, together with exit_type.",
+                                                 "verified_evidence":  "Preferences of both Edge Profile 1 and Chrome Default carry exit_type=Crashed.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -901,6 +1170,15 @@
                          "verified_on":  "2026-10-14",
                          "verified_evidence":  "本机命中：service/Rd_Service（C:\\ProgramData\\host\\rdservice.exe，签名者济南快安网络科技）、scheduled_task 里的 3 条金山 WPS 任务、以及 1 条未签名的 OpenClaw Gateway；WinDefend、MDCoreSvc 被签名者条件正确排除。",
                          "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzWritableResident",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A resident binary lives in a user-writable directory",
+                                                 "advice":  "This is not a maliciousness indicator, it is a location preference: an exe in ProgramData or AppData can be rewritten by any process running as you, without administrator rights. Legitimate software puts files there too (updaters, office suites), which is why this row is only low severity. The real use is the inverse - if a program you never installed appears here, or if this row turns CHANGED between two scans, then the file was replaced.",
+                                                 "why":  "Microsoft signatures must be excluded here or Defender reports itself: the actual binaries behind WinDefend and MDCoreSvc live under C:\\ProgramData\\Microsoft\\Windows Defender. This is the step that moves the criterion from \"looks suspicious\" to \"can be explained\".",
+                                                 "verified_evidence":  "Hits on this machine: service/Rd_Service (C:\\ProgramData\\host\\rdservice.exe, signer 济南快安网络科技 - a Chinese network-software vendor), three Kingsoft WPS scheduled tasks, and one unsigned OpenClaw Gateway; WinDefend and MDCoreSvc are correctly excluded by the signer condition.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -922,6 +1200,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "Startup mode is set to \"open specific pages\"",
+                                                 "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
+                                                 "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
+                                                 "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -943,6 +1230,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "Startup mode is set to \"open specific pages\"",
+                                                 "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
+                                                 "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
+                                                 "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -964,6 +1260,15 @@
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "Startup mode is set to \"open specific pages\"",
+                                                 "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
+                                                 "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
+                                                 "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -990,6 +1295,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "This tool has blind spots on this object",
+                                                 "advice":  "This profile has no Secure Preferences. The sealed copy, the signature protection and the default search engine only exist in that file, so any \"clean\" this tool gives for it means only \"nothing in the plaintext\". Either this profile has never had protected settings written by the browser, or it is not a standard profile - please confirm by hand whether you created it.",
+                                                 "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
+                                                 "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -1015,6 +1329,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "This tool has blind spots on this object",
+                                                 "advice":  "This row is not a threat, it is the coverage boundary this tool declares about itself: every item in the evidence is something this scan could not see. They should not be ignored, because \"nothing was found\" and \"could not look\" are two different conclusions when it comes to what you should do.",
+                                                 "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
+                                                 "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      },
                      {
@@ -1040,6 +1363,15 @@
                          "verified_on":  "2026-10-16",
                          "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "This tool has blind spots on this object",
+                                                 "advice":  "This row is not a threat, it is the coverage boundary this tool declares about itself: every item in the evidence is something this scan could not see. They should not be ignored, because \"nothing was found\" and \"could not look\" are two different conclusions when it comes to what you should do.",
+                                                 "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
+                                                 "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
                          "state":  "PERSIST"
                      }
                  ],
@@ -1050,97 +1382,195 @@
                          "title":  "上次修复经受住了复查",
                          "subject":  "Edge / Profile 2",
                          "severity":  "good",
-                         "since":  "2026-10-18 15:10:29"
+                         "since":  "2026-10-18 16:00:04",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The previous repair survived the re-check"
+                                             }
+                                  }
                      }
                  ]
 }</script>
 <script>
 (function () {
   var D = JSON.parse(document.getElementById('wp-data').textContent);
-  var BL = (D.domain_blocklist || []).map(function (s) { return String(s).toLowerCase(); });
-  var F = {
-    startup_urls: ['当前启动页 URL', 'startup_urls'],
-    startup_urls_bad: ['命中黑名单', 'startup_urls_bad'],
-    startup_mode: ['启动模式', 'restore_on_startup'],
-    bytes: ['文件字节数', 'bytes'],
-    mtime: ['文件修改时间', 'mtime'],
-    seal_keys: ['密封副本键', 'seal_keys'],
-    orphan_sigs: ['孤立签名键', 'orphan_sigs'],
-    macs_session: ['macs.session 键', 'macs'],
-    backups: ['修复备份', 'backups'],
-    sync_preferences_enabled: ['同步 preferences', 'sync.preferences'],
-    exit_type: ['上次退出状态', 'exit_type'],
-    doc: ['文档', 'doc'],
-    doc_role: ['取值来源', 'doc_role'],
-    name: ['条目名称', 'name'],
-    kind: ['驻留类型', 'kind'],
-    command: ['启动命令', 'command'],
-    exe: ['二进制路径', 'exe'],
-    location: ['注册位置', 'location'],
-    exe_exists: ['文件是否存在', 'exe_exists'],
-    signer: ['签名者', 'signer'],
-    sig_status: ['签名状态', 'sig_status'],
-    in_windows: ['位于 Windows 目录', 'in_windows'],
-    in_writable: ['用户可写目录', 'in_writable'],
-    exe_mtime: ['二进制修改时间', 'exe_mtime'],
-    exe_bytes: ['二进制字节数', 'exe_bytes'],
-    svc_state: ['服务状态', 'svc_state'],
-    task_state: ['任务状态', 'task_state'],
-    drv_start: ['驱动加载类型', 'drv_start'],
-    host_effective: ['hosts 有效条目', 'host_effective'],
-    host_count: ['hosts 总行数', 'host_count'],
-    host_mtime: ['hosts 修改时间', 'host_mtime'],
-    perm_grants_bad: ['命中的内容设置例外', 'perm_grants_bad'],
-    perm_bad_settings: ['涉及的决定类型', 'perm_bad_settings'],
-    perm_total_keys: ['例外台账总条数', 'perm_total_keys'],
-    search_keyword: ['默认搜索引擎域名', 'keyword'],
-    search_name: ['搜索引擎名称', 'short_name'],
-    search_url: ['搜索请求 URL', 'search_url'],
-    search_policy: ['被策略强制', 'enforced_by_policy'],
-    search_bad: ['搜索引擎命中黑名单', 'search_bad'],
-    search_read: ['引擎数据可读', 'search_read'],
-    blind_spots: ['本次扫描看不到的东西', 'blind_spots']
+
+  /* -- WP-LOCALE-TABLES-BEGIN
+     Every sentence the renderer owns, as a [zh, en] pair. The engine emits ASCII
+     codes and the rule files carry their own second wording under i18n.en, so
+     nothing here is translated twice by hand and no logic depends on language.
+     tools/verify.js evaluates this block and fails on a row that is not a pair,
+     on an English half that contains CJK, or on a code with no entry.
+     -- */
+  // Chrome and one-off phrases.
+  var S = {
+    docTitle: ['WinProof - Windows 变更取证报告', 'WinProof - Windows change forensic report'],
+    machine: ['机器', 'Machine'], user: ['用户', 'User'], os: ['系统', 'OS'],
+    ps: ['PowerShell', 'PowerShell'], scanned: ['扫描时间', 'Scanned'],
+    baseline: ['基线时间', 'Baseline'], none: ['尚未建立', 'not captured yet'],
+    statHigh: ['高危', 'High'], statNew: ['本次新增', 'New this scan'],
+    statMedium: ['中危', 'Medium'], statResolved: ['已消失', 'Resolved'],
+    statGood: ['正常项', 'Held'],
+    items: ['%1 项', '%1 items'],
+    vNoBaseHead: ['尚未建立基线，因此无法判断「什么变了」', 'No baseline yet, so "what changed" cannot be answered'],
+    vNoBase: ['当前所有条目都按无基线处理。运行 <code>baseline.bat</code> 把此刻的状态固化为参照点；此后每次 <code>scan.bat</code> 都会把它们分成 新发现 / 已变化 / 已消失。基线不会自动更新——否则篡改者只要等你重新采集一次就把自己洗白了。',
+      'Everything below is treated as unbaselined. Run <code>baseline.bat</code> to freeze the current state as the reference point; from then on every <code>scan.bat</code> sorts these rows into new / changed / resolved. The baseline never updates itself - otherwise whoever tampers with your machine only has to wait for one re-capture to launder itself.'],
+    vRedHead: ['自基线（%1）以来出现 %2 项变化', '%2 changes since the baseline (%1)'],
+    vRed: ['变化项排在最前面。这就是「上次清了又回来」类问题的取证入口。',
+      'Changed rows are listed first. This is the forensic entry point for the "I cleaned it and it came back" class of problem.'],
+    vGreenHead: ['与基线一致，无新增变化', 'Matches the baseline, nothing new'],
+    vGreen: ['持续存在的旧条目按灰度显示。', 'Long-standing rows are shown in grey.'],
+    backupTag: ['修复备份 · %1 B', 'repair backup · %1 B'],
+    liveTag: ['当前文件 · %1 B', 'live file · %1 B'],
+    bakHit: ['备份中含恶意值：%1 条', 'backup contains %1 malicious value(s)'],
+    bakClean: ['备份中无恶意值', 'no malicious value in the backup'],
+    stillBad: ['仍然存在：%1', 'still present: %1'],
+    cleared: ['已清空，未复发', 'cleared, has not recurred'],
+    hitMark: ['   ← 命中黑名单', '   <- blocklisted'],
+    span: ['跨度 %1 天', 'span %1 days'],
+    deltaBytes: ['%1 → %2 B（%3 B）', '%1 → %2 B (%3 B)'],
+    sigWhy: ['%1（%2）', '%1 (%2)'],
+    deltaBad: ['结论：修复之后值又回来了，属于 <b>复发</b>', 'Verdict: the value came back after the repair, so this is a <b>recurrence</b>'],
+    deltaGood: ['结论：修复之后没有复发，本次处置方式正确', 'Verdict: it did not come back after the repair, so this remediation was the right one'],
+    emptyList: ['（无）', '(none)'],
+    noSigTarget: ['无从校验 — 目标文件不存在', 'cannot be checked - the target file does not exist'],
+    noSigner: ['（无签名者信息，可能不是 PE 文件）', '(no signer information - may not be a PE file)'],
+    existsNo: ['否 — 二进制已丢失', 'no - the binary is gone'],
+    falseNo: ['否', 'no'], trueYes: ['是', 'yes'],
+    policyYes: ['是 — 浏览器设置页里改不动', 'yes - the browser settings page cannot change it'],
+    policyNo: ['否 — 用户可自行更改', 'no - the user can change it'],
+    readNo: ['否 — Edge 把这一项存成了哈希，本工具无法判定当前引擎',
+      'no - Edge stores this value as a hash, so this tool cannot determine the current engine'],
+    advice: ['处置', 'What to do'],
+    whySum: ['为什么这条判据值得存在', 'Why this criterion deserves to exist'],
+    vevSum: ['本机实测证据', 'Evidence measured on the machine'],
+    ackHint: ['标记为已知：只降级这一条结论，不删规则', 'Mark as known: downgrades this one conclusion, never the rule'],
+    ackTitle: ['点击复制这条命令，粘到 cmd 里执行', 'Click to copy this command, then run it in cmd'],
+    copied: ['已复制 ✓', 'Copied ✓'],
+    copyFail: ['复制失败，请手动选中', 'Copy failed, select it manually'],
+    emptyReport: ['没有命中任何规则。这不等于机器干净——它可能意味着你的情况还没有对应的实测规则。',
+      'No rule fired. That does not mean the machine is clean - it may mean your situation has no measured rule yet.'],
+    resolvedHead: ['已消失', 'Resolved'],
+    resolvedCnt: ['%1 项（相对基线）', '%1 rows (against the baseline)'],
+    resolvedRow: ['（基线中记录于 %1）', '(recorded in the baseline at %1)'],
+    langHint: ['报告语言', 'Report language']
   };
-  // Long paths and quoted command lines are the bulk of a persistence finding:
-  // they must break inside the report.
-  var HITV = {
-    NotSigned: '未签名', HashMismatch: '签名与内容不符', NotTrusted: '证书不受信',
-    Invalid: '签名无效', UnknownError: '签名检查出错'
+  // Evidence field labels. The key is the fact name the rule cites in `show`, and
+  // the renderer always prints it underneath as the raw field name, so a reader can
+  // trace a card back to the probe output.
+  var F = {
+    startup_urls: ['当前启动页 URL', 'Current startup page URLs'],
+    startup_urls_bad: ['命中黑名单', 'Blocklist matches'],
+    startup_mode: ['启动模式', 'Startup mode'],
+    bytes: ['文件字节数', 'File size in bytes'],
+    mtime: ['文件修改时间', 'File modification time'],
+    seal_keys: ['密封副本键', 'Sealed copy keys'],
+    orphan_sigs: ['孤立签名键', 'Orphan signature keys'],
+    macs_session: ['macs.session 键', 'macs.session keys'],
+    backups: ['修复备份', 'Repair backups'],
+    sync_preferences_enabled: ['同步 preferences', 'preferences sync'],
+    exit_type: ['上次退出状态', 'Last exit state'],
+    doc: ['文档', 'Document'],
+    doc_role: ['取值来源', 'Value read from'],
+    name: ['条目名称', 'Entry name'],
+    kind: ['驻留类型', 'Persistence kind'],
+    command: ['启动命令', 'Startup command'],
+    exe: ['二进制路径', 'Binary path'],
+    location: ['注册位置', 'Registered at'],
+    exe_exists: ['文件是否存在', 'File exists'],
+    signer: ['签名者', 'Signer'],
+    sig_status: ['签名状态', 'Signature status'],
+    in_windows: ['位于 Windows 目录', 'Inside a Windows directory'],
+    in_writable: ['用户可写目录', 'User-writable directory'],
+    exe_mtime: ['二进制修改时间', 'Binary modification time'],
+    exe_bytes: ['二进制字节数', 'Binary size in bytes'],
+    svc_state: ['服务状态', 'Service state'],
+    task_state: ['任务状态', 'Task state'],
+    drv_start: ['驱动加载类型', 'Driver start type'],
+    host_effective: ['hosts 有效条目', 'Effective hosts entries'],
+    host_count: ['hosts 总行数', 'hosts lines in total'],
+    host_mtime: ['hosts 修改时间', 'hosts modification time'],
+    perm_grants_bad: ['命中的内容设置例外', 'Matched content-setting exceptions'],
+    perm_bad_settings: ['涉及的决定类型', 'Setting types involved'],
+    perm_total_keys: ['例外台账总条数', 'Total rows in the exception ledger'],
+    search_keyword: ['默认搜索引擎域名', 'Default engine keyword'],
+    search_name: ['搜索引擎名称', 'Engine name'],
+    search_url: ['搜索请求 URL', 'Search request URL'],
+    search_policy: ['被策略强制', 'Enforced by policy'],
+    search_bad: ['搜索引擎命中黑名单', 'Engine matches the blocklist'],
+    search_read: ['引擎数据可读', 'Engine data readable'],
+    blind_spots: ['本次扫描看不到的东西', 'What this scan could not see']
+  };
+  // Signature failures: a raw Win32 token is not something a reader can act on.
+  var HIT = {
+    NotSigned: ['未签名', 'not signed'], HashMismatch: ['签名与内容不符', 'hash mismatch'],
+    NotTrusted: ['证书不受信', 'certificate not trusted'], Invalid: ['签名无效', 'invalid'],
+    UnknownError: ['签名检查出错', 'signature check errored']
   };
   var KIND = {
-    run_key: '注册表 Run', startup_folder: '启动文件夹', scheduled_task: '计划任务',
-    service: '服务', elam_driver: 'Early-Launch 驱动', hosts_file: 'hosts 文件',
-    ifeo_debugger: 'IFEO 劫持', winsock_lsp: 'Winsock LSP'
+    run_key: ['注册表 Run', 'Registry Run key'], startup_folder: ['启动文件夹', 'Startup folder'],
+    scheduled_task: ['计划任务', 'Scheduled task'], service: ['服务', 'Service'],
+    elam_driver: ['Early-Launch 驱动', 'Early-Launch driver'], hosts_file: ['hosts 文件', 'hosts file'],
+    ifeo_debugger: ['IFEO 劫持', 'IFEO hijack'], winsock_lsp: ['Winsock LSP', 'Winsock LSP']
   };
-  var DRVSTART = { '0': 'BOOT_START（开机最早期）', '1': 'SYSTEM_START', '2': 'AUTO_START', '3': 'DEMAND_START', '4': 'DISABLED' };
+  var DRV = {
+    '0': ['BOOT_START（开机最早期）', 'BOOT_START (earliest boot stage)'],
+    '1': ['SYSTEM_START', 'SYSTEM_START'], '2': ['AUTO_START', 'AUTO_START'],
+    '3': ['DEMAND_START', 'DEMAND_START'], '4': ['DISABLED', 'DISABLED']
+  };
   // Which document the value was read from decides how a fix can fail: a sealed
   // Secure Preferences restores plaintext deletions, a plain-only profile cannot.
-  var DOCROLE = {
-    secure: 'Secure Preferences（权威副本，会还原明文删除）',
-    plain_only: '仅明文 Preferences（该 Profile 没有 Secure Preferences）'
+  var DOC = {
+    secure: ['Secure Preferences（权威副本，会还原明文删除）', 'Secure Preferences (authoritative copy, restores deleted plaintext)'],
+    plain_only: ['仅明文 Preferences（该 Profile 没有 Secure Preferences）', 'plain Preferences only (this profile has no Secure Preferences)']
   };
   // Blind-spot codes emitted by the engine. The engine only speaks ASCII codes
   // because a BOM-less .ps1 with Chinese literals parses on one machine and
   // breaks on another; the wording lives here with the rest of the rendering.
   var BLIND = {
-    no_secure_prefs: '没有 Secure Preferences：密封副本、签名保护与默认搜索引擎三项都无法判定',
-    engine_unreadable: '默认搜索引擎不可读：Edge 把 default_search_provider_data 存成哈希，只有 Chrome 或手动添加的引擎能判定',
-    prefs_unparseable: 'Secure Preferences 解析失败，该 Profile 的密封副本与签名判定均无效'
+    no_secure_prefs: ['没有 Secure Preferences：密封副本、签名保护与默认搜索引擎三项都无法判定', 'No Secure Preferences: the sealed copy, the signature protection and the default search engine all cannot be determined'],
+    engine_unreadable: ['默认搜索引擎不可读：Edge 把 default_search_provider_data 存成哈希，只有 Chrome 或手动添加的引擎能判定', 'Default search engine unreadable: Edge stores default_search_provider_data as a hash, so only Chrome or a manually added engine can be judged'],
+    prefs_unparseable: ['Secure Preferences 解析失败，该 Profile 的密封副本与签名判定均无效', 'Secure Preferences failed to parse, so the sealed-copy and signature verdicts for this profile are void']
   };
-  var SEVN = { high: '高危', medium: '中危', low: '低危', info: '观察', good: '正常' };
-  var STN = {
-    NEW: '新发现', CHANGED: '已变化', PERSIST: '持续存在',
-    KNOWN: '已知', UNBASELINED: '无基线', RESOLVED: '已消失'
+  var SEV = {
+    high: ['高危', 'High'], medium: ['中危', 'Medium'], low: ['低危', 'Low'],
+    info: ['观察', 'Observation'], good: ['正常', 'Held']
   };
+  var ST = {
+    NEW: ['新发现', 'New'], CHANGED: ['已变化', 'Changed'], PERSIST: ['持续存在', 'Persisting'],
+    KNOWN: ['已知', 'Known'], UNBASELINED: ['无基线', 'Unbaselined'], RESOLVED: ['已消失', 'Resolved']
+  };
+  /* -- WP-LOCALE-TABLES-END */
 
-  // PowerShell 5.1 serialises a 1-element array as an object and an empty array
-  // as {}, so every list field has to be normalised before it is trusted.
-  function norm(v) {
-    if (v === null || v === undefined) return [];
-    if (Array.isArray(v)) return v;
-    if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? [v] : []; }
-    return [v];
+  var LANG = (function () {
+    var m = /(?:^|[?&])lang=([a-zA-Z-]+)/.exec(location.search);
+    if (m) return /^zh/i.test(m[1]) ? 'zh' : 'en';
+    // Default follows the browser, not the authoring language of the rules: a report
+    // opened on an English Windows should not need a click to become readable.
+    return /^zh/i.test(navigator.language || '') ? 'zh' : 'en';
+  })();
+  var LI = (LANG === 'en') ? 1 : 0;
+  function t(p) { return p ? String(p[LI]) : ''; }
+  function fmt(p) {
+    var s = t(p);
+    for (var i = 1; i < arguments.length; i++) s = s.split('%' + i).join(arguments[i]);
+    return s;
   }
+  // Rule wording: the rule file's own text, plus the i18n.en overlay the engine
+  // attached to every finding. Falling back to the original wording is deliberate -
+  // a missing translation must not blank a card.
+  function W(f) {
+    var en = (f.i18n && f.i18n.en) || null;
+    if (LANG === 'en' && en && en.title) return en;
+    return {
+      title: f.title, advice: f.advice, why: f.why,
+      verified_evidence: f.verified_evidence, group_title: f.group_title
+    };
+  }
+  var BL = (D.domain_blocklist || []).map(function (s) { return String(s).toLowerCase(); });
+
+  // Long paths and quoted command lines are the bulk of a persistence finding:
+  // they must break inside the report.
   function isBad(u) {
     var s = String(u).toLowerCase();
     for (var i = 0; i < BL.length; i++) if (s.indexOf(BL[i]) >= 0) return true;
@@ -1167,54 +1597,69 @@
     } else { legacy(); }
   }
 
-  function el(t, c, x) {
-    var n = document.createElement(t);
+  // PowerShell 5.1 serialises a 1-element array as an object and an empty array
+  // as {}, so every list field has to be normalised before it is trusted.
+  function norm(v) {
+    if (v === null || v === undefined) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? [v] : []; }
+    return [v];
+  }
+  function el(tg, c, x) {
+    var n = document.createElement(tg);
     if (c) n.className = c;
     if (x !== undefined) n.textContent = x;
     return n;
   }
-
-  // ---- header + stats -------------------------------------------------------
-  var meta = document.getElementById('meta');
-  [['机器', D.computer], ['用户', D.user], ['系统', D.os_version],
-   ['PowerShell', D.ps_version], ['扫描时间', D.scanned_at],
-   ['基线时间', D.baseline_at || '尚未建立']].forEach(function (p) {
-    var d = el('div'); d.innerHTML = '<b>' + p[0] + '</b> ' + esc(p[1]); meta.appendChild(d);
-  });
   function esc(s) {
     return String(s).replace(/[&<>"]/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
 
-  var sd = D.severity_counts || {}, cd = D.counts || {};
-  var stats = [
-    ['high', sd.high || 0, '高危'], ['new', cd.NEW || 0, '本次新增'],
-    ['medium', sd.medium || 0, '中危'], ['resolved', cd.RESOLVED || 0, '已消失'],
-    ['good', sd.good || 0, '正常项']
-  ];
-  var sb = document.getElementById('stats');
-  stats.forEach(function (s) {
-    var d = el('div', 'stat ' + s[0]);
-    d.appendChild(el('div', 'n', String(s[1])));
-    d.appendChild(el('div', 'l', s[2]));
-    sb.appendChild(d);
-  });
+  // ---- header + stats -------------------------------------------------------
+  function renderMeta() {
+    var box = document.getElementById('meta');
+    box.innerHTML = '';
+    [[S.machine, D.computer], [S.user, D.user], [S.os, D.os_version],
+     [S.ps, D.ps_version], [S.scanned, D.scanned_at],
+     [S.baseline, D.baseline_at || t(S.none)]].forEach(function (p) {
+      var d = el('div'); d.innerHTML = '<b>' + t(p[0]) + '</b> ' + esc(p[1]);
+      box.appendChild(d);
+    });
+  }
 
-  var vd = document.getElementById('verdict');
-  if (!D.baseline_at) {
-    vd.appendChild(el('div', 'verdict amber'));
-    vd.lastChild.innerHTML = '<b>尚未建立基线，因此无法判断「什么变了」</b>' +
-      '当前所有条目都按无基线处理。运行 <code>baseline.bat</code> 把此刻的状态固化为参照点；' +
-      '此后每次 <code>scan.bat</code> 都会把它们分成 新发现 / 已变化 / 已消失。' +
-      '基线不会自动更新——否则篡改者只要等你重新采集一次就把自己洗白了。';
-  } else if ((cd.NEW || 0) + (cd.CHANGED || 0) > 0) {
-    vd.appendChild(el('div', 'verdict red'));
-    vd.lastChild.innerHTML = '<b>自基线（' + esc(D.baseline_at) + '）以来出现 ' +
-      ((cd.NEW || 0) + (cd.CHANGED || 0)) + ' 项变化</b>变化项排在最前面。这就是「上次清了又回来」类问题的取证入口。';
-  } else {
-    vd.appendChild(el('div', 'verdict green'));
-    vd.lastChild.innerHTML = '<b>与基线一致，无新增变化</b>持续存在的旧条目按灰度显示。';
+  function renderStats() {
+    var sd = D.severity_counts || {}, cd = D.counts || {};
+    var sb = document.getElementById('stats');
+    sb.innerHTML = '';
+    [['high', sd.high || 0, t(S.statHigh)], ['new', cd.NEW || 0, t(S.statNew)],
+     ['medium', sd.medium || 0, t(S.statMedium)], ['resolved', cd.RESOLVED || 0, t(S.statResolved)],
+     ['good', sd.good || 0, t(S.statGood)]].forEach(function (s) {
+      var d = el('div', 'stat ' + s[0]);
+      d.appendChild(el('div', 'n', String(s[1])));
+      d.appendChild(el('div', 'l', s[2]));
+      sb.appendChild(d);
+    });
+  }
+
+  function renderVerdict() {
+    var cd = D.counts || {};
+    var vd = document.getElementById('verdict');
+    vd.innerHTML = '';
+    var d = el('div');
+    vd.appendChild(d);
+    if (!D.baseline_at) {
+      d.className = 'verdict amber';
+      d.innerHTML = '<b>' + t(S.vNoBaseHead) + '</b>' + t(S.vNoBase);
+    } else if ((cd.NEW || 0) + (cd.CHANGED || 0) > 0) {
+      d.className = 'verdict red';
+      d.innerHTML = '<b>' + esc(fmt(S.vRedHead, D.baseline_at, (cd.NEW || 0) + (cd.CHANGED || 0))) +
+        '</b>' + t(S.vRed);
+    } else {
+      d.className = 'verdict green';
+      d.innerHTML = '<b>' + t(S.vGreenHead) + '</b>' + t(S.vGreen);
+    }
   }
 
   // ---- timeline for recurrence / held-evidence -----------------------------
@@ -1226,75 +1671,73 @@
       var r = el('div', 'row');
       var w = el('div', 'when');
       w.appendChild(el('div', '', b.mtime));
-      w.appendChild(el('div', 'tag', '修复备份 · ' + Number(b.bytes).toLocaleString() + ' B'));
+      w.appendChild(el('div', 'tag', fmt(S.backupTag, Number(b.bytes).toLocaleString())));
       var st = el('div', 'state');
       var bu = norm(b.urls).map(String), buBad = bu.filter(isBad);
       st.appendChild(el('div', buBad.length ? 'hit' : 'miss',
-        buBad.length ? '备份中含恶意值：' + buBad.length + ' 条' : '备份中无恶意值'));
+        buBad.length ? fmt(S.bakHit, buBad.length) : t(S.bakClean)));
       bu.slice(0, 2).forEach(function (u) {
-        st.appendChild(el('div', 'url', u + (isBad(u) ? '   ← 命中黑名单' : '')));
+        st.appendChild(el('div', 'url', u + (isBad(u) ? t(S.hitMark) : '')));
       });
       r.appendChild(w); r.appendChild(st); box.appendChild(r);
     });
     var r2 = el('div', 'row');
     var w2 = el('div', 'when');
     w2.appendChild(el('div', '', ev.mtime));
-    w2.appendChild(el('div', 'tag', '当前文件 · ' + Number(ev.bytes).toLocaleString() + ' B'));
+    w2.appendChild(el('div', 'tag', fmt(S.liveTag, Number(ev.bytes).toLocaleString())));
     var st2 = el('div', 'state');
     st2.appendChild(el('div', liveBad.length ? 'hit' : 'miss',
-      liveBad.length ? '仍然存在：' + liveBad.join(' , ') : '已清空，未复发'));
+      liveBad.length ? fmt(S.stillBad, liveBad.join(' , ')) : t(S.cleared)));
     r2.appendChild(w2); r2.appendChild(st2); box.appendChild(r2);
 
     var d0 = new Date(String(baks[0].mtime).replace(/-/g, '/'));
     var d1 = new Date(String(ev.mtime).replace(/-/g, '/'));
     var days = (d1 - d0) / 86400000;
     var dl = el('div', 'delta');
-    dl.innerHTML = '<b>跨度 ' + (isFinite(days) ? days.toFixed(1) : '?') + ' 天</b> · 体积 ' +
-      Number(baks[0].bytes).toLocaleString() + ' → ' + Number(ev.bytes).toLocaleString() + ' B（' +
-      (ev.bytes - baks[0].bytes >= 0 ? '+' : '') + (ev.bytes - baks[0].bytes).toLocaleString() + ' B）· ' +
-      (liveBad.length
-        ? '结论：修复之后值又回来了，属于 <b>复发</b>'
-        : '结论：修复之后没有复发，本次处置方式正确');
+    var diff = Number(ev.bytes) - Number(baks[0].bytes);
+    dl.innerHTML = '<b>' + fmt(S.span, isFinite(days) ? days.toFixed(1) : '?') + '</b> · ' +
+      esc(fmt(S.deltaBytes, Number(baks[0].bytes).toLocaleString(),
+        Number(ev.bytes).toLocaleString(), (diff >= 0 ? '+' : '') + diff.toLocaleString())) +
+      ' · ' + (liveBad.length ? t(S.deltaBad) : t(S.deltaGood));
     box.appendChild(dl);
     return box;
   }
 
   function evidenceTable(ev) {
-    var t = el('table');
+    var tt = el('table');
     Object.keys(ev).forEach(function (k) {
       if (k === 'backups' && norm(ev.backups).length) return; // shown as timeline
       var tr = document.createElement('tr');
-      var names = F[k] || [k, k];
       var td = el('td', 'k');
-      td.appendChild(el('div', '', names[0]));
-      td.appendChild(el('span', 'zh', names[1]));
+      td.appendChild(el('div', '', F[k] ? t(F[k]) : k));
+      td.appendChild(el('span', 'raw', k));
       var v = ev[k], txt;
       if (Array.isArray(v) || (v && typeof v === 'object' && Object.keys(v).length)) {
         var items = norm(v);
         txt = items.map(function (x) {
           return (x && typeof x === 'object') ? JSON.stringify(x) : String(x);
         }).join('\n');
-        if (!items.length) txt = '（无）';
+        if (!items.length) txt = t(S.emptyList);
       } else if (v === null || v === undefined || v === '' ||
                  (typeof v === 'object' && !Object.keys(v).length)) {
-        txt = '（无）';
+        txt = t(S.emptyList);
       } else {
         txt = String(v);
       }
       // Enum-ish fields get a human reading, not the raw Win32 token.
-      if (k === 'kind' && KIND[v]) txt = KIND[v];
-      if (k === 'sig_status' && HITV[v]) txt = v + '（' + HITV[v] + '）';
-      if (k === 'sig_status' && v === '') txt = '无从校验 — 目标文件不存在';
-      if (k === 'signer' && v === '') txt = '（无签名者信息，可能不是 PE 文件）';
-      if (k === 'drv_start') txt = DRVSTART[String(v)] || String(v);
-      if (k === 'doc_role' && DOCROLE[v]) txt = DOCROLE[v];
-      if (k === 'blind_spots') txt = norm(v).map(function (x) { return BLIND[String(x)] || String(x); }).join('\n');
+      if (k === 'kind' && KIND[v]) txt = t(KIND[v]);
+      if (k === 'sig_status' && HIT[v]) txt = fmt(S.sigWhy, String(v), t(HIT[v]));
+      if (k === 'sig_status' && v === '') txt = t(S.noSigTarget);
+      if (k === 'signer' && v === '') txt = t(S.noSigner);
+      if (k === 'drv_start') txt = (DRV[String(v)] ? t(DRV[String(v)]) : String(v));
+      if (k === 'doc_role' && DOC[v]) txt = t(DOC[v]);
+      if (k === 'blind_spots') txt = norm(v).map(function (x) { return BLIND[String(x)] ? t(BLIND[String(x)]) : String(x); }).join('\n');
       if (v === false && (k === 'exe_exists' || k === 'in_writable' || k === 'in_windows')) {
-        txt = k === 'exe_exists' ? '否 — 二进制已丢失' : '否';
+        txt = k === 'exe_exists' ? t(S.existsNo) : t(S.falseNo);
       }
-      if (v === true && k === 'exe_exists') txt = '是';
-      if (k === 'search_policy') txt = v ? '是 — 浏览器设置页里改不动' : '否 — 用户可自行更改';
-      if (k === 'search_read') txt = v ? '是' : '否 — Edge 把这一项存成了哈希，本工具无法判定当前引擎';
+      if (v === true && k === 'exe_exists') txt = t(S.trueYes);
+      if (k === 'search_policy') txt = v ? t(S.policyYes) : t(S.policyNo);
+      if (k === 'search_read') txt = v ? t(S.trueYes) : t(S.readNo);
       var tv = el('td', 'val');
       tv.innerHTML = esc(txt).replace(/\n/g, '<br>');
       if (k === 'startup_urls_bad' && norm(v).length) tv.className = 'val hit';
@@ -1303,100 +1746,141 @@
       if (k === 'sync_preferences_enabled') tv.className = 'val ' + (v ? 'hit' : 'miss');
       if (k === 'exit_type' && v === 'Crashed') tv.className = 'val hit';
       if (k === 'exe_exists' && v === false) tv.className = 'val hit';
-      if (k === 'sig_status' && HITV[v]) tv.className = 'val hit';
+      if (k === 'sig_status' && HIT[v]) tv.className = 'val hit';
       if (k === 'in_writable' && v === true) tv.className = 'val hit';
       if (k === 'host_effective' && Number(v) > 0) tv.className = 'val hit';
-      tr.appendChild(td); tr.appendChild(tv); t.appendChild(tr);
+      tr.appendChild(td); tr.appendChild(tv); tt.appendChild(tr);
     });
-    return t;
+    return tt;
   }
 
   // ---- cards ---------------------------------------------------------------
-  var order = ['high', 'medium', 'low', 'good', 'info'];
-  var main = document.getElementById('cards');
-  var groups = {};
-  (D.findings || []).forEach(function (f) { (groups[f.severity] = groups[f.severity] || []).push(f); });
+  function renderCards() {
+    var order = ['high', 'medium', 'low', 'good', 'info'];
+    var main = document.getElementById('cards');
+    main.innerHTML = '';
+    var groups = {};
+    (D.findings || []).forEach(function (f) { (groups[f.severity] = groups[f.severity] || []).push(f); });
 
-  order.forEach(function (sv) {
-    var list = groups[sv] || [];
-    if (!list.length) return;
-    var h = el('h2', null);
-    h.innerHTML = SEVN[sv] + ' <span class="cnt">' + list.length + ' 项</span>';
-    main.appendChild(h);
-    list.forEach(function (f) {
-      var c = el('div', 'card ' + sv);
-      var head = el('div', 'cardhead');
-      head.appendChild(el('span', 'rid', f.rule_id));
-      head.appendChild(el('span', 'ct', f.title));
-      head.appendChild(el('span', 'badge ' + f.state, STN[f.state] || f.state));
-      c.appendChild(head);
-      var subjTxt = f.subject;
-      var ki = subjTxt.indexOf(' / ');
-      var kn = ki > 0 ? KIND[subjTxt.slice(0, ki)] : null;
-      if (kn) subjTxt = kn + subjTxt.slice(ki);
-      c.appendChild(el('div', 'subj', subjTxt + '  ·  ' + (f.group_title || '')));
-      var ev = f.evidence || {};
-      if ((sv === 'high' || sv === 'good') && ev.backups) {
-        var tl = timeline(ev); if (tl) c.appendChild(tl);
-      }
-      c.appendChild(evidenceTable(ev));
-      if (f.advice) {
-        var a = el('div', 'advice');
-        a.innerHTML = '<span class="lbl">处置</span>' + esc(f.advice);
-        c.appendChild(a);
-      }
-      if (f.why) {
-        var d = document.createElement('details');
-        d.appendChild(el('summary', null, '为什么这条判据值得存在'));
-        d.appendChild(el('div', 'why', f.why));
-        if (f.verified_evidence) {
-          var s2 = document.createElement('summary'); s2.textContent = '本机实测证据';
-          d.appendChild(s2);
-          d.appendChild(el('div', 'vev', f.verified_evidence));
+    order.forEach(function (sv) {
+      var list = groups[sv] || [];
+      if (!list.length) return;
+      var h = el('h2', null);
+      h.innerHTML = t(SEV[sv]) + ' <span class="cnt">' + fmt(S.items, list.length) + '</span>';
+      main.appendChild(h);
+      list.forEach(function (f) {
+        var w = W(f);
+        var c = el('div', 'card ' + sv);
+        var head = el('div', 'cardhead');
+        head.appendChild(el('span', 'rid', f.rule_id));
+        head.appendChild(el('span', 'ct', w.title));
+        head.appendChild(el('span', 'badge ' + f.state, ST[f.state] ? t(ST[f.state]) : f.state));
+        c.appendChild(head);
+        var subjTxt = f.subject;
+        var ki = subjTxt.indexOf(' / ');
+        var kn = ki > 0 ? KIND[subjTxt.slice(0, ki)] : null;
+        if (kn) subjTxt = t(kn) + subjTxt.slice(ki);
+        c.appendChild(el('div', 'subj', subjTxt + '  ·  ' + (w.group_title || '')));
+        var ev = f.evidence || {};
+        if ((sv === 'high' || sv === 'good') && ev.backups) {
+          var tl = timeline(ev); if (tl) c.appendChild(tl);
         }
-        c.appendChild(d);
-      }
-      // The ack key has to be typed into cmd with a pipe and spaces inside quotes,
-      // which is the one step of the whole workflow that fails silently. So the
-      // report hands over the finished command instead of a string to transcribe.
-      var k = el('div', 'ackline');
-      var cmd = 'ack.bat "' + f.key + '"';
-      var kb = el('button', 'ackbtn', cmd);
-      kb.type = 'button';
-      kb.title = '点击复制这条命令，粘到 cmd 里执行';
-      kb.onclick = function () {
-        copyText(cmd, function (ok) {
-          kb.textContent = ok ? '已复制 ✓' : '复制失败，请手动选中';
-          setTimeout(function () { kb.textContent = cmd; }, 1600);
-        });
-      };
-      k.appendChild(kb);
-      k.appendChild(el('span', 'ackhint', '标记为已知：只降级这一条结论，不删规则'));
-      c.appendChild(k);
-      main.appendChild(c);
+        c.appendChild(evidenceTable(ev));
+        if (w.advice) {
+          var a = el('div', 'advice');
+          a.innerHTML = '<span class="lbl">' + t(S.advice) + '</span>' + esc(w.advice);
+          c.appendChild(a);
+        }
+        if (w.why) {
+          var d = document.createElement('details');
+          d.appendChild(el('summary', null, t(S.whySum)));
+          d.appendChild(el('div', 'why', w.why));
+          if (w.verified_evidence) {
+            var s2 = document.createElement('summary'); s2.textContent = t(S.vevSum);
+            d.appendChild(s2);
+            d.appendChild(el('div', 'vev', w.verified_evidence));
+          }
+          c.appendChild(d);
+        }
+        // The ack key has to be typed into cmd with a pipe and spaces inside quotes,
+        // which is the one step of the whole workflow that fails silently. So the
+        // report hands over the finished command instead of a string to transcribe.
+        var k = el('div', 'ackline');
+        var cmd = 'ack.bat "' + f.key + '"';
+        var kb = el('button', 'ackbtn', cmd);
+        kb.type = 'button';
+        kb.title = t(S.ackTitle);
+        kb.onclick = function () {
+          copyText(cmd, function (ok) {
+            kb.textContent = ok ? t(S.copied) : t(S.copyFail);
+            setTimeout(function () { kb.textContent = cmd; }, 1600);
+          });
+        };
+        k.appendChild(kb);
+        k.appendChild(el('span', 'ackhint', t(S.ackHint)));
+        c.appendChild(k);
+        main.appendChild(c);
+      });
     });
-  });
 
-  if (!(D.findings || []).length) {
-    main.appendChild(el('div', 'empty', '没有命中任何规则。这不等于机器干净——它可能意味着你的情况还没有对应的实测规则。'));
+    if (!(D.findings || []).length) {
+      main.appendChild(el('div', 'empty', t(S.emptyReport)));
+    }
   }
 
-  var rd = document.getElementById('resolved');
-  if ((D.resolved || []).length) {
+  function renderResolved() {
+    var rd = document.getElementById('resolved');
+    rd.innerHTML = '';
+    var rows = D.resolved || [];
+    if (!rows.length) return;
     var h = el('h2', null);
-    h.innerHTML = '已消失 <span class="cnt">' + D.resolved.length + ' 项（相对基线）</span>';
+    h.innerHTML = t(S.resolvedHead) + ' <span class="cnt">' + fmt(S.resolvedCnt, rows.length) + '</span>';
     rd.appendChild(h);
     var box = el('div', 'resolved-list');
-    D.resolved.forEach(function (r) {
-      box.appendChild(el('div', '', r.rule_id + ' · ' + r.title + ' · ' + r.subject + '（基线中记录于 ' + r.since + '）'));
+    rows.forEach(function (r) {
+      var title = (LANG === 'en' && r.i18n && r.i18n.en && r.i18n.en.title) ? r.i18n.en.title : r.title;
+      box.appendChild(el('div', '', r.rule_id + ' · ' + title + ' · ' + r.subject + fmt(S.resolvedRow, r.since)));
     });
     rd.appendChild(box);
   }
 
-  document.getElementById('f-rules').textContent = D.rules_total;
-  document.getElementById('f-subjects').textContent = D.subjects_total;
-  document.getElementById('f-probes').textContent = norm(D.probes_run).join(', ');
-  document.getElementById('f-bl').textContent = BL.join(', ');
+  function renderFooter() {
+    function fill(name, value) {
+      var nodes = document.querySelectorAll('[data-f="' + name + '"]');
+      for (var i = 0; i < nodes.length; i++) nodes[i].textContent = value;
+    }
+    fill('rules', D.rules_total);
+    fill('subjects', D.subjects_total);
+    fill('probes', norm(D.probes_run).join(', '));
+    fill('bl', BL.join(', '));
+  }
+
+  function renderLangBar() {
+    var bar = document.getElementById('langbar');
+    bar.innerHTML = '';
+    [['zh', '中文'], ['en', 'English']].forEach(function (p) {
+      var b = el('button', 'langbtn', p[1]);
+      b.type = 'button';
+      b.title = t(S.langHint);
+      b.setAttribute('aria-pressed', LANG === p[0] ? 'true' : 'false');
+      b.onclick = function () { setLang(p[0]); };
+      bar.appendChild(b);
+    });
+  }
+
+  function renderAll() {
+    renderMeta(); renderStats(); renderVerdict(); renderCards(); renderResolved(); renderFooter();
+  }
+  function setLang(l) {
+    LANG = l; LI = (l === 'en') ? 1 : 0;
+    var rootEl = document.documentElement;
+    rootEl.setAttribute('data-lang', l);
+    rootEl.setAttribute('lang', l === 'en' ? 'en' : 'zh-CN');
+    document.title = t(S.docTitle);
+    renderLangBar();
+    renderAll();
+  }
+  setLang(LANG);
 })();
 </script>
 </body>

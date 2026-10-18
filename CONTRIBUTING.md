@@ -25,11 +25,32 @@ accident, and new operators expand the surface that lets a contributed rule do s
    list the expected subjects in the `$wantBrowser` / `$wantPers` manifest in `tools/selftest.ps1`.
    A rule with no executing test is a rule whose predicate can be inverted and nobody finds out
    until it matters.
-4. If your rule cites a new evidence field, add its Chinese label to the table in
+4. If your rule cites a new evidence field, add its `[zh, en]` label pair to the table in
    `render/template.html` (and to `BLIND` if it is a blind-spot code). `tools/verify.js` walks every
    `show` key in every rule file and fails on an untranslated one, regardless of whether it fired.
-5. Rebuild the demo: `powershell -File tools\make-demo.ps1`. CI compares `demo/build.json` against a
-   fresh build and goes red when the committed page no longer matches the rule set.
+5. **Write the English wording**, or the run aborts. A rule needs an `i18n.en` block with `title`, one
+   `advice` string *per branch* of your `advice` list, `why` and `verified_evidence`; the rule file needs
+   `i18n.en.group_title`. The engine validates this while loading rules, not while rendering, so a short
+   overlay is a build failure rather than a half-translated report:
+
+   ```json
+   "i18n": { "en": {
+     "title": "A resident binary lives in a user-writable directory",
+     "advice": ["What to do, branch 1 …", "What to do, the fallback branch …"],
+     "why": "Why this criterion deserves to exist.",
+     "verified_evidence": "Hits on my machine: service/Foo (C:\\ProgramData\\…), 2 scheduled tasks."
+   }}
+   ```
+
+   The overlay may only contain wording: it has no access to `when`, `show` or `severity`, so a
+   translation cannot change what fires — `selftest [16]` re-runs the engine on a copy whose English was
+   perturbed and requires byte-identical fingerprints. Quote Chinese inside the English text when the
+   Chinese *is* the evidence (a signer company name, a task path); the gate rejects a field that was
+   never translated, judged by CJK ratio, not by presence.
+6. Rebuild the demo: `powershell -File tools\make-demo.ps1`. CI compares `demo/build.json` against a
+   fresh build and goes red when the committed page no longer matches the rule set — and `verify.js`
+   checks that the committed demo carries the English wording too, because its counts can stay correct
+   while its text is a build behind.
 
 ```bash
 powershell -File tools\selftest.ps1     # must end in "0 FAIL", and 0 SKIP on a machine with out\

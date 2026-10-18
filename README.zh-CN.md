@@ -6,6 +6,7 @@
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![powershell](https://img.shields.io/badge/powershell-5.1%20only-informational)
 ![deps](https://img.shields.io/badge/dependencies-0-green)
+![language](https://img.shields.io/badge/report-%E4%B8%AD%E6%96%87%20%7C%20English-informational)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
 **Read this in English: [README.md](README.md)**（同一份内容、同一批数字，英文版是主文档）
@@ -69,7 +70,12 @@ ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」�
 [在线示例](https://xuange-hu.github.io/winproof/demo/)——那份是从仓库自带的合成夹具渲染的，
 所以它同时演示了"修好又回来"这类在干净机器上根本拍不到的状态：
 
-![report](docs/report.png)
+![report](docs/report-zh.png)
+
+同一份报告、同一次扫描，也可以整页读成英文——语言在打开文件那一刻决定（跟随系统，
+可用 `?lang=en` / `?lang=zh` 覆盖，页头有切换按钮）：
+
+![英文版报告](docs/report.png)
 
 ---
 
@@ -192,6 +198,21 @@ tests/     提交的合成采集夹具：判据的可执行定义
 `when` 决定命中，`show` 决定哪些字段进入**证据指纹**。指纹只由 `show` 列出的字段算出，
 所以一个文件被改写、但相关证据没动时，这条结论仍然是 `PERSIST` 而不是 `CHANGED`——
 否则一次浏览器启动会把该 Profile 上所有规则全部点亮，"什么变了"就又被噪声淹没了。
+
+**两份措辞，一次求值。** 报告是中英双语的，而"语言在哪一层被决定"是一个设计选择，不是细节：
+每条规则在自己的 JSON 里带一份 `i18n.en` 措辞，引擎在算指纹的同一次求值里把它挂到结论上，
+渲染层在**打开页面时**才选语言（跟随 `navigator.language`，可用 `?lang=` 覆盖，页头有切换按钮）。
+由此得到四条：
+
+- 覆盖层只能放 `title / advice[] / why / verified_evidence`，看不到 `when`、`show`、`severity`——
+  所以**翻译改不动命中结果**。这一点不是嘴上说的：`selftest [16]` 把引擎和规则文件复制到临时目录，
+  只改英文措辞再跑一遍，要求两次指纹逐字节相同。
+- `findings.json`、`store\baseline.json` 和所有指纹都不含语言。一次扫描服务两种语言，
+  改一个英文错别字不会让 30 条 `PERSIST` 变成 `CHANGED`。
+- 处置建议按分支下标选取，英文那份跟着**同一个下标**——条件分支由事实决定一次，不按语言各算一遍。
+- 覆盖层在**加载规则时**校验：缺 `i18n.en`、或翻译条数少于规则本身的分支数，直接 `throw` 中止。
+  一份中英夹杂的报告比一份构建失败的报告更难被反驳。
+- 脚本完全没跑起来时，页面仍然是一份完整的中文报告——兜底是一种语言，不是白屏。
 
 ---
 
@@ -359,9 +380,26 @@ PowerShell 5.1 直接报"表达式或语句中包含意外的标记"，而且报
 这顺带成了更好的分层：判据语言属于引擎，面向人的句子属于模板，
 同一个码以后要出英文版报告只需要换一张表，不用碰任何逻辑。
 
+**25. 一个"有没有翻译"的检查，把每一句英文都判成了中文。**
+出双语就必须有一道机器闸门，最直觉的写法是 `if (/[\u4e00-\u9fff…]/.test(英文那半)) 就失败`。
+我那个字符类的第一段区间起点是一个**看起来像空格、确实是 U+0020** 的字符，
+于是整个区间是 U+0020–U+303F——把 ASCII 字母、数字、标点全包进去了。
+这个坑的一般形式是：**一个字符类的终点如果是个汉字，它可能悄悄把整张 ASCII 表吞进来，
+而源码上完全看不出来**。结果它把 128 行正确的中英对照全部判红；
+而更要命的是反过来——**一页根本没翻译的内容它会放行**，因为它断言的其实是
+"不含某个大块里的字符"，不是"读起来像英文"。
+修法按"能被证明"的顺序来：字符类一律写成 `\u3000` 这种转义，让源码没法对自己撒谎；
+然后干脆不再对源码做断言。`tools/i18n-probe.html` 把报告分别按 `?lang=en` 和 `?lang=zh`
+装进 iframe，遍历每一个文本节点，只保留**在屏幕上真的占了一块位置**的那些，
+量的是读者看见的措辞，而不是一个永远同时装着两种语言的文件字节。
+还有第三点：这道闸门现在**故意允许**英文里出现中文——PS-01 的证据里写着任务名 自动拨号，
+PS-07 的证据里写着签名者 济南快安网络科技。这些是读者要能在自己机器上照着找的值，
+翻译掉就等于把证据毁了。所以真正断言的是一个比例（整段没翻译是 100% 中文，
+引用一个专有名词不到 1%），外加"英文那半不许和中文那半一模一样"。
+
 ---
 
-## 已知答案测试：81 PASS / 0 FAIL
+## 已知答案测试：90 PASS / 0 FAIL
 
 判据先于扫描逻辑定义。跑 `powershell -File tools\selftest.ps1`：
 
@@ -374,11 +412,13 @@ PowerShell 5.1 直接报"表达式或语句中包含意外的标记"，而且报
 [6]  夹具 D：只点亮引用了该字段的规则                [14] 真机驻留事实 vs 独立重算的谓词
 [7]  acknowledge 只降级不删规则                      [15] 每条"残留"都要独立复核为确实不存在
 [8]  驻留夹具：7 条规则全触发，含干净机器上闲置的那 4 条
+[16] 英文覆盖层必须完整、分支对齐，并且进不了指纹
 ```
 
-**[1]–[13] 跑在 `tests/fixtures/` 里两份提交的合成采集上，换任何一台 Windows 结果都一样**——
+**[1]–[13] 与 [16] 跑在 `tests/fixtures/` 里两份提交的合成采集上，换任何一台 Windows 结果都一样**——
 包括一台从没被劫持过的机器、一台没装浏览器的机器、以及 CI 里的一次性 runner。
 [14][15] 跑在 `out\` 下的真机采集上，缺文件时输出 `SKIP` 而不是失败（当前 0 SKIP）。
+编号按加入顺序排，所以一节夹具测试排在最后：把 [14][15] 挪号会打断上面所有对它们的引用。
 
 夹具不是快照。清单 `$wantBrowser` / `$wantPers` 把每条规则映射到"这个夹具应当命中的对象集合"，
 `Check-Manifest` 双向断言：既不许少，也不许出现清单之外的结论（`no finding outside the manifest`）。
@@ -398,10 +438,24 @@ PowerShell 5.1 直接报"表达式或语句中包含意外的标记"，而且报
 [15] 专门用来防止第 8 条那个假阳性复发——任何被 `PS-01` 称为残留的行，
 都会在测试里重新 `Test-Path` 一次，且裸命令名直接判为缺陷。
 
+[16] 是保证第二语言不掺假的那道闸门，也是唯一一节会把引擎和规则文件复制进临时目录再跑的测试。
+它断言三件事：每条结论都带着英文标题、`why` 和分组名；翻译后的建议列表按**同一个分支下标**对齐——
+用映射关系来断言（同一个中文分支必须永远给出同一个英文分支，两个不同中文分支不许塌到同一句英文上），
+因为 `.ps1` 里不许出现参与比较的那两段中文字面量；以及在一份**故意改过英文措辞**的副本上重跑引擎，
+指纹必须逐字节不变——这才是"翻译改不动判定"的证明，而不是一句声明。
+收尾是三次反向运行：规则没有覆盖层、覆盖层少一条建议分支、规则文件没有英文分组名，
+三种情况都必须中止本次运行，而不是渲染出一份中英夹杂的报告。
+
 ### CI
 
 `.github/workflows/ci.yml` 在 `windows-latest` 上按真实顺序跑完整链路：
 两个探针 → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` → `selftest.ps1` → `hygiene.ps1` → `node tools/verify.js`。
+
+`verify.js` 里带着那些不需要浏览器的双语检查：它把 `render/template.html` 的语言表**求值**出来，
+对不是 `[中, 英]` 成对的行、英文那半仍是中文的行、翻译时丢掉 `%1` 占位符的行、
+以及 17 条规则里任何一个覆盖层不足的规则判失败。它同样检查**已发布的示例页**——
+一个访客在过期产物上点 "English" 仍然会看到中文，而示例页过期这件事在这里所有其他闸门都是不可见的：
+它的命中数可以完全正确，措辞却是上一个构建的。
 
 其中一步是契约断言而不是"没报错就行"：**刚建立基线立刻复扫，`counts.NEW` 必须为 0**。
 这一条如果哪天变红，说明指纹计算引入了与事实无关的抖动（比如把时间戳算进了证据），
@@ -417,11 +471,19 @@ PowerShell 5.1 直接报"表达式或语句中包含意外的标记"，而且报
 
 ```
 msedge --headless=new --allow-file-access-from-files --virtual-time-budget=20000 \
-       --dump-dom file:///.../tools/layout-probe.html
+       --dump-dom "file:///.../tools/layout-probe.html?lang=zh"
 ```
 
-当前 **7 个宽度全部 0 像素横向溢出**（驻留类结论动辄一条 120 字符的 Windows 路径）。
-之所以要这么测：这类报告最容易在"我屏幕上看着没问题"中被毁掉。
+今天按**两种语言各重测了一遍：7 个宽度在中文和英文下都是 0 像素横向溢出**。
+之所以两种都要量：驻留类结论动辄一条 120 字符的 Windows 路径，而两种语言的度量不一样——
+英文卡片标题更长，中文证据标签每字更宽。之所以要这么测：这类报告最容易在"我屏幕上看着没问题"中被毁掉。
+
+`tools/i18n-probe.html` 是同一个思路用在措辞而不是版式上。直接 grep 渲染后的报告证明不了任何事，
+因为那个文件**永远同时装着两种语言**：没选中的那份藏在 `display:none` 的 span 里，
+规则原文则在数据块里出现两遍。所以这个探针把报告分别按 `?lang=en` 和 `?lang=zh` 打开，
+遍历文本节点，只保留在屏幕上真的占了位置的那些。本机英文渲染里剩下的中文只有三处：
+语言切换按钮自己的标签「中文」、一个签名者公司名、一个任务路径。
+这就是预期答案——也只有这种量法能区分"翻译过了"和"检查器分不出来"。
 
 ### 那份在线示例是怎么来的
 
@@ -496,7 +558,7 @@ Auto 启动且不在 Windows 目录的服务、`Group=Early-Launch` 的 ELAM 驱
 ## English
 
 The full English document is [README.md](README.md). It carries the same rules, the same hit counts
-and the same 24 defect write-ups; nothing here is abbreviated there.
+and the same 25 defect write-ups; nothing here is abbreviated there.
 
 ---
 
@@ -514,7 +576,7 @@ and the same 24 defect write-ups; nothing here is abbreviated there.
 可以永远返回空而不报错。
 
 ```bash
-powershell -File tools\selftest.ps1     # 81 PASS 才算过（夹具部分在任何 Windows 上都应一致）
+powershell -File tools\selftest.ps1     # 90 PASS 才算过（夹具部分在任何 Windows 上都应一致）
 node tools\verify.js                    # 结构 + 标签覆盖 + 脱敏
 powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCII 或带 BOM
 ```
@@ -523,9 +585,16 @@ powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCI
 请把它同时在 `tests/fixtures/` 里造一条能打中的记录，并在 `tools\selftest.ps1` 的清单里写上预期对象——
 否则这条规则永远不会被执行到。
 
-引入新的事实字段时，`show` 里每个键都要在 `render/template.html` 的标签表里有中文条目（`verify.js` 会遍历
-全部规则断言这一点，与本机命中与否无关）；如果它是一个盲区码，则要加进 `BLIND` 映射表。
+引入新的事实字段时，`show` 里每个键都要在 `render/template.html` 的标签表里有一条 `[中, 英]` 对照
+（`verify.js` 会遍历全部规则断言这一点，与本机命中与否无关）；如果它是一个盲区码，则要加进 `BLIND` 映射表。
 引擎只发码、模板负责句子——第 24 条解释了为什么必须是这个方向。
+
+新规则还必须带一份 `"i18n": { "en": { … } }`：`title`、**与分支数一一对应**的 `advice`、`why`、
+`verified_evidence`，规则文件层面还要有 `i18n.en.group_title`。这份要求在**加载规则时**校验：
+缺覆盖层、或翻译条数少于规则本身的分支数，引擎直接中止——一份中英夹杂的报告比一份构建失败的报告更难被反驳。
+覆盖层只能放措辞，看不到 `when` / `show` / `severity`，所以翻译永远改不动判定，
+`selftest [16]` 就是钉住这一点的测试。英文正文里想引用中文尽管引用（签名者公司名、任务路径），
+那是证据本身；闸门拦的是"这一段根本没翻译"。
 
 `hygiene.ps1` 拦的是两类在 Windows 上不会报错的坑：LF-only 的 `.bat` 会被 cmd 执行一半；
 无 BOM 的 `.ps1` 会被 PowerShell 5.1 按活动代码页解码，注释里的中文变成乱码字节，

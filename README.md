@@ -6,9 +6,10 @@
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![powershell](https://img.shields.io/badge/powershell-5.1%20only-informational)
 ![deps](https://img.shields.io/badge/dependencies-0-green)
+![language](https://img.shields.io/badge/report-%E4%B8%AD%E6%96%87%20%7C%20English-informational)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
-**简体中文版：[README.zh-CN.md](README.zh-CN.md)** — same rules, same numbers, same 24 defect write-ups.
+**简体中文版：[README.zh-CN.md](README.zh-CN.md)** — same rules, same numbers, same 25 defect write-ups.
 
 > Not another cleaner. It answers the three questions a cleaner cannot answer:
 > **what changed · when it changed · whether the fix you just applied will be reverted.**
@@ -79,6 +80,11 @@ it is rendered from the committed fixtures, so it also demonstrates states like 
 which a clean machine can never produce:
 
 ![report](docs/report.png)
+
+The same page in Chinese — one scan serves both wordings, the language is picked when the file is opened,
+and the toggle is in the header (see [Architecture](#architecture-five-layers-no-overlapping-responsibilities)):
+
+![report in Chinese](docs/report-zh.png)
 
 ---
 
@@ -211,9 +217,29 @@ The fingerprint is computed only from the fields `show` lists, so a file being r
 evidence is untouched keeps the conclusion at `PERSIST` rather than flipping it to `CHANGED` — otherwise
 one browser start would light up every rule on that profile and "what changed?" would be noise again.
 
+**Two wordings, one evaluation.** The report is bilingual, and where the language is chosen is a design
+decision, not a detail. Each rule file carries its own English wording under `i18n.en`; the engine attaches
+it to every finding in the same pass it computes the fingerprint; the renderer picks the language when the
+page is opened (`navigator.language`, overridable with `?lang=en` / `?lang=zh` and by a toggle in the
+header). Consequences:
+
+- The overlay may only hold `title / advice[] / why / verified_evidence`. It has no access to `when`, `show`
+  or `severity`, so **a translation cannot change what fires**. `selftest [16]` proves it rather than
+  asserting it: it re-runs the engine against a scratch copy whose English wording has been perturbed and
+  requires the fingerprints to come out byte-identical.
+- `findings.json`, `store\baseline.json` and every fingerprint stay locale-free. One scan serves both
+  languages, and fixing a typo in a sentence never turns 30 `PERSIST` rows into `CHANGED`.
+- Advice is selected by branch index, and the English half follows the *same* index — the conditional
+  remediation is derived from the facts once, not re-derived per language.
+- The overlay is validated at load time. A rule with no `i18n.en`, or with fewer translated branches than the
+  rule has branches, aborts the run: a report that quietly mixes two languages is worse than one that fails
+  to build.
+- If the script never runs at all, the page still renders as a complete Chinese report — the fallback is a
+  language, not a blank screen.
+
 ---
 
-## Twenty-four defects, and how each one became code
+## Twenty-five defects, and how each one became code
 
 These are not reflections. Each corresponds to logic that is still alive in the repository.
 (The Chinese README carries the long form of each; nothing below is a different claim.)
@@ -394,9 +420,27 @@ the renderer's `BLIND` map. That turned out to be better layering anyway: criter
 engine, human sentences belong to the template — so shipping an English report later means swapping one
 table, not touching any logic.
 
+**25. A "is this translated?" gate that matched every English sentence.**
+Shipping two languages needs a machine gate, and the obvious one is
+`if (/[\u4e00-\u9fff…]/.test(englishHalf)) fail()`. Mine started its first range with a character that
+*looks* like a space and **is** U+0020, so the class ran from U+0020 to U+303F and matched every Latin
+letter, digit and punctuation mark on the page. The general form of the trap: a character class whose
+endpoint is a Han character can silently swallow the whole ASCII table, and nothing in the source shows it.
+It failed 128 correct rows — and, the part that matters, it would have **passed** a page nobody had
+translated, because what it asserted was "contains no character from a huge block", not "reads as English".
+Fixed in the order that made it provable: write the class with `\u3000`-style escapes so the source cannot
+lie about itself, then stop asserting on the source at all. `tools/i18n-probe.html` loads the report at
+`?lang=en` and `?lang=zh`, walks every text node and keeps only the ones that own a box on screen, so the
+measurement is the prose a reader sees — not the bytes of a file that always contains both languages. And
+the gate now keeps Chinese inside English on purpose: PS-01's evidence names the task 自动拨号, PS-07's
+names the signer 济南快安网络科技. Those are values a reader has to be able to look for on their own
+machine, so translating them would destroy the evidence. What gets asserted instead is a ratio (a
+copy-pasted paragraph is 100 % Chinese, a quoted proper noun is under 1 %) plus "the English half may not be
+a copy of the Chinese half".
+
 ---
 
-## Known-answer tests: 81 PASS / 0 FAIL
+## Known-answer tests: 90 PASS / 0 FAIL
 
 The criteria are defined before the scanning logic. Run `powershell -File tools\selftest.ps1`:
 
@@ -416,12 +460,15 @@ The criteria are defined before the scanning logic. Run `powershell -File tools\
 [13] the search engine may only be judged on the protected document, and unreadable must be said out loud
 [14] live persistence facts vs predicates re-derived by independent logic
 [15] every row called "residue" is independently re-checked as genuinely missing
+[16] the English overlay is attached, branch-aligned, and outside the fingerprint
 ```
 
-**[1]–[13] run against the two committed synthetic captures in `tests/fixtures/`, so they produce the same
-verdict on any Windows** — including a machine that was never hijacked, a machine with no browser installed,
-and the throwaway runner in CI. [14][15] run against the real captures under `out\` and print `SKIP` rather
-than failing when those files are absent (currently 0 SKIP).
+**[1]–[13] and [16] run against the two committed synthetic captures in `tests/fixtures/`, so they produce
+the same verdict on any Windows** — including a machine that was never hijacked, a machine with no browser
+installed, and the throwaway runner in CI. [14][15] run against the real captures under `out\` and print
+`SKIP` rather than failing when those files are absent (currently 0 SKIP). (The numbering follows the order
+sections were added, which is why a fixture section sits at the end: renumbering [14][15] would break every
+reference to them above.)
 
 The fixture is not a snapshot. The manifests `$wantBrowser` / `$wantPers` map each rule to the set of objects
 the capture *should* hit, and `Check-Manifest` asserts both directions: nothing may be missing, and no
@@ -445,11 +492,29 @@ test red — but a rule implementation drifting away from the criterion it claim
 [15] exists specifically to stop defect #8 from ever coming back: any row `PS-01` calls residue is
 `Test-Path`-ed again inside the test, and a bare command name is judged a defect on sight.
 
+[16] is the gate that keeps the second language honest, and it is the only section that copies the engine
+into a scratch directory to run it. Three things are asserted. That every finding arrives with an English
+title, `why` and group title. That the translated advice list is indexed by the *same* branch the Chinese
+text came from — checked as a mapping (one Chinese branch must always give one English branch, two Chinese
+branches may never collapse onto one English string) because a `.ps1` may not contain the Chinese literals
+the comparison is about. And, on a scratch copy whose English wording has been deliberately perturbed, that
+the engine still emits **byte-identical fingerprints** — which is the proof that a translation can never
+disturb a baseline. It closes with three negative runs: a rule with no overlay, an overlay with one advice
+branch missing, and a rule file with no English group title must each abort the run rather than render a
+half-translated report.
+
 ### CI
 
 `.github/workflows/ci.yml` runs the whole chain on `windows-latest`, in the real order:
 two probes → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` → `selftest.ps1` →
 `hygiene.ps1` → `node tools/verify.js`.
+
+`verify.js` carries the bilingual checks that need no browser at all: it evaluates the renderer's locale
+tables out of `render/template.html`, and fails on a row that is not a `[zh, en]` pair, on an English half
+that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 17 rules
+whose overlay is short. It also checks the *published* demo for the same property, because a visitor who
+clicks "English" on a stale artefact gets Chinese anyway — and a stale demo is invisible to every other gate
+in here, since its counts can be perfectly correct while its wording is a build behind.
 
 One of those steps is a contract assertion rather than "no error was raised": **create a baseline, re-scan
 immediately, and `counts.NEW` must be 0.** If that ever turns red, fingerprint computation has picked up
@@ -472,12 +537,22 @@ There is also `tools/layout-probe.html`: it loads the report into iframes from 3
 
 ```
 msedge --headless=new --allow-file-access-from-files --virtual-time-budget=20000 \
-       --dump-dom file:///.../tools/layout-probe.html
+       --dump-dom "file:///.../tools/layout-probe.html?lang=en"
 ```
 
-Currently **all 7 widths have 0 horizontal overflow**, which matters because persistence findings are routinely
-120-character Windows paths. The reason to measure this at all: reports like this get ruined in the middle of
-"looks fine on my screen".
+Re-measured today for **both** wordings: **all 7 widths have 0 horizontal overflow in English and in
+Chinese**, which matters because persistence findings are routinely 120-character Windows paths and because
+the two languages have different metrics — an English card title is longer, a Chinese evidence label is
+wider per glyph. The reason to measure this at all: reports like this get ruined in the middle of "looks
+fine on my screen".
+
+`tools/i18n-probe.html` is the same idea applied to wording instead of geometry. Grepping a rendered report
+for Chinese proves nothing, because the file *always* contains both languages — the inactive one sits in
+hidden spans, and the rule text appears twice inside the data block. So the probe loads the report at
+`?lang=en` and `?lang=zh`, keeps only the text nodes that own a box on screen, and reports what a reader
+actually sees. On this machine the English render contains exactly three Chinese runs: the language toggle's
+own label, one signer company name, and one task path. That is the expected answer, and it is the only
+answer that distinguishes "translated" from "the checker cannot tell".
 
 ### How the live demo was made
 
@@ -573,7 +648,7 @@ a format document — which is why the engine reads `restore_on_startup` in `Sec
 path that was never validated against real output can return empty forever without an error.
 
 ```bash
-powershell -File tools\selftest.ps1     # 81 PASS or it did not pass (the fixture part must be identical on any Windows)
+powershell -File tools\selftest.ps1     # 90 PASS or it did not pass (the fixture part must be identical on any Windows)
 node tools\verify.js                    # structure + label coverage + redaction
 powershell -File tools\hygiene.ps1      # .bat must be CRLF; .ps1 must be pure ASCII or carry a BOM
 ```
@@ -586,6 +661,14 @@ When you introduce a new fact field, every key in `show` needs a label entry in 
 (`verify.js` walks all rules and asserts this regardless of local hits), and a new blind-spot code needs an
 entry in the `BLIND` map. The engine emits codes, the template owns the sentences — defect #24 explains why
 the direction has to be that way.
+
+A new rule also needs `"i18n": { "en": { … } }` with `title`, one `advice` string **per branch**, `why` and
+`verified_evidence`, and the rule file needs `i18n.en.group_title`. This is enforced at rule-load time, not
+at render time: the engine aborts on a missing or short overlay, because a report that mixes two languages is
+harder to disprove than one that fails to build. The overlay is wording only — it cannot see `when`, `show` or
+`severity`, so a translation can never change a verdict, and `selftest [16]` is the test that holds that line.
+Quote Chinese inside the English text freely when it *is* the evidence (a signer name, a task path); what the
+gate rejects is a field that was never translated.
 
 `hygiene.ps1` blocks two classes of failure that Windows does not report as errors: an LF-only `.bat` is
 executed half-way by cmd, and a BOM-less `.ps1` is decoded by PowerShell 5.1 through the active code page, so

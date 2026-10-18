@@ -12,6 +12,12 @@
 <div id="out">running</div>
 <script>
 var WIDTHS = [1280, 1024, 860, 720, 600, 420, 360];
+// The report is bilingual, and the two wordings have different metrics: an
+// English card title is longer than its Chinese counterpart, while the Chinese
+// evidence label column carries more characters per pixel. Both have to fit, so
+// the probe forwards its own ?lang= to the iframe.
+var LANG = (/(?:^|[?&])lang=([a-zA-Z-]+)/.exec(location.search) || [])[1] || '';
+var SRC = '../out/report.html' + (LANG ? '?lang=' + LANG : '');
 var results = [];
 var i = 0;
 
@@ -27,7 +33,7 @@ function step() {
   var f = document.createElement('iframe');
   f.style.width = w + 'px';
   f.style.height = '700px';
-  f.src = '../out/report.html';
+  f.src = SRC;
   f.onload = function () {
     try {
       var d = f.contentDocument.documentElement;
@@ -43,6 +49,7 @@ function step() {
         }
       });
       results.push({
+        lang: LANG || 'auto', src: SRC,
         width: w, scrollW: d.scrollWidth, clientW: d.clientWidth, overflowPx: over, worst: worst,
         // The card header is rid + title + state badge in one flex row; a missing
         // gap there is the kind of thing only a real layout can answer.
@@ -56,7 +63,7 @@ function step() {
         })()
       });
     } catch (e) {
-      results.push({ width: w, error: String(e.message) });
+      results.push({ lang: LANG || 'auto', src: SRC, width: w, error: String(e.message) });
     }
     step();
   };

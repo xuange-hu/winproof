@@ -4,10 +4,13 @@ $ErrorActionPreference = 'Stop'
 # and the rule files are the product's whole judgement, so both are exercised
 # against committed synthetic captures rather than hoped for.
 #
-# Sections [1]-[13] run on tests/fixtures/*.json and therefore give the same
-# verdict on any machine, including one that has never been hijacked and one with
-# no browser installed at all. Sections [14]-[15] re-run the same rules against
-# the real capture on this box and skip cleanly when it is absent.
+# Sections [1]-[13] and [16] run on tests/fixtures/*.json and therefore give the
+# same verdict on any machine, including one that has never been hijacked and one
+# with no browser installed at all. Sections [14]-[15] re-run the same rules
+# against the real capture on this box and skip cleanly when it is absent. (The
+# numbering follows the order sections were added, so [16] is a fixture section
+# that runs after the live ones; renaming it would break the references to
+# [14]-[15] in the README.)
 #
 # Nothing here writes outside out\selftest, and no real browser profile is read.
 
@@ -516,6 +519,126 @@ if (-not (Test-Path $realPers)) {
         Skip 'no bare-command task on this box to re-check'
     }
 }
+
+# --- [16] the English overlay is wording, never a verdict --------------------
+# The report is bilingual, and the design claim is that a translation cannot
+# change what fires. That is only true if three things hold: the overlay is
+# attached to every row, its advice list is indexed by the same branch the
+# Chinese text came from, and nothing in the fingerprint reads it. A typo fixed
+# in an English sentence must not turn 30 PERSIST rows into CHANGED - that would
+# make the whole baseline diff lie about a documentation edit.
+Write-Output ''
+Write-Output '[16] the i18n.en overlay is attached, branch-aligned, and outside the fingerprint'
+$noEn = @($both | Where-Object {
+    (-not $_.i18n) -or (-not $_.i18n.en) -or
+    [string]::IsNullOrWhiteSpace([string]$_.i18n.en.title) -or
+    [string]::IsNullOrWhiteSpace([string]$_.i18n.en.why) -or
+    [string]::IsNullOrWhiteSpace([string]$_.i18n.en.group_title)
+})
+Expect ('every finding carries an English title, why and group title (' + $noEn.Count + ' missing)') ($noEn.Count -eq 0)
+
+# Asserted as a mapping, not a text comparison, because this file must stay ASCII
+# and cannot quote either wording: for each rule, one Chinese branch must always
+# yield the same English branch, and two different Chinese branches must never
+# collapse onto one English string. Either failure is an overlay whose entries
+# are out of order with the advice list they translate.
+$branchBad = @()
+foreach ($g in ($both | Group-Object rule_id)) {
+    $fwd = @{}
+    $rev = @{}
+    foreach ($f in $g.Group) {
+        $z = [string]$f.advice
+        $e = [string]$f.i18n.en.advice
+        if ($z -eq '' -or $e -eq '') { continue }
+        if ($fwd.ContainsKey($z)) {
+            if ($fwd[$z] -ne $e) { $branchBad += ($g.Name + ' one branch two translations') }
+        } else { $fwd[$z] = $e }
+        if ($rev.ContainsKey($e)) {
+            if ($rev[$e] -ne $z) { $branchBad += ($g.Name + ' two branches one translation') }
+        } else { $rev[$e] = $z }
+    }
+}
+Expect ('English advice follows the same branch index as the Chinese (' + ($branchBad -join '; ') + ')') ($branchBad.Count -eq 0)
+# A mapping test is vacuous on a rule whose fixtures only ever take one branch,
+# so the coverage behind it is printed rather than assumed.
+$multi = @(foreach ($g in ($both | Group-Object rule_id)) {
+        $u = @($g.Group | ForEach-Object { [string]$_.advice } | Where-Object { $_ -ne '' } | Sort-Object -Unique)
+        if ($u.Count -gt 1) { $g.Name }
+    })
+Write-Output ('     > rules whose fixtures take 2+ distinct advice branches: ' + ($multi -join ', '))
+Expect 'the branch mapping is actually exercised (at least two rules take different branches)' ($multi.Count -ge 2)
+
+# Load-time contract, run against a scratch copy of the engine and the rule files
+# so the real rules/ directory is never touched.
+function New-ScratchRoot([string]$name) {
+    $dir = Join-Path $work $name
+    New-Item -ItemType Directory -Force -Path (Join-Path $dir 'rules') | Out-Null
+    Copy-Item $engine (Join-Path $dir 'engine.ps1') -Force
+    Copy-Item (Join-Path $root 'rules\*.json') (Join-Path $dir 'rules') -Force
+    return $dir
+}
+function Run-Scratch([string]$dir) {
+    $res = @(& (Join-Path $dir 'engine.ps1') -Mode scan -FactsFile @($fxBrowser, $fxPers) `
+        -StoreDir (Join-Path $dir 'store') -OutFile (Join-Path $dir 'f.json') 2>&1)
+    return Load (Join-Path $dir 'f.json')
+}
+
+# Fingerprint invariance: change only the English wording, re-run, compare.
+$dirA = New-ScratchRoot 'i16-pristine'
+$dirB = New-ScratchRoot 'i16-retranslated'
+foreach ($n in @(Get-ChildItem (Join-Path $dirB 'rules') -Filter *.json)) {
+    $rj = Load $n.FullName
+    $rj.i18n.en.group_title = ([string]$rj.i18n.en.group_title) + ' (revised)'
+    foreach ($r in @($rj.rules)) {
+        foreach ($slot in @('title', 'why', 'verified_evidence')) {
+            $r.i18n.en.$slot = ([string]$r.i18n.en.$slot) + ' (revised)'
+        }
+        $r.i18n.en.advice = @(@($r.i18n.en.advice) | ForEach-Object { ([string]$_) + ' (revised)' })
+    }
+    Save $rj $n.FullName
+}
+$fpA = @(Run-Scratch $dirA)
+$fpB = @(Run-Scratch $dirB)
+$docA = $fpA[0]
+$docB = $fpB[0]
+$sigA = @($docA.findings | ForEach-Object { [string]$_.key + '=' + [string]$_.fingerprint } | Sort-Object)
+$sigB = @($docB.findings | ForEach-Object { [string]$_.key + '=' + [string]$_.fingerprint } | Sort-Object)
+Expect ('a retranslation produces the same findings (' + $docA.findings.Count + ' vs ' + $docB.findings.Count + ')') ($docA.findings.Count -eq $docB.findings.Count)
+Expect ('and byte-identical fingerprints - wording is not evidence') (SetEq $sigA $sigB)
+$changed = @()
+foreach ($f in $docB.findings) {
+    if ([string]$f.i18n.en.title -notmatch '\(revised\)') { $changed += [string]$f.rule_id }
+}
+Expect ('the perturbed copy really was perturbed (' + $changed.Count + ' rows left un-perturbed)') ($changed.Count -eq 0)
+
+$dirC = New-ScratchRoot 'i16-no-overlay'
+$cf = Join-Path $dirC 'rules\browser.json'
+$cj = Load $cf
+foreach ($r in @($cj.rules)) { if ([string]$r.id -eq 'BR-03') { $r.PSObject.Properties.Remove('i18n') } }
+Save $cj $cf
+$msgC = ''
+try { Run-Scratch $dirC | Out-Null } catch { $msgC = [string]$_.Exception.Message }
+Expect ('a rule with no i18n.en aborts the run rather than mixing languages (' + $msgC + ')') ($msgC -match 'no i18n.en wording')
+
+$dirD = New-ScratchRoot 'i16-short-advice'
+$df = Join-Path $dirD 'rules\browser.json'
+$dj = Load $df
+foreach ($r in @($dj.rules)) {
+    if ([string]$r.id -eq 'BR-01') { $r.i18n.en.advice = @(@($r.i18n.en.advice) | Select-Object -Skip 1) }
+}
+Save $dj $df
+$msgD = ''
+try { Run-Scratch $dirD | Out-Null } catch { $msgD = [string]$_.Exception.Message }
+Expect ('an overlay with fewer advice branches than the rule aborts the run (' + $msgD + ')') ($msgD -match 'i18n.en.advice has')
+
+$dirE = New-ScratchRoot 'i16-no-group'
+$ef = Join-Path $dirE 'rules\persistence.json'
+$ej = Load $ef
+$ej.i18n.en.PSObject.Properties.Remove('group_title')
+Save $ej $ef
+$msgE = ''
+try { Run-Scratch $dirE | Out-Null } catch { $msgE = [string]$_.Exception.Message }
+Expect ('a rule file with no English group title aborts the run (' + $msgE + ')') ($msgE -match 'no i18n.en.group_title')
 
 Write-Output ''
 Write-Output ('SELFTEST: ' + $pass + ' PASS, ' + $fail + ' FAIL, ' + $skip + ' SKIP')
