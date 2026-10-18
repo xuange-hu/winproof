@@ -91,6 +91,29 @@ jobs:
       - name: Report integrity, label coverage and redaction
         run: node tools/verify.js
 
+      - name: The release zip must survive a double-click
+        # The distributed artefact is a zip that someone extracts and double-clicks, so
+        # the line endings inside it are part of the product. `git archive` honours
+        # .gitattributes, but that is exactly the kind of thing that silently stops
+        # being true when somebody adds `* text=auto`, and an LF-only .bat is parsed
+        # halfway by cmd.exe and surfaces as an unrelated syntax error on the victim's
+        # machine. Count lines, count CR-terminated lines, require equality.
+        shell: bash
+        run: |
+          set -eu
+          git archive --format=zip -o "$RUNNER_TEMP/wp.zip" --prefix=wp/ HEAD
+          cd "$RUNNER_TEMP" && rm -rf wp && unzip -q -o wp.zip
+          for f in scan.bat baseline.bat ack.bat; do
+            lines=$(grep -c '' "wp/$f")
+            crlf=$(grep -c $'\r$' "wp/$f" || true)
+            echo "$f lines=$lines crlf=$crlf"
+            if [ "$lines" != "$crlf" ]; then
+              echo "wp/$f has $((lines - crlf)) bare LF lines - cmd.exe would mis-parse it"
+              exit 1
+            fi
+          done
+          echo "release zip is double-clickable"
+
       - name: Upload the report this runner produced
         # This is the runner's own machine state, not a demo dataset. It exists so
         # a reviewer can open one HTML file without owning a Windows box.
