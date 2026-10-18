@@ -52,8 +52,8 @@
 
 ## 30 秒上手
 
-不想 clone：到 [Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.0.0) 下
-`winproof-1.0.0.zip`（183 KB，解压即用；CI 每次都会验证这个包里三个 `.bat` 全是 CRLF，
+不想 clone：到 [Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.1.0) 下
+`winproof-1.1.0.zip`（388 KB，解压即用；CI 每次都会验证这个包里三个 `.bat` 全是 CRLF，
 因为一个 LF-only 的批处理会被 cmd 执行一半，然后在你的机器上报一个跟真因无关的语法错误）。
 
 ```

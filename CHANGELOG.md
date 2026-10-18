@@ -5,7 +5,14 @@ All notable changes to this project are documented here. The format follows
 are the dates the commits landed — this file was written after `v1.0.0` and describes work already in
 the tree rather than pretending the history was planned.
 
-## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.0.0...HEAD)
+## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.1.0...HEAD)
+
+Nothing pending.
+
+## [1.1.0] — 2026-10-18
+
+The report is now bilingual without the evaluation becoming locale-aware. 90 assertions, four gates
+(`selftest.ps1`, `verify.js`, `hygiene.ps1`, and the two headless probes), one double-click entry point.
 
 ### Added
 
@@ -128,4 +135,5 @@ static HTML report.
   like in the wild comes from public cases, and the README says so instead of inventing a success
   story.
 
+[1.1.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.1.0
 [1.0.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.0.0
