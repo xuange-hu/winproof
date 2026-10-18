@@ -9,7 +9,7 @@
 ![language](https://img.shields.io/badge/report-%E4%B8%AD%E6%96%87%20%7C%20English-informational)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 
-**简体中文版：[README.zh-CN.md](README.zh-CN.md)** — same rules, same numbers, same 25 defect write-ups.
+**简体中文版：[README.zh-CN.md](README.zh-CN.md)** — same rules, same numbers, same 26 defect write-ups.
 
 > Not another cleaner. It answers the three questions a cleaner cannot answer:
 > **what changed · when it changed · whether the fix you just applied will be reverted.**
@@ -88,7 +88,7 @@ and the toggle is in the header (see [Architecture](#architecture-five-layers-no
 
 ---
 
-## Detection inventory: 17 rules, each restatable as one concrete observation
+## Detection inventory: 18 rules, each restatable as one concrete observation
 
 This is not "a long list so it looks thorough". What follows each rule is **what it looks like on your
 machine**. Every rule in `rules/*.json` must fill `verified_evidence` with hit counts and object names
@@ -109,7 +109,7 @@ produced by an actual run — a rule without measured evidence does not reach ma
 | BR-09 | medium | The default search engine's `keyword`/URL is blocklisted, **or** `enforced_by_policy=true` | The startup page decides what you see when you open the browser; the search engine decides what your searches return, and that only shows up when you actually search. The policy half separates "you installed the wrong thing" from "something decided for you" — the remediations are not the same |
 | BR-10 | info | This object has surfaces this tool **cannot read** (engine stored as a hash, no `Secure Preferences`, JSON parse failure) | A scanner that only reports problems has an uninformative "nothing found": it cannot distinguish *this machine is clean* from *this machine contains things I do not cover*. This rule turns the coverage boundary into a conclusion that is itself baseline-tracked |
 
-**Boot-time persistence: Run keys, services, drivers, network layer — 7 rules**
+**Boot-time persistence: Run keys, services, drivers, network layer — 8 rules**
 
 | Rule | Severity | The condition, in one line | Why it is a separate rule |
 |---|---|---|---|
@@ -120,6 +120,7 @@ produced by an actual run — a rule without measured evidence does not reach ma
 | PS-05 | high | A `Debugger` value exists under IFEO | The highest-impact single-point persistence: applies only to a named process, looks normal in any process list, and needs administration rights to write |
 | PS-06 | high | The Winsock LSP provider is not a system DLL | This registry position has very few entries and very little churn, so one non-system provider is a hard signal |
 | PS-07 | low | A resident binary lives in a user-writable directory (excluding exactly three Microsoft signer names) | The Microsoft exclusion is mandatory, otherwise Defender's own `MpCmdRun` / `MsMpEng` get reported as suspicious |
+| PS-08 | high | A startup command line carries a credential as a plaintext argument (`rasdial … user pass`, `net user … pass`, or a `--password=`/`token=` flag) | Neither antivirus nor a startup manager reads the *arguments* of a command that is itself legitimately signed. The probe ships only a masked copy (`cmd_masked`), so the rule reports the exposure without ever carrying the secret into the report |
 
 The blocklist is currently 9 tokens (`2345` `pbgia` `hao.360` `mydown` `so.com` `360safe` `duba`
 `haosf` `win23`). In `rules/browser.json` it is data, not code: a new machine or a new domain never
@@ -131,8 +132,8 @@ reported — the correct response is `ack.bat`, marking it as known, not dulling
 ## What it actually reports on this machine
 
 ```
-engine: subjects=65 rules=17 findings=27 high=4 resolved=1
-counts: NEW=8 CHANGED=5 PERSIST=14 KNOWN=0 RESOLVED=1
+engine: subjects=65 rules=18 findings=27 high=5 resolved=2
+counts: NEW=9 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 ```
 (Re-scanned on 10-18. The baseline was captured on 10-15, so every state above is a judgement **about
 five days ago**, not about yesterday.)
@@ -142,22 +143,25 @@ five days ago**, not about yesterday.)
 | high | BR-01 startup page hijacked | 1 | Edge / Profile 1 — state `changed`, i.e. the cloud write-back above |
 | high | BR-02 sealed copy exists, plaintext deletion will be reverted | 2 | Edge / Default, Edge / Profile 1 |
 | high | BR-05 it came back after being cleaned | 1 | Edge / Profile 1 |
+| high | PS-08 a credential is stored in plaintext on a command line | 1 | scheduled task `\自动拨号` — `rasdial 宽带连接 *** ***`, state `new` in this scan |
 | medium | BR-04 orphan signature (this place was tampered with and cleaned up) | 4 | Edge ×3, Chrome ×1 — the Edge / Profile row is **new** in this scan |
 | medium | BR-08 blacklisted domain still holds content-setting exceptions | 3 | Edge / Profile 1, Edge / Default, Chrome / Default |
 | medium | PS-01 startup entry points at a missing file | 1 | service / AndrowsSvr |
 | medium | PS-02 boot-time binary without a valid signature | 2 | Authenticator, OpenClaw Gateway |
-| low | BR-06 browser did not exit normally | 2 | Edge / Profile 1, Chrome / Default — both state `changed` |
+| low | BR-06 browser did not exit normally | 1 | Edge / Profile 1 — state `changed` (Chrome / Default is now `resolved`, see below) |
 | low | PS-07 resident binary in a user-writable directory | 5 | Rd_Service, 3 WPS tasks, OpenClaw |
 | info | BR-03 startup mode set to "open specific pages" | 1 | Edge / Profile 1 |
 | info | BR-10 surfaces this tool cannot read | 4 | the 4 Edge profiles: the default engine is stored as a hash |
 | good | BR-07 the previous repair survived re-check | 1 | Chrome / Default |
 
-**The most interesting part of this re-scan is that the `resolved` column went from 2 rows to 1.**
-On 10-16, `BR-06 / Chrome / Default` had been reported as *resolved* (that profile had exited cleanly
-once). Today it is back, state `changed`, `exit_type=Crashed`. So: **a "resolved" verdict is not an end
-state — it is a conclusion that can be overturned again**, which is precisely why the baseline exists.
-The other row, `PS-02 / run_key / Lively`, is still resolved, because I deleted that startup entry myself
-and deleted means deleted. A tool that only lists current problems cannot tell those two situations apart.
+**The `resolved` column is the part that keeps moving, and that is the point.**
+`BR-06 / Chrome / Default` has now flipped across four scans: reported → resolved → back to `changed`
+(`exit_type=Crashed`) → resolved again in this run, because Chrome happened to be closed cleanly the moment
+the probe read it. That is not noise — **a "resolved" verdict is not an end state, it is a conclusion that
+can be overturned again**, which is exactly why the baseline exists and why the engine never auto-promotes
+it. `PS-02 / run_key / Lively` is the other resolved row, and it is genuinely terminal: I deleted that
+startup entry myself, and deleted means deleted. A tool that only lists current problems cannot tell those
+two situations apart.
 
 **BR-09 has 0 hits while BR-10 has 4, and those two sentences must be read together.**
 Chrome / Default keeps `default_search_provider_data.template_url_data` as a plaintext object
@@ -239,7 +243,7 @@ header). Consequences:
 
 ---
 
-## Twenty-five defects, and how each one became code
+## Twenty-six defects, and how each one became code
 
 These are not reflections. Each corresponds to logic that is still alive in the repository.
 (The Chinese README carries the long form of each; nothing below is a different claim.)
@@ -432,11 +436,31 @@ Fixed in the order that made it provable: write the class with `\u3000`-style es
 lie about itself, then stop asserting on the source at all. `tools/i18n-probe.html` loads the report at
 `?lang=en` and `?lang=zh`, walks every text node and keeps only the ones that own a box on screen, so the
 measurement is the prose a reader sees — not the bytes of a file that always contains both languages. And
-the gate now keeps Chinese inside English on purpose: PS-01's evidence names the task 自动拨号, PS-07's
+the gate now keeps Chinese inside English on purpose: PS-08's evidence names the task 自动拨号, PS-07's
 names the signer 济南快安网络科技. Those are values a reader has to be able to look for on their own
 machine, so translating them would destroy the evidence. What gets asserted instead is a ratio (a
 copy-pasted paragraph is 100 % Chinese, a quoted proper noun is under 1 %) plus "the English half may not be
 a copy of the Chinese half".
+
+**26. Reporting a plaintext credential without ever holding it.**
+PS-08 exists because the author's own machine had a scheduled task `\自动拨号` whose action is
+`rasdial <connection> <account> <password>` — a real secret sitting in plaintext, in a command that is
+itself Microsoft-signed and resolves cleanly to `System32\rasdial.exe`, so every *other* persistence rule
+was correctly silent about it. The hard part is not detecting it, it is surfacing it without shipping the
+secret. Three decisions carry that:
+- The probe emits a **masked** copy (`rasdial 宽带连接 *** ***`) and a `cmd_secret_kind` classifier; the
+  rule's `show` lists only the masked field, never the raw `command`. `verify.js` keeps a dedicated gate
+  that derives the real dial tokens from the local facts and asserts they appear 0 times in the report, and
+  now additionally fails if any finding cites the raw command or if a PS-08 dial row is unmasked.
+- Masking is **positional and flag-aware, and it refuses to touch placeholders.** `rasdial`/`net user`
+  secrets are bare trailing arguments, so the last two tokens are masked; a `--password=`/`token=`/`api_key=`
+  form is masked by key. But a value that starts with `%`, `$` or `{` (`%V`, `$env:PWD`, `${account}`) is a
+  *reference*, not a secret — masking it would be wrong and would hide a real misconfiguration, so the
+  classifier deliberately skips those.
+- The fingerprint is built from the **masked** value, which makes rotation non-eventful on purpose: change
+  the password and `cmd_masked` is byte-identical, so the row stays `PERSIST` rather than flipping to
+  `CHANGED`. The exposure is the *shape* of the command, not its value — and that is the only reading that
+  doesn't turn every credential rotation into a phantom "something changed here".
 
 ---
 
@@ -511,7 +535,7 @@ two probes → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` 
 
 `verify.js` carries the bilingual checks that need no browser at all: it evaluates the renderer's locale
 tables out of `render/template.html`, and fails on a row that is not a `[zh, en]` pair, on an English half
-that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 17 rules
+that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 18 rules
 whose overlay is short. It also checks the *published* demo for the same property, because a visitor who
 clicks "English" on a stale artefact gets Chinese anyway — and a stale demo is invisible to every other gate
 in here, since its counts can be perfectly correct while its wording is a build behind.

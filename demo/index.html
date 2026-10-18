@@ -190,18 +190,18 @@
 
 <script id="wp-data" type="application/json">{
     "schema":  "winproof/1",
-    "scanned_at":  "2026-10-18 16:00:04",
+    "scanned_at":  "2026-10-18 19:35:38",
     "computer":  "<host>",
     "user":  "<user>",
     "os_version":  "10.0.26200.0",
     "ps_version":  "5.1.26100.9711",
-    "baseline_at":  "2026-10-18 16:00:04",
+    "baseline_at":  "2026-10-18 19:35:38",
     "probes_run":  [
                        "browser_prefs",
                        "persistence"
                    ],
-    "rules_total":  17,
-    "subjects_total":  20,
+    "rules_total":  18,
+    "subjects_total":  21,
     "domain_blocklist":  [
                              "2345",
                              "pbgia",
@@ -216,13 +216,13 @@
     "counts":  {
                    "NEW":  2,
                    "CHANGED":  1,
-                   "PERSIST":  30,
+                   "PERSIST":  31,
                    "KNOWN":  0,
                    "UNBASELINED":  0,
                    "RESOLVED":  1
                },
     "severity_counts":  {
-                            "high":  13,
+                            "high":  14,
                             "medium":  11,
                             "low":  3,
                             "info":  6,
@@ -687,6 +687,37 @@
                          "state":  "PERSIST"
                      },
                      {
+                         "rule_id":  "PS-08",
+                         "title":  "命令行里存着明文密钥",
+                         "severity":  "high",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "scheduled_task / \\ZzDialPlain",
+                         "key":  "PS-08|scheduled_task / \\ZzDialPlain",
+                         "fingerprint":  "C12EF91F91E10050",
+                         "evidence":  {
+                                          "cmd_secret_kind":  "rasdial-positional",
+                                          "cmd_masked":  "rasdial ZzBroadband *** ***",
+                                          "sig_status":  "Valid",
+                                          "in_writable":  false
+                                      },
+                         "advice":  "这条命令把账号或密码以明文参数写死。任何能读到该计划任务定义（Task Scheduler 的 XML 在 C:\\Windows\\System32\\Tasks 下，普通用户可读）或该注册表项的人，都能直接拿到口令——这不是「看起来可疑」，是凭证已经落盘。先假设它已泄露：轮换这个账号/密码，再把口令移出命令行（rasdial 改用不带内联参数的已存拨号连接，或走凭据管理器 / DPAPI），最后删掉旧任务重建。",
+                         "why":  "明文凭证驻留是杀毒和启动项管理器都不看的一类问题：命令本身完全合法（rasdial 解析到 System32\\rasdial.exe，所以断链规则正确地没有报它），风险不在程序，而在参数里躺着的口令。给它单独一条高危判据，是因为它恰好属于「清理工具答不了」的那类真相——工具能修好启动页，却看不见一条任务命令行正在外泄账号密码。",
+                         "verified_on":  "2026-10-18",
+                         "verified_evidence":  "本机命中：计划任务 \\自动拨号 的 Action 命令行是 rasdial 宽带连接 *** ***——rasdial 的位置参数依次是连接名、用户名、密码，明文口令直接写死在任务定义里。报告只显示脱敏后的命令行，真实口令从不进入 out\\report.html（verify.js 有一道门专门核对）。",
+                         "detail_path":  "\\ZzDialPlain",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A credential is stored in plaintext on a command line",
+                                                 "advice":  "This command hard-codes an account or password as a plaintext argument. Anyone who can read the task definition (Task Scheduler XML under C:\\Windows\\System32\\Tasks, readable by ordinary users) or the registry key can recover the secret directly - this is not \"looks suspicious\", the credential is on disk. Assume it is already leaked: rotate the account/password, move the secret off the command line (let rasdial use a stored dial-up connection with no inline arguments, or Credential Manager / DPAPI), then delete and recreate the task.",
+                                                 "why":  "Plaintext-credential persistence is a class neither antivirus nor a startup manager looks at: the command itself is perfectly legal (rasdial resolves to System32\\rasdial.exe, so the broken-path rule correctly does not fire on it) - the risk is the password sitting in the arguments, not the program. It earns its own high-severity criterion precisely because it is the kind of truth \"a cleaner cannot answer\": a tool can fix the startup page while a dial-up account and password keep leaking from a task command line.",
+                                                 "verified_evidence":  "One hit on this machine: scheduled task \\自动拨号 whose action command line is rasdial 宽带连接 *** *** - rasdial\u0027s positional arguments are connection, username, password, so the plaintext password is written straight into the task definition. The report shows only the masked command line; the real secret never enters out\\report.html (verify.js has a gate that checks exactly this).",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
                          "rule_id":  "BR-04",
                          "title":  "签名孤儿：此处曾被篡改并清理过",
                          "severity":  "medium",
@@ -718,6 +749,42 @@
                                                  "advice":  "protection.macs.session still carries the signature of startup_urls / restore_on_startup while session no longer holds the plaintext. That means the value existed once and was deleted (by you, or by a cleaning tool). It is historical evidence, not a current threat, and needs no action.",
                                                  "why":  "The browser signs protected keys, and protection.macs is a two-level structure (section -\u003e key -\u003e signature), not the single level many tools assume. The signatures are deterministic: within the same profile set, the same missing value yields the same signature. So deleting the value and leaving the signature does not corrupt the file - the browser simply re-signs on its next write.",
                                                  "verified_evidence":  "macs.session in Edge Default, Edge Profile 2 and Chrome Default all contain a startup_urls signature while session holds no plaintext.",
+                                                 "group_title":  "Browser startup page and default search engine"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-08",
+                         "title":  "黑名单域名仍持有内容设置例外",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Default",
+                         "key":  "BR-08|Edge / Default",
+                         "fingerprint":  "20955B2D0A399EE9",
+                         "evidence":  {
+                                          "perm_grants_bad":  "http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02",
+                                          "perm_bad_settings":  [
+                                                                    "http_allowed"
+                                                                ],
+                                          "perm_total_keys":  411,
+                                          "startup_urls_bad":  {
+
+                                                               },
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "启动页已经干净，但浏览器仍然记得这个域名——这一条证明的是\"页面被真正加载过\"，而 BR-01 只能证明\"配置里写了它\"。撤销入口：edge://settings/content/all 或 chrome://settings/content/all 按域名搜索逐条删除；若列表里搜不到该域名，说明这个类型没有 UI 开关，只能清 Profile 或接受它作为历史记录。",
+                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
+                                                 "advice":  "The startup page is already clean, but the browser still remembers this domain - this row proves that the page was really loaded, where BR-01 can only prove that the configuration mentioned it. Revoking: search the domain in edge://settings/content/all or chrome://settings/content/all and delete the rows one by one; if the domain cannot be found in that list, this setting type has no UI switch and the only options are clearing the profile or accepting it as history.",
+                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
+                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
                                                  "group_title":  "Browser startup page and default search engine"
                                              }
                                   },
@@ -809,42 +876,6 @@
                          "state":  "PERSIST"
                      },
                      {
-                         "rule_id":  "BR-08",
-                         "title":  "黑名单域名仍持有内容设置例外",
-                         "severity":  "medium",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页与搜索引擎",
-                         "subject":  "Edge / Default",
-                         "key":  "BR-08|Edge / Default",
-                         "fingerprint":  "20955B2D0A399EE9",
-                         "evidence":  {
-                                          "perm_grants_bad":  "http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02",
-                                          "perm_bad_settings":  [
-                                                                    "http_allowed"
-                                                                ],
-                                          "perm_total_keys":  411,
-                                          "startup_urls_bad":  {
-
-                                                               },
-                                          "sync_preferences_enabled":  false
-                                      },
-                         "advice":  "启动页已经干净，但浏览器仍然记得这个域名——这一条证明的是\"页面被真正加载过\"，而 BR-01 只能证明\"配置里写了它\"。撤销入口：edge://settings/content/all 或 chrome://settings/content/all 按域名搜索逐条删除；若列表里搜不到该域名，说明这个类型没有 UI 开关，只能清 Profile 或接受它作为历史记录。",
-                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
-                         "verified_on":  "2026-10-16",
-                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
-                                                 "advice":  "The startup page is already clean, but the browser still remembers this domain - this row proves that the page was really loaded, where BR-01 can only prove that the configuration mentioned it. Revoking: search the domain in edge://settings/content/all or chrome://settings/content/all and delete the rows one by one; if the domain cannot be found in that list, this setting type has no UI switch and the only options are clearing the profile or accepting it as history.",
-                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
-                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
-                                                 "group_title":  "Browser startup page and default search engine"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
                          "rule_id":  "BR-09",
                          "title":  "默认搜索引擎被替换或被策略锁定",
                          "severity":  "medium",
@@ -925,41 +956,6 @@
                          "severity":  "medium",
                          "group":  "persistence",
                          "group_title":  "开机驻留：启动项、服务、驱动与网络层",
-                         "subject":  "run_key / ZzResidueGhost",
-                         "key":  "PS-01|run_key / ZzResidueGhost",
-                         "fingerprint":  "948EACAA583173A0",
-                         "evidence":  {
-                                          "kind":  "run_key",
-                                          "command":  "\"C:\\Users\\example\\AppData\\Roaming\\ZzSuite\\zzsuite.exe\" /autostart",
-                                          "exe":  "C:\\Users\\example\\AppData\\Roaming\\ZzSuite\\zzsuite.exe",
-                                          "exe_exists":  false,
-                                          "location":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                                          "sig_status":  "",
-                                          "svc_state":  "",
-                                          "task_state":  ""
-                                      },
-                         "advice":  "卸载残留：注册值还在，文件已经没了。启动项直接删这个键值即可（HKCU 下的不需要管理员权限）。",
-                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
-                         "verified_on":  "2026-10-14",
-                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
-                         "detail_path":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "A startup entry points at a file that no longer exists",
-                                                 "advice":  "Uninstall residue: the registry value is still there, the file is not. Delete this value for a startup entry (under HKCU that needs no administrator rights).",
-                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
-                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
-                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "PS-01",
-                         "title":  "自启动项指向已经不存在的文件",
-                         "severity":  "medium",
-                         "group":  "persistence",
-                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
                          "subject":  "scheduled_task / \\ZzTaskGone",
                          "key":  "PS-01|scheduled_task / \\ZzTaskGone",
                          "fingerprint":  "458D8317364C7E3F",
@@ -982,6 +978,41 @@
                                       "en":  {
                                                  "title":  "A startup entry points at a file that no longer exists",
                                                  "advice":  "The scheduled task\u0027s target is gone. schtasks /query /tn \"\u003ctask name\u003e\" /v to see the trigger, and once you have confirmed it is useless: schtasks /delete /tn \"\u003ctask name\u003e\" /f.",
+                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
+                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-01",
+                         "title":  "自启动项指向已经不存在的文件",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "run_key / ZzResidueGhost",
+                         "key":  "PS-01|run_key / ZzResidueGhost",
+                         "fingerprint":  "948EACAA583173A0",
+                         "evidence":  {
+                                          "kind":  "run_key",
+                                          "command":  "\"C:\\Users\\example\\AppData\\Roaming\\ZzSuite\\zzsuite.exe\" /autostart",
+                                          "exe":  "C:\\Users\\example\\AppData\\Roaming\\ZzSuite\\zzsuite.exe",
+                                          "exe_exists":  false,
+                                          "location":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                                          "sig_status":  "",
+                                          "svc_state":  "",
+                                          "task_state":  ""
+                                      },
+                         "advice":  "卸载残留：注册值还在，文件已经没了。启动项直接删这个键值即可（HKCU 下的不需要管理员权限）。",
+                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
+                         "detail_path":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A startup entry points at a file that no longer exists",
+                                                 "advice":  "Uninstall residue: the registry value is still there, the file is not. Delete this value for a startup entry (under HKCU that needs no administrator rights).",
                                                  "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
                                                  "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
                                                  "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
@@ -1030,39 +1061,6 @@
                          "severity":  "medium",
                          "group":  "persistence",
                          "group_title":  "开机驻留：启动项、服务、驱动与网络层",
-                         "subject":  "startup_folder / ZzOld Helper.lnk",
-                         "key":  "PS-02|startup_folder / ZzOld Helper.lnk",
-                         "fingerprint":  "03DC79D876C3A144",
-                         "evidence":  {
-                                          "kind":  "startup_folder",
-                                          "exe":  "D:\\tools\\zzold\\helper.exe",
-                                          "sig_status":  "NotSigned",
-                                          "command":  "D:\\tools\\zzold\\helper.exe",
-                                          "exe_mtime":  "2026-09-01 10:00:00",
-                                          "exe_bytes":  1000000
-                                      },
-                         "advice":  "未签名不等于恶意——大量开源工具和便携软件就不签名。但它意味着没有任何东西能告诉你这个文件是不是厂商发的那个版本。若这个程序你会持续使用，记下此刻的 sha256，下次这项变成 CHANGED 时就是文件被替换了。",
-                         "why":  "这里用签名者归属而不是厂商关键词黑名单。关键词列表只能抓到别人已经写进去的那几家厂商，而「这个每次开机都跑的二进制没有有效签名」能抓到你机器上实际存在的东西。",
-                         "verified_on":  "2026-10-14",
-                         "verified_evidence":  "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\ZzOld Helper.lnk",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "A program that runs at every boot has no valid digital signature",
-                                                 "advice":  "Unsigned does not mean malicious - plenty of open-source tools and portable apps ship unsigned. But it means nothing can tell you whether this file is the version the vendor published. If you will keep using this program, record its sha256 now: the day this row turns CHANGED, the file was replaced.",
-                                                 "why":  "This uses signer attribution rather than a vendor keyword blocklist. A keyword list can only ever catch the handful of vendors somebody already typed into it, while \"this binary that runs at every boot has no valid signature\" catches what is actually on your machine.",
-                                                 "verified_evidence":  "Three hits on this machine: run_key/Lively (D:\\lively wallpaper, NotSigned), startup_folder/Authenticator App · 2FA.lnk, scheduled_task/\\OpenClaw Gateway.",
-                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "PS-02",
-                         "title":  "开机自动运行的程序没有有效数字签名",
-                         "severity":  "medium",
-                         "group":  "persistence",
-                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
                          "subject":  "scheduled_task / \\ZzHashDrift",
                          "key":  "PS-02|scheduled_task / \\ZzHashDrift",
                          "fingerprint":  "3BE586E15B22610C",
@@ -1083,6 +1081,39 @@
                                       "en":  {
                                                  "title":  "A program that runs at every boot has no valid digital signature",
                                                  "advice":  "A failing signature check (HashMismatch) deserves more suspicion than being unsigned at all: the file was modified while its signature information stayed in place. First establish whether this program is yours to update, then decide whether a reinstall is the fix.",
+                                                 "why":  "This uses signer attribution rather than a vendor keyword blocklist. A keyword list can only ever catch the handful of vendors somebody already typed into it, while \"this binary that runs at every boot has no valid signature\" catches what is actually on your machine.",
+                                                 "verified_evidence":  "Three hits on this machine: run_key/Lively (D:\\lively wallpaper, NotSigned), startup_folder/Authenticator App · 2FA.lnk, scheduled_task/\\OpenClaw Gateway.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-02",
+                         "title":  "开机自动运行的程序没有有效数字签名",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "startup_folder / ZzOld Helper.lnk",
+                         "key":  "PS-02|startup_folder / ZzOld Helper.lnk",
+                         "fingerprint":  "03DC79D876C3A144",
+                         "evidence":  {
+                                          "kind":  "startup_folder",
+                                          "exe":  "D:\\tools\\zzold\\helper.exe",
+                                          "sig_status":  "NotSigned",
+                                          "command":  "D:\\tools\\zzold\\helper.exe",
+                                          "exe_mtime":  "2026-09-01 10:00:00",
+                                          "exe_bytes":  1000000
+                                      },
+                         "advice":  "未签名不等于恶意——大量开源工具和便携软件就不签名。但它意味着没有任何东西能告诉你这个文件是不是厂商发的那个版本。若这个程序你会持续使用，记下此刻的 sha256，下次这项变成 CHANGED 时就是文件被替换了。",
+                         "why":  "这里用签名者归属而不是厂商关键词黑名单。关键词列表只能抓到别人已经写进去的那几家厂商，而「这个每次开机都跑的二进制没有有效签名」能抓到你机器上实际存在的东西。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\ZzOld Helper.lnk",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A program that runs at every boot has no valid digital signature",
+                                                 "advice":  "Unsigned does not mean malicious - plenty of open-source tools and portable apps ship unsigned. But it means nothing can tell you whether this file is the version the vendor published. If you will keep using this program, record its sha256 now: the day this row turns CHANGED, the file was replaced.",
                                                  "why":  "This uses signer attribution rather than a vendor keyword blocklist. A keyword list can only ever catch the handful of vendors somebody already typed into it, while \"this binary that runs at every boot has no valid signature\" catches what is actually on your machine.",
                                                  "verified_evidence":  "Three hits on this machine: run_key/Lively (D:\\lively wallpaper, NotSigned), startup_folder/Authenticator App · 2FA.lnk, scheduled_task/\\OpenClaw Gateway.",
                                                  "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
@@ -1217,19 +1248,19 @@
                          "severity":  "info",
                          "group":  "browser",
                          "group_title":  "浏览器启动页与搜索引擎",
-                         "subject":  "Chrome / Default",
-                         "key":  "BR-03|Chrome / Default",
-                         "fingerprint":  "527FD4EF905161F0",
+                         "subject":  "Chrome / Profile 3",
+                         "key":  "BR-03|Chrome / Profile 3",
+                         "fingerprint":  "00BE10BD4FFAB55F",
                          "evidence":  {
                                           "startup_mode":  4,
-                                          "startup_urls":  "http://www.so.com/?q=hijack",
-                                          "doc_role":  "secure"
+                                          "startup_urls":  "http://www.hao.360.com/",
+                                          "doc_role":  "plain_only"
                                       },
                          "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
                          "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
                          "i18n":  {
                                       "en":  {
                                                  "title":  "Startup mode is set to \"open specific pages\"",
@@ -1247,19 +1278,19 @@
                          "severity":  "info",
                          "group":  "browser",
                          "group_title":  "浏览器启动页与搜索引擎",
-                         "subject":  "Chrome / Profile 3",
-                         "key":  "BR-03|Chrome / Profile 3",
-                         "fingerprint":  "00BE10BD4FFAB55F",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-03|Chrome / Default",
+                         "fingerprint":  "527FD4EF905161F0",
                          "evidence":  {
                                           "startup_mode":  4,
-                                          "startup_urls":  "http://www.hao.360.com/",
-                                          "doc_role":  "plain_only"
+                                          "startup_urls":  "http://www.so.com/?q=hijack",
+                                          "doc_role":  "secure"
                                       },
                          "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
                          "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
                          "verified_on":  "2026-10-15",
                          "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
                          "i18n":  {
                                       "en":  {
                                                  "title":  "Startup mode is set to \"open specific pages\"",
@@ -1382,7 +1413,7 @@
                          "title":  "上次修复经受住了复查",
                          "subject":  "Edge / Profile 2",
                          "severity":  "good",
-                         "since":  "2026-10-18 16:00:04",
+                         "since":  "2026-10-18 19:35:38",
                          "i18n":  {
                                       "en":  {
                                                  "title":  "The previous repair survived the re-check"
@@ -1484,6 +1515,8 @@
     in_writable: ['用户可写目录', 'User-writable directory'],
     exe_mtime: ['二进制修改时间', 'Binary modification time'],
     exe_bytes: ['二进制字节数', 'Binary size in bytes'],
+    cmd_secret_kind: ['命中模式', 'Matched pattern'],
+    cmd_masked: ['命令行（已脱敏）', 'Command line (redacted)'],
     svc_state: ['服务状态', 'Service state'],
     task_state: ['任务状态', 'Task state'],
     drv_start: ['驱动加载类型', 'Driver start type'],

@@ -383,6 +383,33 @@
       "host_count": 0,
       "host_effective": 0,
       "host_mtime": ""
+    },
+    {
+      "kind": "scheduled_task",
+      "name": "\\ZzDialPlain",
+      "location": "\\ZzDialPlain",
+      "command": "rasdial ZzBroadband 5550001111 zzfakepw99",
+      "exe": "C:\\Windows\\System32\\rasdial.exe",
+      "is_wrapper": false,
+      "payload": "",
+      "exe_exists": true,
+      "signer": "Microsoft Windows",
+      "sig_status": "Valid",
+      "payload_signer": "",
+      "payload_exists": false,
+      "in_windows": true,
+      "in_writable": false,
+      "exe_mtime": "2026-09-01 10:00:00",
+      "exe_bytes": 1000000,
+      "task_state": "Ready",
+      "svc_state": "",
+      "svc_account": "",
+      "drv_start": "",
+      "host_count": 0,
+      "host_effective": 0,
+      "host_mtime": "",
+      "cmd_secret_kind": "rasdial-positional",
+      "cmd_masked": "rasdial ZzBroadband *** ***"
     }
   ]
 }

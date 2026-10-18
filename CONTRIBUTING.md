@@ -1,7 +1,7 @@
 # Contributing
 
 Start with the README's
-[detection inventory](README.md#detection-inventory-17-rules-each-restatable-as-one-concrete-observation)
+[detection inventory](README.md#detection-inventory-18-rules-each-restatable-as-one-concrete-observation)
 — every shipped rule there carries the hit count and
 subject names it produced on the author's machine. That convention is the whole contribution model:
 **a judgement you have not measured does not enter the tree.**

@@ -7,7 +7,27 @@ the tree rather than pretending the history was planned.
 
 ## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.1.0...HEAD)
 
-Nothing pending.
+### Added
+
+- **PS-08 — a credential stored in plaintext on a command line.** A startup entry whose command carries a
+  secret as an argument (`rasdial <conn> <user> <pass>`, `net user <name> <pass>`, or a
+  `--password=` / `token=` / `api_key=` style flag) is high severity. Neither antivirus nor a startup
+  manager reads the *arguments* of a command that is itself legitimately signed, so this is a class the
+  usual tools never look at. It fired on the author's machine on the first run: scheduled task `\自动拨号`
+  whose action is `rasdial 宽带连接 <account> <password>`, resolved to `System32\rasdial.exe` with a valid
+  Microsoft signature — which is exactly why the existing broken-link and unsigned-binary rules correctly
+  stayed silent about it.
+- **The rule reports the exposure without ever carrying the secret.** The probe computes a masked copy
+  (`cmd_masked`, e.g. `rasdial 宽带连接 *** ***`) alongside a `cmd_secret_kind` classifier, and PS-08's
+  `show` lists only the masked field. `tools/verify.js` keeps its dedicated gate — it derives the real
+  dial tokens from the local facts and asserts they appear 0 times in the shipped report — and now also
+  fails if any finding cites the raw `command` or if a PS-08 dial row is surfaced unmasked. Because the
+  fingerprint is built from the masked value, rotating the password leaves the row `PERSIST` rather than
+  flipping it to `CHANGED`, which is the correct reading: the exposure is the shape, not the value.
+- 17 rules → 18. The persistence group is now 8 rules; `tools/selftest.ps1 [8]` exercises all eight
+  against the fixture (including the five that stay idle on a clean box) and asserts high severity comes
+  only from PS-03/04/05/06/08. Assertion count is unchanged at 90 — the new rule reuses the coverage
+  assertions rather than adding net-new ones.
 
 ## [1.1.0] — 2026-10-18
 

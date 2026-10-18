@@ -119,6 +119,7 @@ $wantPers = [ordered]@{
     'PS-05' = @('ifeo_debugger / notepad.exe')
     'PS-06' = @('winsock_lsp / ZzNetFilter')
     'PS-07' = @('service / ZzWritableResident')
+    'PS-08' = @('scheduled_task / \ZzDialPlain')
 }
 function Check-Manifest($doc, $want) {
     $extra = @()
@@ -270,11 +271,12 @@ Expect 'finding still present after ack (22 total)' (@($rA.doc.findings).Count -
 Expect 'low severity count drops to 1' ([int]$rA.doc.severity_counts.low -eq 1)
 
 # --- [8] persistence fixture: coverage a clean machine cannot give -------------
-# On an uninfected box PS-03/04/05/06 legitimately hit zero, which means a real
-# scan never exercises them and a broken predicate would go unnoticed until the
-# day one of them matters. The fixture fires all seven on purpose.
+# On an uninfected box PS-03/04/05/06/08 legitimately hit zero - no early-launch
+# driver, no hosts override, no IFEO, no LSP, no plaintext-credential task - which
+# means a real scan never exercises them and a broken predicate would go unnoticed
+# until the day one of them matters. The fixture fires all eight on purpose.
 Write-Output ''
-Write-Output '[8] persistence fixture: all 7 rules exercised, including the four that are idle on a clean box'
+Write-Output '[8] persistence fixture: all 8 rules exercised, including the five that are idle on a clean box'
 $sp = Join-Path $work 'store-p'
 Run-Engine @{ Mode = 'baseline'; FactsFile = @($fxPers); StoreDir = $sp; OutFile = (Join-Path $work 'p0.json') }
 $persBase = Load (Join-Path $work 'p0.json')
@@ -283,7 +285,7 @@ $pf = Load $fxPers
 $ents = @($pf.entries)
 Expect ('fixture exposes one row per surface (15 subjects, ' + $ents.Count + ' entries)') ([int]$persBase.subjects_total -eq $ents.Count)
 $psIds = @($persBase.findings | ForEach-Object { $_.rule_id } | Select-Object -Unique)
-Expect ('all 7 persistence rules fire (' + ($psIds -join ',') + ')') ($psIds.Count -eq 7)
+Expect ('all 8 persistence rules fire (' + ($psIds -join ',') + ')') ($psIds.Count -eq 8)
 
 # The Microsoft-signer exclusion has to be asserted against a row that would
 # otherwise be reported, or it proves nothing. On a real box this is Defender's
@@ -295,10 +297,11 @@ $msWr = @($ents | Where-Object {
 Expect ('a Microsoft-signed writable resident exists in the fixture to exclude (' + $msWr.Count + ')') ($msWr.Count -gt 0)
 Expect 'and it does not leak into PS-07' (@( @(SubjectSet $persBase 'PS-07') | Where-Object { $msWr -contains $_ }).Count -eq 0)
 
-# High severity must come only from the four hard surfaces, not from residue or
+# High severity must come only from the hard surfaces - the four that break the
+# boot/startup integrity plus PS-08's on-disk credential - not from residue or
 # signature noise - that ordering is the report's whole prioritisation.
 $hi = @($persBase.findings | Where-Object { $_.severity -eq 'high' } | ForEach-Object { $_.rule_id } | Select-Object -Unique)
-Expect ('high severity rows are only PS-03/04/05/06 (' + ($hi -join ',') + ')') (SetEq $hi @('PS-03', 'PS-04', 'PS-05', 'PS-06'))
+Expect ('high severity rows are only PS-03/04/05/06/08 (' + ($hi -join ',') + ')') (SetEq $hi @('PS-03', 'PS-04', 'PS-05', 'PS-06', 'PS-08'))
 
 # --- [9] countGte on a scalar -------------------------------------------------
 # host_effective is a count stored as a number. Reading a scalar as a one-element

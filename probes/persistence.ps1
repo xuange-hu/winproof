@@ -125,6 +125,50 @@ function Resolve-BareCommand([string]$name) {
     return ''
 }
 
+function Get-CmdSecret([string]$cmd) {
+    # Some autostart command lines carry a credential as a literal argument:
+    # `rasdial <connection> <user> <password>`, `net user <name> <password>`, or a
+    # `--password=value` flag. The value is readable by anyone who can read the task
+    # definition or registry key, so it is a finding - but the report must never
+    # reproduce the secret. This returns the matched pattern name and a copy of the
+    # command with the credential replaced by ***. The raw command stays in the
+    # facts file, which is local-only by design; only the masked form is citable.
+    $r = [ordered]@{ kind = ''; masked = '' }
+    if ([string]::IsNullOrWhiteSpace($cmd)) { return [pscustomobject]$r }
+    $s = $cmd.Trim()
+
+    if ($s -match '(?i)\brasdial\b') {
+        $toks = @($s -split '\s+')
+        $ri = -1
+        for ($i = 0; $i -lt $toks.Count; $i++) {
+            if ($toks[$i] -match '(?i)rasdial(\.exe)?$') { $ri = $i; break }
+        }
+        # connection + user + password means at least three tokens after the exe
+        if ($ri -ge 0 -and ($toks.Count - $ri) -ge 4) {
+            $toks[$toks.Count - 2] = '***'
+            $toks[$toks.Count - 1] = '***'
+            $r['kind'] = 'rasdial-positional'
+            $r['masked'] = ($toks -join ' ')
+            return [pscustomobject]$r
+        }
+    }
+
+    if ($s -match '(?i)^(.*\bnet\s+user\s+\S+)(\s+)(?![%\$\{])\S+$') {
+        $r['kind'] = 'net-user-positional'
+        $r['masked'] = ($matches[1] + $matches[2] + '***')
+        return [pscustomobject]$r
+    }
+
+    $re = '(?i)((?:pass(?:word|wd)?|pwd|secret|token|cred(?:ential)?|api[_-]?key)\s*[=:]\s*)("?)(?![%\$\{])[^"\s]+\2'
+    if ($s -match $re) {
+        $r['kind'] = 'secret-flag'
+        $r['masked'] = [regex]::Replace($s, $re, '$1$2***$2')
+        return [pscustomobject]$r
+    }
+
+    return [pscustomobject]$r
+}
+
 function New-Entry($kind, $name, $loc, $cmd) {
     $p = Get-ExeFromCommand $cmd
     # Driver ImagePath values are often relative to the Windows directory
@@ -159,7 +203,12 @@ function New-Entry($kind, $name, $loc, $cmd) {
         in_writable = $false
         exe_mtime  = ''
         exe_bytes  = 0
+        cmd_secret_kind = ''
+        cmd_masked = ''
     }
+    $sec = Get-CmdSecret $cmd
+    $e['cmd_secret_kind'] = [string]$sec.kind
+    $e['cmd_masked'] = [string]$sec.masked
     if ($sign) {
         $e['exe_exists'] = [bool]$sign.exists
         $e['signer'] = [string]$sign.signer
@@ -308,6 +357,7 @@ if (Test-Path $hostsPath) {
         exe = ''; is_wrapper = $false; payload = ''; exe_exists = $true
         signer = ''; sig_status = ''; payload_signer = ''; payload_exists = $false
         in_windows = $true; in_writable = $false; exe_mtime = ''; exe_bytes = 0
+        cmd_secret_kind = ''; cmd_masked = ''
         host_count = @($hostLines).Count
         host_effective = @($effective).Count
         host_mtime = $h.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')

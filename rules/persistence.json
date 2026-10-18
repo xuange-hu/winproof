@@ -241,6 +241,44 @@
           "verified_evidence": "Hits on this machine: service/Rd_Service (C:\\ProgramData\\host\\rdservice.exe, signer 济南快安网络科技 - a Chinese network-software vendor), three Kingsoft WPS scheduled tasks, and one unsigned OpenClaw Gateway; WinDefend and MDCoreSvc are correctly excluded by the signer condition."
           }
       }
+    },
+    {
+      "id": "PS-08",
+      "title": "命令行里存着明文密钥",
+      "severity": "high",
+      "when": {
+        "all": [
+          {
+            "fact": "cmd_secret_kind",
+            "op": "nonEmpty"
+          }
+        ]
+      },
+      "show": [
+        "cmd_secret_kind",
+        "cmd_masked",
+        "sig_status",
+        "in_writable"
+      ],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "这条命令把账号或密码以明文参数写死。任何能读到该计划任务定义（Task Scheduler 的 XML 在 C:\\Windows\\System32\\Tasks 下，普通用户可读）或该注册表项的人，都能直接拿到口令——这不是「看起来可疑」，是凭证已经落盘。先假设它已泄露：轮换这个账号/密码，再把口令移出命令行（rasdial 改用不带内联参数的已存拨号连接，或走凭据管理器 / DPAPI），最后删掉旧任务重建。"
+        }
+      ],
+      "why": "明文凭证驻留是杀毒和启动项管理器都不看的一类问题：命令本身完全合法（rasdial 解析到 System32\\rasdial.exe，所以断链规则正确地没有报它），风险不在程序，而在参数里躺着的口令。给它单独一条高危判据，是因为它恰好属于「清理工具答不了」的那类真相——工具能修好启动页，却看不见一条任务命令行正在外泄账号密码。",
+      "verified_on": "2026-10-18",
+      "verified_evidence": "本机命中：计划任务 \\自动拨号 的 Action 命令行是 rasdial 宽带连接 *** ***——rasdial 的位置参数依次是连接名、用户名、密码，明文口令直接写死在任务定义里。报告只显示脱敏后的命令行，真实口令从不进入 out\\report.html（verify.js 有一道门专门核对）。",
+      "i18n": {
+        "en": {
+          "title": "A credential is stored in plaintext on a command line",
+          "advice": [
+            "This command hard-codes an account or password as a plaintext argument. Anyone who can read the task definition (Task Scheduler XML under C:\\Windows\\System32\\Tasks, readable by ordinary users) or the registry key can recover the secret directly - this is not \"looks suspicious\", the credential is on disk. Assume it is already leaked: rotate the account/password, move the secret off the command line (let rasdial use a stored dial-up connection with no inline arguments, or Credential Manager / DPAPI), then delete and recreate the task."
+          ],
+          "why": "Plaintext-credential persistence is a class neither antivirus nor a startup manager looks at: the command itself is perfectly legal (rasdial resolves to System32\\rasdial.exe, so the broken-path rule correctly does not fire on it) - the risk is the password sitting in the arguments, not the program. It earns its own high-severity criterion precisely because it is the kind of truth \"a cleaner cannot answer\": a tool can fix the startup page while a dial-up account and password keep leaking from a task command line.",
+          "verified_evidence": "One hit on this machine: scheduled task \\自动拨号 whose action command line is rasdial 宽带连接 *** *** - rasdial's positional arguments are connection, username, password, so the plaintext password is written straight into the task definition. The report shows only the masked command line; the real secret never enters out\\report.html (verify.js has a gate that checks exactly this)."
+        }
+      }
     }
   ]
 }

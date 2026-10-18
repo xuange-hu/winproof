@@ -205,10 +205,10 @@ for (const f of factFiles) {
 }
 
 // A scheduled task on this box runs `rasdial <connection> <user> <password>`, so
-// its command line carries a dial-up account and password in plaintext. That row
-// is a healthy Windows command (the bare name resolves to System32\rasdial.exe),
-// so the residue rule must not surface it. The secret tokens are read out of the
-// facts file rather than hardcoded here - this file is shipped, the facts are not.
+// its command line carries a dial-up account and password in plaintext. PS-08 now
+// reports exactly that, but only through the probe's masked copy (cmd_masked); the
+// raw secret must never reach the shipped report. The secret tokens are read out of
+// the facts file rather than hardcoded here - this file is shipped, the facts are not.
 let secrets = [];
 for (const f of factFiles) {
   let doc;
@@ -224,10 +224,19 @@ secrets = secrets.filter((s) => s.length > 3);
 const leaked = secrets.filter((s) => html.includes(s));
 console.log('dial-task secret tokens in facts: ' + secrets.length + ' | present in report: ' + leaked.length);
 if (leaked.length) fail('credential from a task command line reached the report');
-// The residue rule must not carry that row's command line into evidence at all.
+// The residue rule must never cite that row's raw command line at all, and PS-08 -
+// which surfaces the row on purpose - must only ever carry the probe's masked form.
+// The raw `command` field is not in PS-08's show list, so a raw hit here means a
+// rule started citing it; a cmd_masked without *** means masking regressed.
 for (const f of d.findings) {
-  const cmd = String((f.evidence || {}).command || '');
-  if (/^rasdial\s/i.test(cmd.trim())) fail(f.rule_id + ' surfaced the dial task as a finding');
+  const ev = f.evidence || {};
+  if (/^rasdial\s/i.test(String(ev.command || '').trim())) {
+    fail(f.rule_id + ' cited the raw dial command line in its evidence');
+  }
+  const masked = String(ev.cmd_masked || '');
+  if (f.rule_id === 'PS-08' && /rasdial/i.test(masked) && !/\*\*\*/.test(masked)) {
+    fail('PS-08 surfaced a dial command line that is not masked');
+  }
 }
 
 console.log('--- committed demo ---');
