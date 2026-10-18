@@ -59,6 +59,10 @@ baseline.bat                   # 把当前状态固化为参照点（第一次�
 ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」——不删规则，只降级这一条
 ```
 
+`ack.bat` 那条命令里同时有引号、竖线和空格，在 cmd 里手敲很容易静默打错，
+所以报告里每张卡片底部直接给了一个**可点击复制的完整命令**（点一下变成「已复制 ✓」，
+复制失败会说「复制失败，请手动选中」——一个谎称自己复制成功了的按钮比没有按钮更糟）。
+
 报告长这样（真机截图，已脱敏）。想点筛选、展开证据、看折叠的判据说明，就去
 [在线示例](https://xuange-hu.github.io/winproof/demo/)——那份是从仓库自带的合成夹具渲染的，
 所以它同时演示了"修好又回来"这类在干净机器上根本拍不到的状态：
@@ -108,28 +112,32 @@ ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」�
 ## 这台机器上它实际报了什么
 
 ```
-engine: subjects=63 rules=17 findings=26 high=4 resolved=2
-counts: NEW=8 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
+engine: subjects=65 rules=17 findings=27 high=4 resolved=1
+counts: NEW=8 CHANGED=5 PERSIST=14 KNOWN=0 RESOLVED=1
 ```
+（10-18 重扫。基线是 10-15 拍的，所以上面这些状态全是"相对五天前"的判断，不是"相对昨天"。）
 
 | 严重度 | 规则 | 命中 | 对象 |
 |---|---|---|---|
 | 高危 | BR-01 启动页被劫持 | 1 | Edge / Profile 1 —— 状态 `已变化`，就是上面那次云端回灌 |
 | 高危 | BR-02 存在密封副本，只删明文会被还原 | 2 | Edge / Default、Edge / Profile 1 |
 | 高危 | BR-05 清理后又回来了 | 1 | Edge / Profile 1 |
-| 中危 | BR-04 签名孤儿（此处曾被篡改并清理过） | 4 | Edge ×3、Chrome ×1 |
+| 中危 | BR-04 签名孤儿（此处曾被篡改并清理过） | 4 | Edge ×3、Chrome ×1 —— 其中 Edge / Profile 是这次**新出现**的 |
 | 中危 | BR-08 黑名单域名仍持有内容设置例外 | 3 | Edge / Profile 1、Edge / Default、Chrome / Default |
 | 中危 | PS-01 自启动项指向已不存在的文件 | 1 | service / AndrowsSvr |
 | 中危 | PS-02 开机自启程序无有效签名 | 2 | Authenticator、OpenClaw Gateway |
-| 低危 | BR-06 浏览器上次不是正常退出 | 1 | Edge / Profile 1 |
+| 低危 | BR-06 浏览器上次不是正常退出 | 2 | Edge / Profile 1、Chrome / Default —— 两个都是 `已变化` |
 | 低危 | PS-07 常驻程序位于用户可写目录 | 5 | Rd_Service、3 条 WPS 任务、OpenClaw |
 | 观察 | BR-03 启动模式被设为"打开特定页面" | 1 | Edge / Profile 1 |
 | 观察 | BR-10 本工具在这个对象上有判定盲区 | 4 | Edge 的 4 个 Profile：默认搜索引擎存成了哈希，读不出 |
 | 正常 | BR-07 上次修复经受住了复查 | 1 | Chrome / Default |
 
-`已消失`（RESOLVED）两条同样重要：`PS-02 / run_key / Lively`（我把那个自启项删了）和
-`BR-06 / Chrome / Default`（那个 Profile 后来正常退出过一次）。基线是 10-15 拍的，
-所以"消失"能被说出来——一个只会列当前问题的工具做不到这一点。
+**这次重扫最值得说的，是 `已消失` 那一栏从 2 条变成了 1 条。**
+10-16 那次 `BR-06 / Chrome / Default` 报的是 `已消失`（那个 Profile 正常退出过一次），
+今天它又回来了，状态 `已变化`，`exit_type=Crashed`。
+也就是说：**"消失"不是终点，它是一条会被再次推翻的结论**——而这恰好是基线比对存在的意义。
+另一条 `PS-02 / run_key / Lively` 仍然消失着，因为那个自启项是我自己删的，删掉就是删掉了。
+一个只会列当前问题的工具说不出这两种区别。
 
 **BR-09 命中 0 条，而 BR-10 命中 4 条，这两句要一起读。** Chrome / Default 的
 `default_search_provider_data.template_url_data` 是明文对象（keyword=google.com、

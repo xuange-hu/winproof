@@ -105,6 +105,13 @@
   .empty { color: var(--faint); font-size: 13px; padding: 16px; text-align: center;
            border: 1px dashed var(--line); border-radius: 10px; }
 
+  .ackline { margin-top: 9px; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .ackbtn { font: 11px/1.4 ui-monospace, Consolas, monospace; color: var(--dim);
+            background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+            padding: 4px 9px; cursor: pointer; text-align: left; word-break: break-all; }
+  .ackbtn:hover { color: var(--txt); border-color: #3a424f; }
+  .ackhint { font-size: 11px; color: var(--faint); }
+
   /* Persistence cards are mostly long Windows paths. Below this width the fixed
      168px label column plus an unbreakable path would force the page sideways,
      so the evidence table stacks label-over-value and every field may break. */
@@ -239,6 +246,27 @@
     for (var i = 0; i < BL.length; i++) if (s.indexOf(BL[i]) >= 0) return true;
     return false;
   }
+  // navigator.clipboard needs a secure context, and a report opened from a USB
+  // stick over file:// is not always one, so the textarea path is the fallback
+  // rather than the exception. The callback reports which one worked: a button
+  // that says "copied" when nothing was copied is worse than no button.
+  function copyText(text, done) {
+    function legacy() {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(ok);
+      } catch (e) { done(false); }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, legacy);
+    } else { legacy(); }
+  }
+
   function el(t, c, x) {
     var n = document.createElement(t);
     if (c) n.className = c;
@@ -428,8 +456,22 @@
         }
         c.appendChild(d);
       }
-      var k = el('div', 'subj', 'ack key: ' + f.key);
-      k.style.marginTop = '8px'; k.style.color = 'var(--faint)'; k.style.fontSize = '11px';
+      // The ack key has to be typed into cmd with a pipe and spaces inside quotes,
+      // which is the one step of the whole workflow that fails silently. So the
+      // report hands over the finished command instead of a string to transcribe.
+      var k = el('div', 'ackline');
+      var cmd = 'ack.bat "' + f.key + '"';
+      var kb = el('button', 'ackbtn', cmd);
+      kb.type = 'button';
+      kb.title = '点击复制这条命令，粘到 cmd 里执行';
+      kb.onclick = function () {
+        copyText(cmd, function (ok) {
+          kb.textContent = ok ? '已复制 ✓' : '复制失败，请手动选中';
+          setTimeout(function () { kb.textContent = cmd; }, 1600);
+        });
+      };
+      k.appendChild(kb);
+      k.appendChild(el('span', 'ackhint', '标记为已知：只降级这一条结论，不删规则'));
       c.appendChild(k);
       main.appendChild(c);
     });
