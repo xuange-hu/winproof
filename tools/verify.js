@@ -123,5 +123,38 @@ for (const f of d.findings) {
   if (/^rasdial\s/i.test(cmd.trim())) fail(f.rule_id + ' surfaced the dial task as a finding');
 }
 
+console.log('--- committed demo ---');
+// demo/index.html is the one artefact in this repo that is published as-is, so it
+// is checked like a shipped binary: it must render, it must show the states a
+// clean machine cannot, and it must carry nobody's home path.
+const demoPath = path.join(root, 'demo', 'index.html');
+if (!fs.existsSync(demoPath)) {
+  fail('demo/index.html missing (run tools/make-demo.ps1)');
+} else {
+  const demo = fs.readFileSync(demoPath, 'utf8');
+  const dm = demo.match(/<script id="wp-data" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!dm) fail('demo has no data block');
+  else {
+    let dd;
+    try { dd = JSON.parse(dm[1].split('<\\/script>').join('</script>')); }
+    catch (e) { fail('demo JSON parse: ' + e.message); }
+    if (dd) {
+      const st = {};
+      for (const f of dd.findings) st[f.state] = (st[f.state] || 0) + 1;
+      const res = Array.isArray(dd.resolved) ? dd.resolved.length : (dd.resolved ? 1 : 0);
+      console.log('demo findings=' + dd.findings.length + ' ' + JSON.stringify(st) + ' resolved=' + res);
+      // A demo that only shows PERSIST rows is a screenshot, not a demo.
+      for (const need of ['NEW', 'CHANGED', 'PERSIST']) {
+        if (!st[need]) fail('demo shows no ' + need + ' rows');
+      }
+      if (!res) fail('demo shows no retired (RESOLVED) conclusions');
+      if (!/data-demo="1"/.test(demo)) fail('demo is not marked as synthetic in its own <html>');
+      const dprof = prof ? ((demo.split(prof).length - 1) + (profEsc ? (demo.split(profEsc).length - 1) : 0)) : 0;
+      console.log('demo home-path occurrences: ' + dprof);
+      if (dprof) fail('the published demo contains an absolute home path');
+    }
+  }
+}
+
 console.log(bad === 0 ? 'VERIFY: OK' : 'VERIFY: ' + bad + ' problem(s)');
 process.exit(bad === 0 ? 0 : 1);

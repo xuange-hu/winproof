@@ -18,6 +18,13 @@
   }
   .wrap { max-width: 1020px; margin: 0 auto; padding: 32px 22px 70px; }
   header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 26px; }
+  .notice { display: none; }
+  [data-demo] .notice {
+    display: block; background: var(--panel2); border: 1px solid var(--line);
+    border-left: 3px solid var(--medium); border-radius: 8px;
+    padding: 12px 15px; margin-bottom: 22px; color: var(--dim); font-size: 13px;
+  }
+  [data-demo] .notice b { color: var(--medium); }
   h1 { margin: 0; font-size: 25px; letter-spacing: .3px; }
   h1 span { color: var(--high); }
   .sub { color: var(--dim); font-size: 13px; margin-top: 7px; }
@@ -114,6 +121,13 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="notice" id="demo-notice">
+    <b>这是一份示例报告，不是你的机器。</b>
+    它由仓库自带的合成夹具 <code>tests/fixtures/*.json</code> 渲染，里面每一条结论都是设计出来的：
+    被劫持的启动页、密封副本、云端回灌、指向不存在文件的残留、以及读不出来的盲区。
+    夹具的作用就是让任何一台 Windows（包括一台从没被劫持过的）都能跑出与这里完全一致的判定。
+    在你自己机器上跑 <code>scan.bat</code>，这份报告会变成真的。
+  </div>
   <header>
     <h1>Win<span>Proof</span> 取证报告</h1>
     <div class="sub">只读采集 · 声明式规则 · 基线比对 — 回答「什么变了、什么时候变的、哪种处置方式才不会被还原」</div>

@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-demo="1">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WinProof - Windows 变更取证报告</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212a; --line: #272d38;
+    --txt: #e6e9ef; --dim: #98a2b3; --faint: #6b7280;
+    --high: #ff5f56; --medium: #ffb020; --low: #7dd3fc; --info: #9aa4b2; --good: #35d39a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--txt);
+    font: 14px/1.65 -apple-system, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 32px 22px 70px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 18px; margin-bottom: 26px; }
+  .notice { display: none; }
+  [data-demo] .notice {
+    display: block; background: var(--panel2); border: 1px solid var(--line);
+    border-left: 3px solid var(--medium); border-radius: 8px;
+    padding: 12px 15px; margin-bottom: 22px; color: var(--dim); font-size: 13px;
+  }
+  [data-demo] .notice b { color: var(--medium); }
+  h1 { margin: 0; font-size: 25px; letter-spacing: .3px; }
+  h1 span { color: var(--high); }
+  .sub { color: var(--dim); font-size: 13px; margin-top: 7px; }
+  .meta { color: var(--faint); font-size: 12px; margin-top: 10px; display: flex; flex-wrap: wrap; gap: 18px; }
+  .meta b { color: var(--dim); font-weight: 600; }
+
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 22px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px; }
+  .stat .n { font-size: 27px; font-weight: 700; line-height: 1.1; }
+  .stat .l { font-size: 11.5px; color: var(--dim); margin-top: 3px; }
+  .stat.high .n { color: var(--high); } .stat.medium .n { color: var(--medium); }
+  .stat.good .n { color: var(--good); } .stat.info .n { color: var(--info); }
+  .stat.new .n { color: var(--high); } .stat.resolved .n { color: var(--good); }
+
+  .verdict { border-radius: 10px; padding: 14px 16px; margin-bottom: 26px; border: 1px solid; font-size: 14px; }
+  .verdict.red { background: #2a1517; border-color: #59262b; }
+  .verdict.amber { background: #2a2115; border-color: #59461f; }
+  .verdict.green { background: #14261f; border-color: #24513f; }
+  .verdict b { display: block; margin-bottom: 4px; font-size: 15px; }
+
+  h2 { font-size: 16px; margin: 30px 0 12px; padding-bottom: 7px; border-bottom: 1px solid var(--line); }
+  h2 .cnt { color: var(--faint); font-weight: 400; font-size: 13px; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-left-width: 3px;
+          border-radius: 10px; padding: 15px 17px; margin-bottom: 12px; }
+  .card.high { border-left-color: var(--high); } .card.medium { border-left-color: var(--medium); }
+  .card.low { border-left-color: var(--low); } .card.info { border-left-color: var(--info); }
+  .card.good { border-left-color: var(--good); }
+  .cardhead { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .rid { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--faint); }
+  .ct { font-size: 15px; font-weight: 650; }
+  .badge { font-size: 10.5px; padding: 2px 7px; border-radius: 20px; border: 1px solid var(--line);
+           color: var(--dim); letter-spacing: .4px; }
+  .badge.NEW { color: #ffd7d3; border-color: #6b2c31; background: #2d1518; }
+  .badge.CHANGED { color: #ffe6bf; border-color: #6b5228; background: #2b2214; }
+  .badge.PERSIST { color: var(--dim); }
+  .badge.KNOWN { color: var(--faint); }
+  .badge.UNBASELINED { color: #bfe3ff; border-color: #2c4d6b; background: #142330; }
+  .subj { font-size: 12.5px; color: var(--dim); margin-top: 5px; font-family: ui-monospace, Consolas, monospace; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 11px; font-size: 12.5px; }
+  td { padding: 5px 9px; border-bottom: 1px solid var(--line); vertical-align: top; word-break: break-all; }
+  td.k { color: var(--dim); width: 168px; white-space: nowrap; }
+  td.k .zh { display: block; color: var(--faint); font-size: 11px; }
+  tr:last-child td { border-bottom: none; }
+  .val { font-family: ui-monospace, Consolas, monospace; }
+  .hit { color: var(--high); font-weight: 600; }
+  .miss { color: var(--good); font-weight: 600; }
+
+  .advice { margin-top: 12px; background: var(--panel2); border-radius: 8px; padding: 10px 13px;
+            font-size: 13px; border: 1px solid var(--line); }
+  .advice .lbl { color: var(--medium); font-weight: 650; margin-right: 6px; }
+  details { margin-top: 9px; }
+  summary { cursor: pointer; color: var(--faint); font-size: 12.5px; }
+  .why, .vev { font-size: 12.5px; color: var(--dim); margin-top: 7px; padding-left: 11px;
+               border-left: 2px solid var(--line); }
+  .vev { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+  /* recurrence timeline: the money shot */
+  .tl { margin: 14px 0 4px; padding: 13px 15px; background: #12151b; border: 1px solid var(--line); border-radius: 8px; }
+  .tl .row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; }
+  .tl .row + .row { margin-top: 11px; padding-top: 11px; border-top: 1px dashed var(--line); }
+  .tl .when { font-size: 11.5px; color: var(--dim); }
+  .tl .when .tag { display: block; font-size: 10.5px; color: var(--faint); margin-top: 2px; }
+  .tl .state { font-size: 13px; font-weight: 650; }
+  .tl .url { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--dim);
+             word-break: break-all; margin-top: 3px; }
+  .tl .delta { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--line);
+               font-size: 12.5px; color: var(--dim); }
+  .tl .delta b { color: var(--txt); }
+
+  .resolved-list { font-size: 12.5px; color: var(--dim); }
+  .resolved-list div { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  footer { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line);
+           font-size: 12px; color: var(--faint); }
+  footer code { background: var(--panel); padding: 2px 6px; border-radius: 4px; color: var(--dim);
+                font-family: ui-monospace, Consolas, monospace; }
+  .empty { color: var(--faint); font-size: 13px; padding: 16px; text-align: center;
+           border: 1px dashed var(--line); border-radius: 10px; }
+
+  /* Persistence cards are mostly long Windows paths. Below this width the fixed
+     168px label column plus an unbreakable path would force the page sideways,
+     so the evidence table stacks label-over-value and every field may break. */
+  @media (max-width: 720px) {
+    .wrap { padding: 22px 12px 46px; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    table, tr, td { display: block; width: auto; }
+    td.k { width: auto; white-space: normal; border-bottom: none; padding-bottom: 1px; }
+    td.val { padding-top: 1px; }
+    .tl .row { grid-template-columns: 1fr; gap: 3px; }
+    .subj { word-break: break-all; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="notice" id="demo-notice">
+    <b>这是一份示例报告，不是你的机器。</b>
+    它由仓库自带的合成夹具 <code>tests/fixtures/*.json</code> 渲染，里面每一条结论都是设计出来的：
+    被劫持的启动页、密封副本、云端回灌、指向不存在文件的残留、以及读不出来的盲区。
+    夹具的作用就是让任何一台 Windows（包括一台从没被劫持过的）都能跑出与这里完全一致的判定。
+    在你自己机器上跑 <code>scan.bat</code>，这份报告会变成真的。
+  </div>
+  <header>
+    <h1>Win<span>Proof</span> 取证报告</h1>
+    <div class="sub">只读采集 · 声明式规则 · 基线比对 — 回答「什么变了、什么时候变的、哪种处置方式才不会被还原」</div>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <div class="stats" id="stats"></div>
+  <div id="verdict"></div>
+  <main id="cards"></main>
+  <div id="resolved"></div>
+
+  <footer>
+    <div>本次求值：规则 <b id="f-rules"></b> 条 × 对象 <b id="f-subjects"></b> 个，探针 <span id="f-probes"></span>。规则判据均在本机取证实测，未实测的条件不进首版。</div>
+    <div style="margin-top:8px">域名黑名单（子串匹配，命中可能是你主动设置的首页——用 <code>ack.bat &lt;key&gt;</code> 标记为已知，不要删规则）：<span id="f-bl"></span></div>
+    <div style="margin-top:8px">本工具不修改任何文件、注册表或服务。每条建议都需要你手动执行，因为「正确的处置方式」取决于密封副本与同步开关是否存在，而这些判定未必适用于你的机器。</div>
+  </footer>
+</div>
+
+<script id="wp-data" type="application/json">{
+    "schema":  "winproof/1",
+    "scanned_at":  "2026-10-18 14:51:56",
+    "computer":  "<host>",
+    "user":  "<user>",
+    "os_version":  "10.0.26200.0",
+    "ps_version":  "5.1.26100.9711",
+    "baseline_at":  "2026-10-18 14:51:56",
+    "probes_run":  [
+                       "browser_prefs",
+                       "persistence"
+                   ],
+    "rules_total":  17,
+    "subjects_total":  20,
+    "domain_blocklist":  [
+                             "2345",
+                             "pbgia",
+                             "hao.360",
+                             "mydown",
+                             "so.com",
+                             "360safe",
+                             "duba",
+                             "haosf",
+                             "win23"
+                         ],
+    "counts":  {
+                   "NEW":  2,
+                   "CHANGED":  1,
+                   "PERSIST":  30,
+                   "KNOWN":  0,
+                   "UNBASELINED":  0,
+                   "RESOLVED":  1
+               },
+    "severity_counts":  {
+                            "high":  13,
+                            "medium":  11,
+                            "low":  3,
+                            "info":  6,
+                            "good":  0
+                        },
+    "findings":  [
+                     {
+                         "rule_id":  "BR-01",
+                         "title":  "浏览器启动页被劫持",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 2",
+                         "key":  "BR-01|Edge / Profile 2",
+                         "fingerprint":  "445B59467F8B8729",
+                         "evidence":  {
+                                          "startup_urls":  "http://2345.pbgia.com/win23",
+                                          "startup_mode":  null,
+                                          "doc_role":  "secure",
+                                          "bytes":  39396,
+                                          "mtime":  "2026-10-12 20:05:44"
+                                      },
+                         "advice":  "先把浏览器完全退出（含托盘后台进程），否则浏览器退出时会把内存里的旧值重新写回文件，你的修改会被覆盖。",
+                         "why":  "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 2\\Secure Preferences",
+                         "state":  "NEW"
+                     },
+                     {
+                         "rule_id":  "BR-01",
+                         "title":  "浏览器启动页被劫持",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Profile 3",
+                         "key":  "BR-01|Chrome / Profile 3",
+                         "fingerprint":  "89AC8BFC2111A28D",
+                         "evidence":  {
+                                          "startup_urls":  "http://www.hao.360.com/",
+                                          "startup_mode":  4,
+                                          "doc_role":  "plain_only",
+                                          "bytes":  52258,
+                                          "mtime":  "2026-10-14 13:09:15"
+                                      },
+                         "advice":  "先把浏览器完全退出（含托盘后台进程），否则浏览器退出时会把内存里的旧值重新写回文件，你的修改会被覆盖。",
+                         "why":  "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-01",
+                         "title":  "浏览器启动页被劫持",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-01|Chrome / Default",
+                         "fingerprint":  "6FD5C73708B63D1B",
+                         "evidence":  {
+                                          "startup_urls":  "http://www.so.com/?q=hijack",
+                                          "startup_mode":  4,
+                                          "doc_role":  "secure",
+                                          "bytes":  98120,
+                                          "mtime":  "2026-10-14 09:40:11"
+                                      },
+                         "advice":  "先把浏览器完全退出（含托盘后台进程），否则浏览器退出时会把内存里的旧值重新写回文件，你的修改会被覆盖。",
+                         "why":  "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-01",
+                         "title":  "浏览器启动页被劫持",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-01|Edge / Profile 1",
+                         "fingerprint":  "9BA92B2E0D1F5A43",
+                         "evidence":  {
+                                          "startup_urls":  "http://2345.pbgia.com/win23",
+                                          "startup_mode":  4,
+                                          "doc_role":  "secure",
+                                          "bytes":  145715,
+                                          "mtime":  "2026-10-14 21:58:28"
+                                      },
+                         "advice":  "这个 Profile 开了 sync.preferences。手改文件会被云端配置回灌，请先在 edge://settings/onStartup 或 chrome://settings/onStartup 里改掉，再动文件。",
+                         "why":  "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-02",
+                         "title":  "存在密封副本，只删明文会被还原",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-02|Edge / Profile 1",
+                         "fingerprint":  "B5871EDFA479D43B",
+                         "evidence":  {
+                                          "seal_keys":  [
+                                                            "restore_on_startup_edge_enclave",
+                                                            "restore_on_startup_edge_enclave_verify",
+                                                            "startup_urls_edge_enclave",
+                                                            "startup_urls_edge_enclave_verify"
+                                                        ],
+                                          "startup_urls_bad":  "http://2345.pbgia.com/win23"
+                                      },
+                         "advice":  "Edge 在 session 下另存了一份加密密封值（*_edge_enclave 或 *_edge_lightweight 及其 _verify）。清理必须把整个键名族一起删掉，只删明文的 startup_urls 会被这份密封副本还原。",
+                         "why":  "这是绝大多数手工清理失败的真正原因：明明删干净了，下次打开浏览器又回来了，看起来像\"没删掉\"，实际上是另一份副本被当成权威值重新落盘。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-02",
+                         "title":  "存在密封副本，只删明文会被还原",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Default",
+                         "key":  "BR-02|Edge / Default",
+                         "fingerprint":  "C3DBEBEF66F886AD",
+                         "evidence":  {
+                                          "seal_keys":  [
+                                                            "restore_on_startup_edge_lightweight",
+                                                            "restore_on_startup_edge_lightweight_verify",
+                                                            "startup_urls_edge_lightweight",
+                                                            "startup_urls_edge_lightweight_verify"
+                                                        ],
+                                          "startup_urls_bad":  {
+
+                                                               }
+                                      },
+                         "advice":  "Edge 在 session 下另存了一份加密密封值（*_edge_enclave 或 *_edge_lightweight 及其 _verify）。清理必须把整个键名族一起删掉，只删明文的 startup_urls 会被这份密封副本还原。",
+                         "why":  "这是绝大多数手工清理失败的真正原因：明明删干净了，下次打开浏览器又回来了，看起来像\"没删掉\"，实际上是另一份副本被当成权威值重新落盘。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-05",
+                         "title":  "清理后又回来了：劫持值复发",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-05|Edge / Profile 1",
+                         "fingerprint":  "2DFD16F0389D86F6",
+                         "evidence":  {
+                                          "backups":  {
+                                                          "name":  "Secure Preferences.bak_20261010-221049",
+                                                          "bytes":  71212,
+                                                          "mtime":  "2026-10-10 22:10:50",
+                                                          "urls":  [
+                                                                       "http://2345.pbgia.com/win23"
+                                                                   ]
+                                                      },
+                                          "bytes":  145715,
+                                          "mtime":  "2026-10-14 21:58:28",
+                                          "startup_urls_bad":  "http://2345.pbgia.com/win23",
+                                          "sync_preferences_enabled":  true,
+                                          "seal_keys":  [
+                                                            "restore_on_startup_edge_enclave",
+                                                            "restore_on_startup_edge_enclave_verify",
+                                                            "startup_urls_edge_enclave",
+                                                            "startup_urls_edge_enclave_verify"
+                                                        ]
+                                      },
+                         "advice":  "复发点在时间上晚于上一次修复，且这个 Profile 开着 preferences 同步——云端配置回灌是最可能的来源。先断开该项同步再清理，否则每次同步都会把值带回来。",
+                         "why":  "一次性扫描工具无法回答\"我上次清了，它为什么还在\"。把上一次修复留下的 .bak_ 备份时间戳和当前文件的修改时间放在一起比对，就能把\"复发\"从感觉变成一条带日期的证据。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-05",
+                         "title":  "清理后又回来了：劫持值复发",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 2",
+                         "key":  "BR-05|Edge / Profile 2",
+                         "fingerprint":  "9F8C30CA8C86BDF1",
+                         "evidence":  {
+                                          "backups":  {
+                                                          "name":  "Secure Preferences.bak_20261011-075530",
+                                                          "bytes":  39512,
+                                                          "mtime":  "2026-10-11 07:55:31",
+                                                          "urls":  [
+                                                                       "http://pbgia.com/win23"
+                                                                   ]
+                                                      },
+                                          "bytes":  39396,
+                                          "mtime":  "2026-10-12 20:05:44",
+                                          "startup_urls_bad":  "http://2345.pbgia.com/win23",
+                                          "sync_preferences_enabled":  false,
+                                          "seal_keys":  {
+
+                                                        }
+                                      },
+                         "advice":  "复发点在时间上晚于上一次修复，但没开 preferences 同步——那更可能是某个仍在运行的程序在持续重写，按启动项和计划任务方向继续排查。",
+                         "why":  "一次性扫描工具无法回答\"我上次清了，它为什么还在\"。把上一次修复留下的 .bak_ 备份时间戳和当前文件的修改时间放在一起比对，就能把\"复发\"从感觉变成一条带日期的证据。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 2\\Secure Preferences",
+                         "state":  "NEW"
+                     },
+                     {
+                         "rule_id":  "BR-05",
+                         "title":  "清理后又回来了：劫持值复发",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-05|Chrome / Default",
+                         "fingerprint":  "5E4304EBFEB61321",
+                         "evidence":  {
+                                          "backups":  {
+                                                          "name":  "Secure Preferences.bak_20260921-083012",
+                                                          "bytes":  97900,
+                                                          "mtime":  "2026-09-21 08:30:12",
+                                                          "urls":  [
+                                                                       "http://www.so.com/?q=hijack"
+                                                                   ]
+                                                      },
+                                          "bytes":  98120,
+                                          "mtime":  "2026-10-14 09:40:11",
+                                          "startup_urls_bad":  "http://www.so.com/?q=hijack",
+                                          "sync_preferences_enabled":  false,
+                                          "seal_keys":  {
+
+                                                        }
+                                      },
+                         "advice":  "复发点在时间上晚于上一次修复，但没开 preferences 同步——那更可能是某个仍在运行的程序在持续重写，按启动项和计划任务方向继续排查。",
+                         "why":  "一次性扫描工具无法回答\"我上次清了，它为什么还在\"。把上一次修复留下的 .bak_ 备份时间戳和当前文件的修改时间放在一起比对，就能把\"复发\"从感觉变成一条带日期的证据。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Edge Profile 1 有 Secure Preferences.bak_20261010-221049（71212 字节，10-10 22:10），当前文件 145715 字节、mtime 10-14 21:58，恶意值在备份之后重新出现。10-16 追加一次完整闭环实测：14:18:33 用文件级修复把 session 改写为 restore_on_startup=1、startup_urls=[]，并删除 4 个 *_edge_enclave 键与其 _verify，写盘前逐键校验过其余顶层值字节一致，14:4x 复查为干净（winproof 当时给出 BR-07 good）；Edge 后台进程 15:55:30 启动，15:55:40 Secure Preferences 重新出现 mode=4 + http://2345.pbgia.com/win23（148932 字节）。此时明文 Preferences 的 session 是空的、磁盘上已无该值的本地副本，唯一还在同步的通道是 sync.preferences=true，所以写回来源是云端配置而不是本地残留。结论：开着 preferences 同步的 Profile，文件级修复只能顶到下一次浏览器启动，必须走 UI（edge://settings/onStartup）让云端副本一起被改掉。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-03",
+                         "title":  "出现了非预期的 Early-Launch 驱动",
+                         "severity":  "high",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "elam_driver / ZzThirdPartyElam",
+                         "key":  "PS-03|elam_driver / ZzThirdPartyElam",
+                         "fingerprint":  "E1E5DDA5F3F1C983",
+                         "evidence":  {
+                                          "name":  "ZzThirdPartyElam",
+                                          "exe":  "C:\\Windows\\System32\\drivers\\zzelam64.sys",
+                                          "drv_start":  "0",
+                                          "signer":  "Zz Security Tech",
+                                          "sig_status":  "Valid",
+                                          "command":  "C:\\Windows\\System32\\drivers\\zzelam64.sys"
+                                      },
+                         "advice":  "Early-Launch 驱动在绝大多数安全软件之前加载。除了杀软自己的 ELAM 驱动（如各厂商的 elam 件），你不应有第二个成员。先确认 signer，再决定是不是要移除——这个级别的驻留能把自己保护的进程列为白名单。",
+                         "why":  "这是本机实测过的真实威胁模型：360 的下载器曾往这台机器里塞过 360elam64.sys（BOOT_START 的 ELAM 驱动）。清掉文件后注册表键还在，只有按 Group=Early-Launch 枚举才看得见它，按文件名搜是搜不到的。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机此刻 Early-Launch 成员只有 WdBoot（signer=Microsoft Windows Early Launch Anti-malware Publisher），所以这条规则现在不应命中——它命中 0 条才是正确状态。清理前该集合里曾同时存在 WdBoot 与 360elam64。",
+                         "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzThirdPartyElam",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-04",
+                         "title":  "hosts 文件存在非 localhost 的映射",
+                         "severity":  "high",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "hosts_file / hosts",
+                         "key":  "PS-04|hosts_file / hosts",
+                         "fingerprint":  "18A79353256B5D1C",
+                         "evidence":  {
+                                          "host_effective":  2,
+                                          "host_count":  5,
+                                          "command":  "C:\\Windows\\System32\\drivers\\etc\\hosts",
+                                          "host_mtime":  "2026-10-09 22:41:07",
+                                          "location":  "C:\\Windows\\System32\\drivers\\etc\\hosts"
+                                      },
+                         "advice":  "逐行确认这些映射是不是你自己（或某个屏蔽工具、激活工具）加的。要恢复：不是删行，而是把整个文件换回系统默认——激活类工具改 hosts 时通常不会告诉你它挡了哪些域名。",
+                         "why":  "hosts 是最省事的劫持位置：不需要权限、不需要驻留进程，改完就一直生效，而且绝大多数清理工具根本不检查它。localhost 那两行是系统自带的，把它们算进去会让每台机器都误报一次。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机 hosts 只有 127.0.0.1 localhost，有效条目 0，因此这条规则此刻不应命中。",
+                         "detail_path":  "C:\\Windows\\System32\\drivers\\etc\\hosts",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-05",
+                         "title":  "IFEO Debugger 会替换程序启动的进程",
+                         "severity":  "high",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "ifeo_debugger / notepad.exe",
+                         "key":  "PS-05|ifeo_debugger / notepad.exe",
+                         "fingerprint":  "840AE12D2B71CC47",
+                         "evidence":  {
+                                          "name":  "notepad.exe",
+                                          "command":  "C:\\Windows\\System32\\zzdebugger.exe",
+                                          "exe":  "C:\\Windows\\System32\\zzdebugger.exe",
+                                          "signer":  "Microsoft Windows",
+                                          "sig_status":  "Valid",
+                                          "location":  "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\notepad.exe"
+                                      },
+                         "advice":  "Image File Execution Options 下的 Debugger 值会让系统在你启动 \u003cname\u003e 时改为运行另一个程序。这个位置被用来劫持任意程序，最常用于让安全软件永远启动不了。删这个 Debugger 值（键本身留着无害，它是给调试器用的）。",
+                         "why":  "它是 Windows 上破坏力最大的单点驻留：能精确针对某个具名进程生效，进程列表里看不出异常，而且需要管理员权限才能写入——所以一旦出现，说明写入者已经提过权了。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机 IFEO 下无 Debugger 值，这条规则此刻不应命中；判据与键路径已按实测结构实现。",
+                         "detail_path":  "HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\notepad.exe",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-06",
+                         "title":  "Winsock LSP 提供方不是系统 DLL",
+                         "severity":  "high",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "winsock_lsp / ZzNetFilter",
+                         "key":  "PS-06|winsock_lsp / ZzNetFilter",
+                         "fingerprint":  "DF5189A18355878C",
+                         "evidence":  {
+                                          "name":  "ZzNetFilter",
+                                          "exe":  "D:\\net\\zzlsp.dll",
+                                          "signer":  "Zz Network Co.",
+                                          "sig_status":  "Valid",
+                                          "location":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Winsock2\\LSP"
+                                      },
+                         "advice":  "命名空间分层提供方能拦改这台机器上任何程序的 TCP 连接。确认 signer 属于哪个软件（加速器、代理客户端、某些安全软件会装）。要清掉时不要直接删注册表项：netsh winsock reset 才能同时修好目录顺序。",
+                         "why":  "360 类软件历史上就在这里装过滤层。这个位置的条目数量少、变动少，因此一条非系统的 LSP 就是很硬的信号——和 40 条启动项残留完全不同。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机 5 个 LSP 提供方全部为 Microsoft Windows 签名的系统 DLL，in_windows 均为 true，所以这条规则此刻不应命中。",
+                         "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Winsock2\\LSP",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-04",
+                         "title":  "签名孤儿：此处曾被篡改并清理过",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Default",
+                         "key":  "BR-04|Edge / Default",
+                         "fingerprint":  "22542FD1F1FEC9AD",
+                         "evidence":  {
+                                          "orphan_sigs":  [
+                                                              "restore_on_startup",
+                                                              "startup_urls"
+                                                          ],
+                                          "macs_session":  [
+                                                               "restore_on_startup",
+                                                               "restore_on_startup_encrypted_hash",
+                                                               "startup_urls",
+                                                               "startup_urls_encrypted_hash"
+                                                           ]
+                                      },
+                         "advice":  "protection.macs.session 里留着 startup_urls / restore_on_startup 的签名，但 session 里已经没有对应明文。这说明这个值曾经存在后被删除（可能是你清的，也可能是清理工具清的）。它是历史证据，不是当前威胁，无需处理。",
+                         "why":  "浏览器会对受保护键写签名，而 protection.macs 是两层结构（段名 -\u003e 键名 -\u003e 签名），不是很多工具以为的一层。签名是确定性的：同一 Profile 集合里相同缺失值会得到相同签名，所以删值留签名不会让文件损坏，浏览器下次写入时会重新签名。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Edge Default、Edge Profile 2、Chrome Default 三处的 macs.session 都含 startup_urls 签名而 session 无明文。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-08",
+                         "title":  "黑名单域名仍持有内容设置例外",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-08|Chrome / Default",
+                         "fingerprint":  "1D8763E652CC573F",
+                         "evidence":  {
+                                          "perm_grants_bad":  [
+                                                                  "http_allowed|https://2345.pbgia.com:443,*|2026-10-12 08:03:55",
+                                                                  "media_engagement|https://www.2345.com:443,*|2026-10-12 08:04:01",
+                                                                  "cookies|https://www.so.com:443,*|2026-10-12 08:04:20"
+                                                              ],
+                                          "perm_bad_settings":  [
+                                                                    "http_allowed",
+                                                                    "media_engagement",
+                                                                    "cookies"
+                                                                ],
+                                          "perm_total_keys":  41,
+                                          "startup_urls_bad":  "http://www.so.com/?q=hijack",
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "这个域名的启动页此刻仍在，例外项和它是同一批残留。先按 BR-01 处置启动页，再回到 edge://settings/content/all（或 chrome://settings/content/all）按域名搜索删除这些条目，否则一次加载就会重新写入新的例外。",
+                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-08",
+                         "title":  "黑名单域名仍持有内容设置例外",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-08|Edge / Profile 1",
+                         "fingerprint":  "B0959945EA3DE677",
+                         "evidence":  {
+                                          "perm_grants_bad":  [
+                                                                  "http_allowed|https://2345.pbgia.com:443,*|2026-10-16 12:38:35",
+                                                                  "media_engagement|https://nexus.mydown.com:443,*|2026-10-12 21:35:08",
+                                                                  "media_engagement|https://www.2345.com:443,*|2026-10-16 12:38:39",
+                                                                  "notifications|https://www.2345.com:443,*|2026-10-11 09:02:11",
+                                                                  "site_engagement|https://www.2345.com:443,*|2026-10-16 12:38:39",
+                                                                  "trackers_data|https://cdn.weather.hao.360.cn:443,*|"
+                                                              ],
+                                          "perm_bad_settings":  [
+                                                                    "http_allowed",
+                                                                    "media_engagement",
+                                                                    "notifications",
+                                                                    "site_engagement",
+                                                                    "trackers_data"
+                                                                ],
+                                          "perm_total_keys":  1355,
+                                          "startup_urls_bad":  "http://2345.pbgia.com/win23",
+                                          "sync_preferences_enabled":  true
+                                      },
+                         "advice":  "这个域名的启动页此刻仍在，例外项和它是同一批残留。先按 BR-01 处置启动页，再回到 edge://settings/content/all（或 chrome://settings/content/all）按域名搜索删除这些条目，否则一次加载就会重新写入新的例外。",
+                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-08",
+                         "title":  "黑名单域名仍持有内容设置例外",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Default",
+                         "key":  "BR-08|Edge / Default",
+                         "fingerprint":  "20955B2D0A399EE9",
+                         "evidence":  {
+                                          "perm_grants_bad":  "http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02",
+                                          "perm_bad_settings":  [
+                                                                    "http_allowed"
+                                                                ],
+                                          "perm_total_keys":  411,
+                                          "startup_urls_bad":  {
+
+                                                               },
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "启动页已经干净，但浏览器仍然记得这个域名——这一条证明的是\"页面被真正加载过\"，而 BR-01 只能证明\"配置里写了它\"。撤销入口：edge://settings/content/all 或 chrome://settings/content/all 按域名搜索逐条删除；若列表里搜不到该域名，说明这个类型没有 UI 开关，只能清 Profile 或接受它作为历史记录。",
+                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-09",
+                         "title":  "默认搜索引擎被替换或被策略锁定",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 2",
+                         "key":  "BR-09|Edge / Profile 2",
+                         "fingerprint":  "459690FABCD3E653",
+                         "evidence":  {
+                                          "search_keyword":  "www.2345.com",
+                                          "search_name":  "2345 Search",
+                                          "search_url":  "http://www.2345.com/s?q={searchTerms}\u0026ie={inputEncoding}",
+                                          "search_policy":  false,
+                                          "search_bad":  [
+                                                             "www.2345.com",
+                                                             "2345 Search",
+                                                             "http://www.2345.com/s?q={searchTerms}\u0026ie={inputEncoding}",
+                                                             "http://www.2345.com/"
+                                                         ],
+                                          "startup_urls_bad":  "http://2345.pbgia.com/win23",
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "默认搜索引擎的 keyword/URL 命中黑名单。撤销入口：edge://settings/search 或 chrome://settings/searchEngines，选中正确的引擎点\"设为默认\"，再把黑名单那一条删除；如果列表里删不掉，说明它是被策略或扩展装进来的，看下一条建议。注意本项在 Edge 上不可判定（见 BR-10），所以这条只在 Chrome 与手动添加的引擎上有意义。",
+                         "why":  "启动页劫持决定你打开浏览器看到什么，搜索引擎劫持决定你搜什么出来什么——后者更隐蔽，因为它只在真的搜索时才暴露。判据取 keyword 而不是 search_url，是因为预置引擎（Google/Bing）的 URL 全是 {google:baseURL} 这类占位符，只有 keyword 这个裸域名稳定；而劫持者不是预置引擎，它一定带一条字面 URL，所以两个都读才能同时覆盖两种情况。enforced_by_policy 单列出来是因为它把\"你自己装错了\"和\"有东西替你决定了\"分开，这两种处置方式完全不同。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 2\\Secure Preferences",
+                         "state":  "CHANGED"
+                     },
+                     {
+                         "rule_id":  "BR-09",
+                         "title":  "默认搜索引擎被替换或被策略锁定",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-09|Chrome / Default",
+                         "fingerprint":  "1EDA143CB129CCA5",
+                         "evidence":  {
+                                          "search_keyword":  "google.com",
+                                          "search_name":  "Google",
+                                          "search_url":  "",
+                                          "search_policy":  true,
+                                          "search_bad":  {
+
+                                                         },
+                                          "startup_urls_bad":  "http://www.so.com/?q=hijack",
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "这个引擎是 enforced_by_policy=true：它不是用户选的，是组策略或注册表策略强制的，所以浏览器设置页里改不动也删不掉。要查 HKLM\\SOFTWARE\\Policies\\Google\\Chrome 与 HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge 下的搜索/扩展策略键；企业设备上这可能是 IT 部门装的，用 ack.bat 标记为已知即可。",
+                         "why":  "启动页劫持决定你打开浏览器看到什么，搜索引擎劫持决定你搜什么出来什么——后者更隐蔽，因为它只在真的搜索时才暴露。判据取 keyword 而不是 search_url，是因为预置引擎（Google/Bing）的 URL 全是 {google:baseURL} 这类占位符，只有 keyword 这个裸域名稳定；而劫持者不是预置引擎，它一定带一条字面 URL，所以两个都读才能同时覆盖两种情况。enforced_by_policy 单列出来是因为它把\"你自己装错了\"和\"有东西替你决定了\"分开，这两种处置方式完全不同。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-01",
+                         "title":  "自启动项指向已经不存在的文件",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "run_key / ZzResidueGhost",
+                         "key":  "PS-01|run_key / ZzResidueGhost",
+                         "fingerprint":  "948EACAA583173A0",
+                         "evidence":  {
+                                          "kind":  "run_key",
+                                          "command":  "\"C:\\Users\\example\\AppData\\Roaming\\ZzSuite\\zzsuite.exe\" /autostart",
+                                          "exe":  "C:\\Users\\example\\AppData\\Roaming\\ZzSuite\\zzsuite.exe",
+                                          "exe_exists":  false,
+                                          "location":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                                          "sig_status":  "",
+                                          "svc_state":  "",
+                                          "task_state":  ""
+                                      },
+                         "advice":  "卸载残留：注册值还在，文件已经没了。启动项直接删这个键值即可（HKCU 下的不需要管理员权限）。",
+                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
+                         "detail_path":  "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-01",
+                         "title":  "自启动项指向已经不存在的文件",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "scheduled_task / \\ZzTaskGone",
+                         "key":  "PS-01|scheduled_task / \\ZzTaskGone",
+                         "fingerprint":  "458D8317364C7E3F",
+                         "evidence":  {
+                                          "kind":  "scheduled_task",
+                                          "command":  "\"C:\\Program Files (x86)\\ZzSuite\\task.exe\" --daily",
+                                          "exe":  "C:\\Program Files (x86)\\ZzSuite\\task.exe",
+                                          "exe_exists":  false,
+                                          "location":  "\\ZzTaskGone",
+                                          "sig_status":  "",
+                                          "svc_state":  "",
+                                          "task_state":  "Ready"
+                                      },
+                         "advice":  "计划任务的目标已丢失。schtasks /query /tn \"\u003c任务名\u003e\" /v 看触发器，确认无用后 schtasks /delete /tn \"\u003c任务名\u003e\" /f。",
+                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
+                         "detail_path":  "\\ZzTaskGone",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-01",
+                         "title":  "自启动项指向已经不存在的文件",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "service / ZzSvcGone",
+                         "key":  "PS-01|service / ZzSvcGone",
+                         "fingerprint":  "3EC9FBE750CF7430",
+                         "evidence":  {
+                                          "kind":  "service",
+                                          "command":  "C:\\Program Files\\ZzSuite\\svc.exe",
+                                          "exe":  "C:\\Program Files\\ZzSuite\\svc.exe",
+                                          "exe_exists":  false,
+                                          "location":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzSvcGone",
+                                          "sig_status":  "",
+                                          "svc_state":  "STOPPED",
+                                          "task_state":  ""
+                                      },
+                         "advice":  "服务注册表还在但二进制已删。确认不是你自己停用的之后：sc query \u003c名称\u003e 看状态，sc delete \u003c名称\u003e 清掉注册。它每次开机都会启动失败一次，也会给真正的恶意驻留打掩护。",
+                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
+                         "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzSvcGone",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-02",
+                         "title":  "开机自动运行的程序没有有效数字签名",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "startup_folder / ZzOld Helper.lnk",
+                         "key":  "PS-02|startup_folder / ZzOld Helper.lnk",
+                         "fingerprint":  "03DC79D876C3A144",
+                         "evidence":  {
+                                          "kind":  "startup_folder",
+                                          "exe":  "D:\\tools\\zzold\\helper.exe",
+                                          "sig_status":  "NotSigned",
+                                          "command":  "D:\\tools\\zzold\\helper.exe",
+                                          "exe_mtime":  "2026-09-01 10:00:00",
+                                          "exe_bytes":  1000000
+                                      },
+                         "advice":  "未签名不等于恶意——大量开源工具和便携软件就不签名。但它意味着没有任何东西能告诉你这个文件是不是厂商发的那个版本。若这个程序你会持续使用，记下此刻的 sha256，下次这项变成 CHANGED 时就是文件被替换了。",
+                         "why":  "这里用签名者归属而不是厂商关键词黑名单。关键词列表只能抓到别人已经写进去的那几家厂商，而「这个每次开机都跑的二进制没有有效签名」能抓到你机器上实际存在的东西。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\ZzOld Helper.lnk",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-02",
+                         "title":  "开机自动运行的程序没有有效数字签名",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "scheduled_task / \\ZzHashDrift",
+                         "key":  "PS-02|scheduled_task / \\ZzHashDrift",
+                         "fingerprint":  "3BE586E15B22610C",
+                         "evidence":  {
+                                          "kind":  "scheduled_task",
+                                          "exe":  "D:\\tools\\zzdrift\\agent.exe",
+                                          "sig_status":  "HashMismatch",
+                                          "command":  "\"D:\\tools\\zzdrift\\agent.exe\" /s",
+                                          "exe_mtime":  "2026-09-01 10:00:00",
+                                          "exe_bytes":  1000000
+                                      },
+                         "advice":  "签名校验不过（HashMismatch）比完全未签名更值得警惕：文件被改过但签名信息还在。先看这个程序该不该由你更新，再决定是否重装修复。",
+                         "why":  "这里用签名者归属而不是厂商关键词黑名单。关键词列表只能抓到别人已经写进去的那几家厂商，而「这个每次开机都跑的二进制没有有效签名」能抓到你机器上实际存在的东西。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 3 条：run_key/Lively（D:\\lively wallpaper，NotSigned）、startup_folder/Authenticator App · 2FA.lnk、scheduled_task/\\OpenClaw Gateway。",
+                         "detail_path":  "\\ZzHashDrift",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-06",
+                         "title":  "浏览器上次不是正常退出",
+                         "severity":  "low",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-06|Edge / Profile 1",
+                         "fingerprint":  "854C7AB26D4FFF0A",
+                         "evidence":  {
+                                          "exit_type":  "Crashed",
+                                          "mtime":  "2026-10-14 21:58:28"
+                                      },
+                         "advice":  "exit_type=Crashed 通常意味着浏览器进程被强杀过（清理工具常这么干）。被强杀时内存里的旧值仍会在下次启动后写回配置文件，这会让\"已经删掉的劫持值\"看起来自己复活了。清理前应正常退出浏览器，并关掉 Edge 的启动加速 / 后台运行模式。",
+                         "why":  "判断某个浏览器 Profile 是否正在被使用，用进程名不可靠（后台常驻进程一直存在）。非阻塞方式打开文件加锁、成功即无人占用，配合 exit_type 才是可靠信号。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-06",
+                         "title":  "浏览器上次不是正常退出",
+                         "severity":  "low",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Profile 3",
+                         "key":  "BR-06|Chrome / Profile 3",
+                         "fingerprint":  "774F67CB7B4A2E62",
+                         "evidence":  {
+                                          "exit_type":  "Crashed",
+                                          "mtime":  "2026-10-14 13:09:15"
+                                      },
+                         "advice":  "exit_type=Crashed 通常意味着浏览器进程被强杀过（清理工具常这么干）。被强杀时内存里的旧值仍会在下次启动后写回配置文件，这会让\"已经删掉的劫持值\"看起来自己复活了。清理前应正常退出浏览器，并关掉 Edge 的启动加速 / 后台运行模式。",
+                         "why":  "判断某个浏览器 Profile 是否正在被使用，用进程名不可靠（后台常驻进程一直存在）。非阻塞方式打开文件加锁、成功即无人占用，配合 exit_type 才是可靠信号。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Edge Profile 1 与 Chrome Default 的 Preferences 均为 exit_type=Crashed。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-07",
+                         "title":  "常驻程序放在用户可写目录",
+                         "severity":  "low",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "service / ZzWritableResident",
+                         "key":  "PS-07|service / ZzWritableResident",
+                         "fingerprint":  "AEE00DE6B9A3EC7E",
+                         "evidence":  {
+                                          "kind":  "service",
+                                          "exe":  "C:\\ProgramData\\zzhost\\zsvc.exe",
+                                          "signer":  "Zz Hosting Co.",
+                                          "sig_status":  "Valid",
+                                          "exe_mtime":  "2026-09-01 10:00:00",
+                                          "exe_bytes":  1000000
+                                      },
+                         "advice":  "这不是恶意指标，是驻留位置偏好：ProgramData 和 AppData 里的 exe 任何以你身份运行的程序都能改写它，而不需要管理员权限。合法软件也常这么放（更新器、国产办公软件），所以这条只给低危。真正的用法是反过来——如果一个你从没装过的程序出现在这里，或者这项在两次扫描之间变成 CHANGED，那就是文件被替换了。",
+                         "why":  "必须排除微软签名，否则 Defender 自己会被报成可疑：WinDefend 和 MDCoreSvc 的实际二进制就位于 C:\\ProgramData\\Microsoft\\Windows Defender 下。这是把判据从「看起来可疑」改成「能被解释」的一步。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中：service/Rd_Service（C:\\ProgramData\\host\\rdservice.exe，签名者济南快安网络科技）、scheduled_task 里的 3 条金山 WPS 任务、以及 1 条未签名的 OpenClaw Gateway；WinDefend、MDCoreSvc 被签名者条件正确排除。",
+                         "detail_path":  "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\ZzWritableResident",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-03",
+                         "title":  "启动模式被设为\"打开特定页面\"",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-03|Edge / Profile 1",
+                         "fingerprint":  "7974729764A4D24A",
+                         "evidence":  {
+                                          "startup_mode":  4,
+                                          "startup_urls":  "http://2345.pbgia.com/win23",
+                                          "doc_role":  "secure"
+                                      },
+                         "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
+                         "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-03",
+                         "title":  "启动模式被设为\"打开特定页面\"",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-03|Chrome / Default",
+                         "fingerprint":  "527FD4EF905161F0",
+                         "evidence":  {
+                                          "startup_mode":  4,
+                                          "startup_urls":  "http://www.so.com/?q=hijack",
+                                          "doc_role":  "secure"
+                                      },
+                         "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
+                         "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-03",
+                         "title":  "启动模式被设为\"打开特定页面\"",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Profile 3",
+                         "key":  "BR-03|Chrome / Profile 3",
+                         "fingerprint":  "00BE10BD4FFAB55F",
+                         "evidence":  {
+                                          "startup_mode":  4,
+                                          "startup_urls":  "http://www.hao.360.com/",
+                                          "doc_role":  "plain_only"
+                                      },
+                         "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
+                         "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-10",
+                         "title":  "本工具在这个对象上有判定盲区",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Chrome / Profile 3",
+                         "key":  "BR-10|Chrome / Profile 3",
+                         "fingerprint":  "AC4FE3F8B35DE191",
+                         "evidence":  {
+                                          "blind_spots":  [
+                                                              "no_secure_prefs",
+                                                              "engine_unreadable"
+                                                          ],
+                                          "doc_role":  "plain_only",
+                                          "search_read":  false,
+                                          "bytes":  52258,
+                                          "mtime":  "2026-10-14 13:09:15"
+                                      },
+                         "advice":  "这个 Profile 没有 Secure Preferences。密封副本、签名保护和默认搜索引擎三项都只存在于那个文件里，所以本工具对它给出的\"干净\"只代表\"明文里没有\"。要么这个 Profile 从未被浏览器写过受保护设置，要么它不是标准 Profile——请人工确认它是不是你建的。",
+                         "why":  "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 3\\Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-10",
+                         "title":  "本工具在这个对象上有判定盲区",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Default",
+                         "key":  "BR-10|Edge / Default",
+                         "fingerprint":  "CE2053A2A6BF2C7B",
+                         "evidence":  {
+                                          "blind_spots":  [
+                                                              "engine_unreadable"
+                                                          ],
+                                          "doc_role":  "secure",
+                                          "search_read":  false,
+                                          "bytes":  108087,
+                                          "mtime":  "2026-10-10 16:04:07"
+                                      },
+                         "advice":  "这条不是威胁，是本工具主动声明的覆盖边界：证据里列出的每一项都是这次扫描看不到的东西。它们不该被忽略，因为\"没查到\"和\"查不了\"在处置上是两个结论。",
+                         "why":  "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-10",
+                         "title":  "本工具在这个对象上有判定盲区",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页与搜索引擎",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-10|Edge / Profile 1",
+                         "fingerprint":  "1E854703F517CDC8",
+                         "evidence":  {
+                                          "blind_spots":  [
+                                                              "engine_unreadable"
+                                                          ],
+                                          "doc_role":  "secure",
+                                          "search_read":  false,
+                                          "bytes":  145715,
+                                          "mtime":  "2026-10-14 21:58:28"
+                                      },
+                         "advice":  "这条不是威胁，是本工具主动声明的覆盖边界：证据里列出的每一项都是这次扫描看不到的东西。它们不该被忽略，因为\"没查到\"和\"查不了\"在处置上是两个结论。",
+                         "why":  "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "state":  "PERSIST"
+                     }
+                 ],
+    "resolved":  [
+                     {
+                         "key":  "BR-07|Edge / Profile 2",
+                         "rule_id":  "BR-07",
+                         "title":  "上次修复经受住了复查",
+                         "subject":  "Edge / Profile 2",
+                         "severity":  "good",
+                         "since":  "2026-10-18 14:51:56"
+                     }
+                 ]
+}</script>
+<script>
+(function () {
+  var D = JSON.parse(document.getElementById('wp-data').textContent);
+  var BL = (D.domain_blocklist || []).map(function (s) { return String(s).toLowerCase(); });
+  var F = {
+    startup_urls: ['当前启动页 URL', 'startup_urls'],
+    startup_urls_bad: ['命中黑名单', 'startup_urls_bad'],
+    startup_mode: ['启动模式', 'restore_on_startup'],
+    bytes: ['文件字节数', 'bytes'],
+    mtime: ['文件修改时间', 'mtime'],
+    seal_keys: ['密封副本键', 'seal_keys'],
+    orphan_sigs: ['孤立签名键', 'orphan_sigs'],
+    macs_session: ['macs.session 键', 'macs'],
+    backups: ['修复备份', 'backups'],
+    sync_preferences_enabled: ['同步 preferences', 'sync.preferences'],
+    exit_type: ['上次退出状态', 'exit_type'],
+    doc: ['文档', 'doc'],
+    doc_role: ['取值来源', 'doc_role'],
+    name: ['条目名称', 'name'],
+    kind: ['驻留类型', 'kind'],
+    command: ['启动命令', 'command'],
+    exe: ['二进制路径', 'exe'],
+    location: ['注册位置', 'location'],
+    exe_exists: ['文件是否存在', 'exe_exists'],
+    signer: ['签名者', 'signer'],
+    sig_status: ['签名状态', 'sig_status'],
+    in_windows: ['位于 Windows 目录', 'in_windows'],
+    in_writable: ['用户可写目录', 'in_writable'],
+    exe_mtime: ['二进制修改时间', 'exe_mtime'],
+    exe_bytes: ['二进制字节数', 'exe_bytes'],
+    svc_state: ['服务状态', 'svc_state'],
+    task_state: ['任务状态', 'task_state'],
+    drv_start: ['驱动加载类型', 'drv_start'],
+    host_effective: ['hosts 有效条目', 'host_effective'],
+    host_count: ['hosts 总行数', 'host_count'],
+    host_mtime: ['hosts 修改时间', 'host_mtime'],
+    perm_grants_bad: ['命中的内容设置例外', 'perm_grants_bad'],
+    perm_bad_settings: ['涉及的决定类型', 'perm_bad_settings'],
+    perm_total_keys: ['例外台账总条数', 'perm_total_keys'],
+    search_keyword: ['默认搜索引擎域名', 'keyword'],
+    search_name: ['搜索引擎名称', 'short_name'],
+    search_url: ['搜索请求 URL', 'search_url'],
+    search_policy: ['被策略强制', 'enforced_by_policy'],
+    search_bad: ['搜索引擎命中黑名单', 'search_bad'],
+    search_read: ['引擎数据可读', 'search_read'],
+    blind_spots: ['本次扫描看不到的东西', 'blind_spots']
+  };
+  // Long paths and quoted command lines are the bulk of a persistence finding:
+  // they must break inside the report.
+  var HITV = {
+    NotSigned: '未签名', HashMismatch: '签名与内容不符', NotTrusted: '证书不受信',
+    Invalid: '签名无效', UnknownError: '签名检查出错'
+  };
+  var KIND = {
+    run_key: '注册表 Run', startup_folder: '启动文件夹', scheduled_task: '计划任务',
+    service: '服务', elam_driver: 'Early-Launch 驱动', hosts_file: 'hosts 文件',
+    ifeo_debugger: 'IFEO 劫持', winsock_lsp: 'Winsock LSP'
+  };
+  var DRVSTART = { '0': 'BOOT_START（开机最早期）', '1': 'SYSTEM_START', '2': 'AUTO_START', '3': 'DEMAND_START', '4': 'DISABLED' };
+  // Which document the value was read from decides how a fix can fail: a sealed
+  // Secure Preferences restores plaintext deletions, a plain-only profile cannot.
+  var DOCROLE = {
+    secure: 'Secure Preferences（权威副本，会还原明文删除）',
+    plain_only: '仅明文 Preferences（该 Profile 没有 Secure Preferences）'
+  };
+  // Blind-spot codes emitted by the engine. The engine only speaks ASCII codes
+  // because a BOM-less .ps1 with Chinese literals parses on one machine and
+  // breaks on another; the wording lives here with the rest of the rendering.
+  var BLIND = {
+    no_secure_prefs: '没有 Secure Preferences：密封副本、签名保护与默认搜索引擎三项都无法判定',
+    engine_unreadable: '默认搜索引擎不可读：Edge 把 default_search_provider_data 存成哈希，只有 Chrome 或手动添加的引擎能判定',
+    prefs_unparseable: 'Secure Preferences 解析失败，该 Profile 的密封副本与签名判定均无效'
+  };
+  var SEVN = { high: '高危', medium: '中危', low: '低危', info: '观察', good: '正常' };
+  var STN = {
+    NEW: '新发现', CHANGED: '已变化', PERSIST: '持续存在',
+    KNOWN: '已知', UNBASELINED: '无基线', RESOLVED: '已消失'
+  };
+
+  // PowerShell 5.1 serialises a 1-element array as an object and an empty array
+  // as {}, so every list field has to be normalised before it is trusted.
+  function norm(v) {
+    if (v === null || v === undefined) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? [v] : []; }
+    return [v];
+  }
+  function isBad(u) {
+    var s = String(u).toLowerCase();
+    for (var i = 0; i < BL.length; i++) if (s.indexOf(BL[i]) >= 0) return true;
+    return false;
+  }
+  function el(t, c, x) {
+    var n = document.createElement(t);
+    if (c) n.className = c;
+    if (x !== undefined) n.textContent = x;
+    return n;
+  }
+
+  // ---- header + stats -------------------------------------------------------
+  var meta = document.getElementById('meta');
+  [['机器', D.computer], ['用户', D.user], ['系统', D.os_version],
+   ['PowerShell', D.ps_version], ['扫描时间', D.scanned_at],
+   ['基线时间', D.baseline_at || '尚未建立']].forEach(function (p) {
+    var d = el('div'); d.innerHTML = '<b>' + p[0] + '</b> ' + esc(p[1]); meta.appendChild(d);
+  });
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  var sd = D.severity_counts || {}, cd = D.counts || {};
+  var stats = [
+    ['high', sd.high || 0, '高危'], ['new', cd.NEW || 0, '本次新增'],
+    ['medium', sd.medium || 0, '中危'], ['resolved', cd.RESOLVED || 0, '已消失'],
+    ['good', sd.good || 0, '正常项']
+  ];
+  var sb = document.getElementById('stats');
+  stats.forEach(function (s) {
+    var d = el('div', 'stat ' + s[0]);
+    d.appendChild(el('div', 'n', String(s[1])));
+    d.appendChild(el('div', 'l', s[2]));
+    sb.appendChild(d);
+  });
+
+  var vd = document.getElementById('verdict');
+  if (!D.baseline_at) {
+    vd.appendChild(el('div', 'verdict amber'));
+    vd.lastChild.innerHTML = '<b>尚未建立基线，因此无法判断「什么变了」</b>' +
+      '当前所有条目都按无基线处理。运行 <code>baseline.bat</code> 把此刻的状态固化为参照点；' +
+      '此后每次 <code>scan.bat</code> 都会把它们分成 新发现 / 已变化 / 已消失。' +
+      '基线不会自动更新——否则篡改者只要等你重新采集一次就把自己洗白了。';
+  } else if ((cd.NEW || 0) + (cd.CHANGED || 0) > 0) {
+    vd.appendChild(el('div', 'verdict red'));
+    vd.lastChild.innerHTML = '<b>自基线（' + esc(D.baseline_at) + '）以来出现 ' +
+      ((cd.NEW || 0) + (cd.CHANGED || 0)) + ' 项变化</b>变化项排在最前面。这就是「上次清了又回来」类问题的取证入口。';
+  } else {
+    vd.appendChild(el('div', 'verdict green'));
+    vd.lastChild.innerHTML = '<b>与基线一致，无新增变化</b>持续存在的旧条目按灰度显示。';
+  }
+
+  // ---- timeline for recurrence / held-evidence -----------------------------
+  function timeline(ev) {
+    var baks = norm(ev.backups), liveBad = norm(ev.startup_urls_bad).map(String);
+    if (!baks.length) return null;
+    var box = el('div', 'tl');
+    baks.forEach(function (b) {
+      var r = el('div', 'row');
+      var w = el('div', 'when');
+      w.appendChild(el('div', '', b.mtime));
+      w.appendChild(el('div', 'tag', '修复备份 · ' + Number(b.bytes).toLocaleString() + ' B'));
+      var st = el('div', 'state');
+      var bu = norm(b.urls).map(String), buBad = bu.filter(isBad);
+      st.appendChild(el('div', buBad.length ? 'hit' : 'miss',
+        buBad.length ? '备份中含恶意值：' + buBad.length + ' 条' : '备份中无恶意值'));
+      bu.slice(0, 2).forEach(function (u) {
+        st.appendChild(el('div', 'url', u + (isBad(u) ? '   ← 命中黑名单' : '')));
+      });
+      r.appendChild(w); r.appendChild(st); box.appendChild(r);
+    });
+    var r2 = el('div', 'row');
+    var w2 = el('div', 'when');
+    w2.appendChild(el('div', '', ev.mtime));
+    w2.appendChild(el('div', 'tag', '当前文件 · ' + Number(ev.bytes).toLocaleString() + ' B'));
+    var st2 = el('div', 'state');
+    st2.appendChild(el('div', liveBad.length ? 'hit' : 'miss',
+      liveBad.length ? '仍然存在：' + liveBad.join(' , ') : '已清空，未复发'));
+    r2.appendChild(w2); r2.appendChild(st2); box.appendChild(r2);
+
+    var d0 = new Date(String(baks[0].mtime).replace(/-/g, '/'));
+    var d1 = new Date(String(ev.mtime).replace(/-/g, '/'));
+    var days = (d1 - d0) / 86400000;
+    var dl = el('div', 'delta');
+    dl.innerHTML = '<b>跨度 ' + (isFinite(days) ? days.toFixed(1) : '?') + ' 天</b> · 体积 ' +
+      Number(baks[0].bytes).toLocaleString() + ' → ' + Number(ev.bytes).toLocaleString() + ' B（' +
+      (ev.bytes - baks[0].bytes >= 0 ? '+' : '') + (ev.bytes - baks[0].bytes).toLocaleString() + ' B）· ' +
+      (liveBad.length
+        ? '结论：修复之后值又回来了，属于 <b>复发</b>'
+        : '结论：修复之后没有复发，本次处置方式正确');
+    box.appendChild(dl);
+    return box;
+  }
+
+  function evidenceTable(ev) {
+    var t = el('table');
+    Object.keys(ev).forEach(function (k) {
+      if (k === 'backups' && norm(ev.backups).length) return; // shown as timeline
+      var tr = document.createElement('tr');
+      var names = F[k] || [k, k];
+      var td = el('td', 'k');
+      td.appendChild(el('div', '', names[0]));
+      td.appendChild(el('span', 'zh', names[1]));
+      var v = ev[k], txt;
+      if (Array.isArray(v) || (v && typeof v === 'object' && Object.keys(v).length)) {
+        var items = norm(v);
+        txt = items.map(function (x) {
+          return (x && typeof x === 'object') ? JSON.stringify(x) : String(x);
+        }).join('\n');
+        if (!items.length) txt = '（无）';
+      } else if (v === null || v === undefined || v === '' ||
+                 (typeof v === 'object' && !Object.keys(v).length)) {
+        txt = '（无）';
+      } else {
+        txt = String(v);
+      }
+      // Enum-ish fields get a human reading, not the raw Win32 token.
+      if (k === 'kind' && KIND[v]) txt = KIND[v];
+      if (k === 'sig_status' && HITV[v]) txt = v + '（' + HITV[v] + '）';
+      if (k === 'sig_status' && v === '') txt = '无从校验 — 目标文件不存在';
+      if (k === 'signer' && v === '') txt = '（无签名者信息，可能不是 PE 文件）';
+      if (k === 'drv_start') txt = DRVSTART[String(v)] || String(v);
+      if (k === 'doc_role' && DOCROLE[v]) txt = DOCROLE[v];
+      if (k === 'blind_spots') txt = norm(v).map(function (x) { return BLIND[String(x)] || String(x); }).join('\n');
+      if (v === false && (k === 'exe_exists' || k === 'in_writable' || k === 'in_windows')) {
+        txt = k === 'exe_exists' ? '否 — 二进制已丢失' : '否';
+      }
+      if (v === true && k === 'exe_exists') txt = '是';
+      if (k === 'search_policy') txt = v ? '是 — 浏览器设置页里改不动' : '否 — 用户可自行更改';
+      if (k === 'search_read') txt = v ? '是' : '否 — Edge 把这一项存成了哈希，本工具无法判定当前引擎';
+      var tv = el('td', 'val');
+      tv.innerHTML = esc(txt).replace(/\n/g, '<br>');
+      if (k === 'startup_urls_bad' && norm(v).length) tv.className = 'val hit';
+      if (k === 'search_bad' && norm(v).length) tv.className = 'val hit';
+      if (k === 'search_policy' && v === true) tv.className = 'val hit';
+      if (k === 'sync_preferences_enabled') tv.className = 'val ' + (v ? 'hit' : 'miss');
+      if (k === 'exit_type' && v === 'Crashed') tv.className = 'val hit';
+      if (k === 'exe_exists' && v === false) tv.className = 'val hit';
+      if (k === 'sig_status' && HITV[v]) tv.className = 'val hit';
+      if (k === 'in_writable' && v === true) tv.className = 'val hit';
+      if (k === 'host_effective' && Number(v) > 0) tv.className = 'val hit';
+      tr.appendChild(td); tr.appendChild(tv); t.appendChild(tr);
+    });
+    return t;
+  }
+
+  // ---- cards ---------------------------------------------------------------
+  var order = ['high', 'medium', 'low', 'good', 'info'];
+  var main = document.getElementById('cards');
+  var groups = {};
+  (D.findings || []).forEach(function (f) { (groups[f.severity] = groups[f.severity] || []).push(f); });
+
+  order.forEach(function (sv) {
+    var list = groups[sv] || [];
+    if (!list.length) return;
+    var h = el('h2', null);
+    h.innerHTML = SEVN[sv] + ' <span class="cnt">' + list.length + ' 项</span>';
+    main.appendChild(h);
+    list.forEach(function (f) {
+      var c = el('div', 'card ' + sv);
+      var head = el('div', 'cardhead');
+      head.appendChild(el('span', 'rid', f.rule_id));
+      head.appendChild(el('span', 'ct', f.title));
+      head.appendChild(el('span', 'badge ' + f.state, STN[f.state] || f.state));
+      c.appendChild(head);
+      var subjTxt = f.subject;
+      var ki = subjTxt.indexOf(' / ');
+      var kn = ki > 0 ? KIND[subjTxt.slice(0, ki)] : null;
+      if (kn) subjTxt = kn + subjTxt.slice(ki);
+      c.appendChild(el('div', 'subj', subjTxt + '  ·  ' + (f.group_title || '')));
+      var ev = f.evidence || {};
+      if ((sv === 'high' || sv === 'good') && ev.backups) {
+        var tl = timeline(ev); if (tl) c.appendChild(tl);
+      }
+      c.appendChild(evidenceTable(ev));
+      if (f.advice) {
+        var a = el('div', 'advice');
+        a.innerHTML = '<span class="lbl">处置</span>' + esc(f.advice);
+        c.appendChild(a);
+      }
+      if (f.why) {
+        var d = document.createElement('details');
+        d.appendChild(el('summary', null, '为什么这条判据值得存在'));
+        d.appendChild(el('div', 'why', f.why));
+        if (f.verified_evidence) {
+          var s2 = document.createElement('summary'); s2.textContent = '本机实测证据';
+          d.appendChild(s2);
+          d.appendChild(el('div', 'vev', f.verified_evidence));
+        }
+        c.appendChild(d);
+      }
+      var k = el('div', 'subj', 'ack key: ' + f.key);
+      k.style.marginTop = '8px'; k.style.color = 'var(--faint)'; k.style.fontSize = '11px';
+      c.appendChild(k);
+      main.appendChild(c);
+    });
+  });
+
+  if (!(D.findings || []).length) {
+    main.appendChild(el('div', 'empty', '没有命中任何规则。这不等于机器干净——它可能意味着你的情况还没有对应的实测规则。'));
+  }
+
+  var rd = document.getElementById('resolved');
+  if ((D.resolved || []).length) {
+    var h = el('h2', null);
+    h.innerHTML = '已消失 <span class="cnt">' + D.resolved.length + ' 项（相对基线）</span>';
+    rd.appendChild(h);
+    var box = el('div', 'resolved-list');
+    D.resolved.forEach(function (r) {
+      box.appendChild(el('div', '', r.rule_id + ' · ' + r.title + ' · ' + r.subject + '（基线中记录于 ' + r.since + '）'));
+    });
+    rd.appendChild(box);
+  }
+
+  document.getElementById('f-rules').textContent = D.rules_total;
+  document.getElementById('f-subjects').textContent = D.subjects_total;
+  document.getElementById('f-probes').textContent = norm(D.probes_run).join(', ');
+  document.getElementById('f-bl').textContent = BL.join(', ');
+})();
+</script>
+</body>
+</html>

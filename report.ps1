@@ -1,3 +1,13 @@
+param(
+    # Injectable so the same renderer can build the committed demo from
+    # tests/fixtures, not only from this machine's capture.
+    [string]$FindingsFile = '',
+    [string]$OutFile = '',
+    # The demo is rendered from synthetic facts, so it has to say so. The wording
+    # lives in the template and this only flips an attribute - a .ps1 must stay
+    # ASCII, so no user-facing sentence can be written here.
+    [switch]$Demo
+)
 $ErrorActionPreference = 'Stop'
 
 # Build the report: one self-contained HTML file with the findings inlined.
@@ -5,9 +15,11 @@ $ErrorActionPreference = 'Stop'
 # the artefact, so it can be mailed or posted and still render in five years.
 
 $root = $PSScriptRoot
-$src = Join-Path $root 'out\findings.json'
+$src = $FindingsFile
+if (-not $src) { $src = Join-Path $root 'out\findings.json' }
 $tpl = Join-Path $root 'render\template.html'
-$dst = Join-Path $root 'out\report.html'
+$dst = $OutFile
+if (-not $dst) { $dst = Join-Path $root 'out\report.html' }
 
 if (-not (Test-Path $src)) { throw 'run the engine first: scan.bat' }
 if (-not (Test-Path $tpl)) { throw 'missing render\template.html' }
@@ -35,6 +47,9 @@ $json = $json.Replace('</script>', '<\/script>')
 
 $html = [IO.File]::ReadAllText($tpl, [Text.Encoding]::UTF8)
 $html = $html.Replace('__WP_DATA__', $json)
+if ($Demo) {
+    $html = $html.Replace('<html lang="zh-CN">', '<html lang="zh-CN" data-demo="1">')
+}
 
 New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null
 [IO.File]::WriteAllText($dst, $html, (New-Object Text.UTF8Encoding $false))
