@@ -1,0 +1,56 @@
+name: 误报 / False positive
+description: A rule flagged something that is actually your own configuration
+labels: [false-positive]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A false positive here is a real defect: this tool's only asset is that it can be trusted
+        when it says "clean". Fill in the two things that let it be reproduced without your machine.
+  - type: input
+    id: rule
+    attributes:
+      label: Rule id and subject
+      description: The card header, e.g. `PS-07 / 低危 / Rd_Service`. Both are needed — a rule is
+        only wrong for some subject shapes.
+      placeholder: PS-07 / service / Rd_Service
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence rows
+      description: |
+        Expand the card in the report and paste the label/value pairs.
+        **Redact anything identifying** — home paths, account names, machine name, and any command
+        line that could carry a credential. Do not paste `out\facts-*.json`; those files are
+        unredacted by design and are gitignored for a reason.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this is yours
+      description: What installed or configured it, and what makes it legitimate on this machine.
+    validations:
+      required: true
+  - type: dropdown
+    id: remedy
+    attributes:
+      label: Did `ack.bat` solve it?
+      description: Acknowledging downgrades one conclusion; it does not disable the rule for anyone else.
+      options:
+        - 'Yes — ack was enough, I am reporting so the default is less noisy'
+        - 'No — acking it hides real signal on this subject'
+        - 'Not applicable — the rule should not have fired at all'
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Windows build and PowerShell version
+      description: Both are in the report header.
+      placeholder: 10.0.26200 / 5.1.26100.9711
+    validations:
+      required: true

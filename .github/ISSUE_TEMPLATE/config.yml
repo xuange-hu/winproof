@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report (not an issue)
+    url: https://github.com/xuange-hu/winproof/security/advisories/new
+    about: >
+      Anything that writes outside out\ and store\, reaches the network, executes rule content,
+      or lets a home path / credential reach a published report belongs in a private advisory.
+      A false positive does not — use that template instead.
+  - name: Demo report
+    url: https://xuange-hu.github.io/winproof/demo/
+    about: What the output looks like, rendered from the committed fixtures.

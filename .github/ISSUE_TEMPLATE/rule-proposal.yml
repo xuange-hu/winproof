@@ -1,0 +1,71 @@
+name: 新判据 / Rule proposal
+description: A persistence or hijack surface this tool does not look at yet
+labels: [rule-proposal]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rules are data here, so a proposal is cheap to merge — but only if it was measured.
+        The blocker for every rule is "what does this actually look like on a real machine",
+        so that is what the form asks for.
+  - type: textarea
+    id: surface
+    attributes:
+      label: What surface, and what it proves
+      description: |
+        Name the key / file / table and state what a hit means. "Some registry key exists" is not a
+        judgement — say what is abnormal about it and what it would let something do at logon.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed structure on a real machine
+      description: |
+        Paste the output of `powershell -File tools\shape-probe.ps1`, or the equivalent raw dump for a
+        non-browser surface (e.g. `reg query` of the key, `Get-ScheduledTask` of the task).
+        **Redact identifying paths and any credential material in command lines.**
+        This is the part that decides whether the rule can be written without guessing.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: falsepositives
+    attributes:
+      label: What else lives there
+      description: |
+        Every legitimate thing you found at the same location. Most rules in this project are shaped
+        by their exclusions — `PS-07` exists with three exact Microsoft signature names carved out,
+        because otherwise Windows Defender reports itself as suspicious.
+    validations:
+      required: true
+  - type: dropdown
+    id: operators
+    attributes:
+      label: Expressible with the existing operators?
+      description: eq / ne / nonEmpty / isEmpty / hasAny / countGte / in / notIn
+      options:
+        - 'Yes'
+        - 'No — it needs a new operator (explain below)'
+        - 'Not sure'
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: How to build a fixture for it
+      description: |
+        A clean machine cannot trigger every rule, so the tree carries synthetic captures that do.
+        Describe the one row that would make this rule fire — if it cannot be described, it cannot be
+        tested, and an untested predicate is a liability.
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I ran the tool and this surface is genuinely not covered by an existing rule
+          required: true
+        - label: I understand a rule with no measured evidence will not be merged
+          required: true

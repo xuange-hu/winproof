@@ -1,6 +1,7 @@
 # WinProof · Windows 驻留取证与基线比对
 
 [![scan and tests](https://github.com/xuange-hu/winproof/actions/workflows/ci.yml/badge.svg)](https://github.com/xuange-hu/winproof/actions/workflows/ci.yml)
+[![demo report](https://img.shields.io/badge/demo-live%20report-35d39a)](https://xuange-hu.github.io/winproof/demo/)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![powershell](https://img.shields.io/badge/powershell-5.1%20only-informational)
 ![deps](https://img.shields.io/badge/dependencies-0-green)
@@ -8,6 +9,9 @@
 
 > 不是又一个"清理工具"。它回答的是清理工具回答不了的那三个问题：
 > **什么东西变了 · 什么时候变的 · 你刚才那个处置方式会不会被还原。**
+
+**没有 Windows 也能先看一眼它长什么样 → [在线示例报告](https://xuange-hu.github.io/winproof/demo/)**
+（由仓库自带的合成夹具渲染，页面上明确标注了是示例，不是你的机器）
 
 零依赖：只要 Windows 自带的 PowerShell 5.1。不装 .NET SDK、不装 Node、不联网、不上传任何东西。
 双击 `scan.bat` 就出一份自包含的 HTML 取证报告。
@@ -50,7 +54,9 @@ baseline.bat                   # 把当前状态固化为参照点（第一次�
 ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」——不删规则，只降级这一条
 ```
 
-报告长这样（真机截图，已脱敏）：
+报告长这样（真机截图，已脱敏）。想点筛选、展开证据、看折叠的判据说明，就去
+[在线示例](https://xuange-hu.github.io/winproof/demo/)——那份是从仓库自带的合成夹具渲染的，
+所以它同时演示了"修好又回来"这类在干净机器上根本拍不到的状态：
 
 ![report](docs/report.png)
 
@@ -402,6 +408,20 @@ msedge --headless=new --allow-file-access-from-files --virtual-time-budget=20000
 当前 **7 个宽度全部 0 像素横向溢出**（驻留类结论动辄一条 120 字符的 Windows 路径）。
 之所以要这么测：这类报告最容易在"我屏幕上看着没问题"中被毁掉。
 
+### 那份在线示例是怎么来的
+
+`tools/make-demo.ps1` 用 `tests/fixtures/` 跑一遍和契约测试完全相同的动作：
+先按夹具原样建基线，再把"曾经修好的那个 Profile"重新注入恶意启动 URL 后复扫。
+于是一份页面里同时出现 `新发现 2`、`已变化 1`、`持续存在 30`、`已消失 1`——
+**这才是基线比对真正要给人看的东西**，而一台干净的机器永远拍不出来。
+
+它不碰探针，所以不读任何人的浏览器和注册表，任何 Windows 上跑结果一致。
+示例页顶部有一段"这是示例报告，不是你的机器"的横幅，措辞写在模板里、
+由 `report.ps1 -Demo` 翻一个 `data-demo` 属性打开——因为 `.ps1` 里不能出现中文字面量（见第 24 条）。
+
+CI 每次都会把这份 demo 从夹具重新生成一遍并比对 `demo/build.json`（只有计数，因为 HTML 里有扫描时间戳，
+逐字节比较没有意义）。改了规则却忘了重新生成 demo，CI 直接红。
+
 ---
 
 ## 探针覆盖
@@ -492,6 +512,10 @@ won't stick (sealed copy present? `sync.preferences` on?).
   it would flag every Chinese-language Edge as hijacked. The rule files record that, so nobody
   "rediscovers" it later.
 - Ships as a self-contained static HTML report. No server, no dependencies beyond PowerShell 5.1.
+- **[Live demo](https://xuange-hu.github.io/winproof/demo/) rendered from the committed fixtures**,
+  because the states worth showing — a repair that got reverted, a conclusion that retired, a surface
+  the tool cannot read — cannot be captured on a clean machine. CI rebuilds it from the fixtures and
+  compares the counts, so a rule change with a stale demo goes red.
 - CI has really run red twice before going green: a YAML anchor indicator in `run: & script.ps1`
   (zero jobs started) and an unresolvable relative `& engine.ps1`. Both are documented above.
 
@@ -528,6 +552,9 @@ powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCI
 无 BOM 的 `.ps1` 会被 PowerShell 5.1 按活动代码页解码，注释里的中文变成乱码字节，
 万一其中某个字节解析成引号或反引号，就变成一个只在别人机器上出现的语法错误。
 （字符串**字面量**里写中文更糟：不是乱码，是解析直接失败——见第 24 条。）
+
+更细的流程在 [CONTRIBUTING.md](CONTRIBUTING.md)，改动记录在 [CHANGELOG.md](CHANGELOG.md)，
+安全边界与"什么算漏洞"在 [SECURITY.md](SECURITY.md)。
 
 ## License
 
