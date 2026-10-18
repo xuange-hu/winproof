@@ -41,7 +41,12 @@ function Get-FileFacts($path, $brand, $profile, $doc) {
         sync_keys      = @()
         backups        = @()
         exit_type      = ''
-        search_urls    = @()
+        search_read    = $false
+        search_keyword = ''
+        search_name    = ''
+        search_url     = ''
+        search_from    = ''
+        search_policy  = $false
         homepage       = ''
         perm_grants    = @()
         perm_keys_total = 0
@@ -107,10 +112,34 @@ function Get-FileFacts($path, $brand, $profile, $doc) {
         if ($j.profile.exit_type) { $f.exit_type = [string]$j.profile.exit_type }
     }
 
-    # --- search engine + homepage (same hijack family, facts only) ------------
-    $m = [regex]::Matches($raw, '"(search_url|template_url)"\s*:\s*"([^"]{0,160})"')
-    foreach ($x in $m) { $f.search_urls += [pscustomobject]@{ field = $x.Groups[1].Value; value = $x.Groups[2].Value } }
-    $f.search_urls = @($f.search_urls | Select-Object -First 12)
+    # --- default search provider ----------------------------------------------
+    # Chromium stores the *selected* engine under
+    # default_search_provider_data.template_url_data in Secure Preferences. For a
+    # prepopulated engine every URL is a `{google:baseURL}` placeholder, so the
+    # only stable identifier is `keyword` (a bare domain) plus `short_name`; a
+    # hijacked engine is not prepopulated and therefore carries a literal
+    # `search_url`. Both are read because they cover different cases.
+    #
+    # Edge replaces this node with a SHA hash plus an `_encrypted_hash`, so on
+    # Edge the selected engine cannot be recovered from the prefs at all. That is
+    # recorded as search_read=false rather than as a clean result: an unreadable
+    # surface is a blind spot, not evidence of absence.
+    $td = $null
+    if ($j.default_search_provider_data) {
+        $td = $j.default_search_provider_data.template_url_data
+    }
+    if ($td -and -not ($td -is [string])) {
+        $f.search_read = $true
+        $names = @($td.PSObject.Properties.Name)
+        foreach ($pair in @(@('keyword', 'search_keyword'), @('short_name', 'search_name'),
+                            @('search_url', 'search_url'), @('template_url', 'search_url'),
+                            @('originating_url', 'search_from'))) {
+            if (-not ($names -contains $pair[0])) { continue }
+            $v = [string]$td.($pair[0])
+            if ($v -ne '' -and [string]$f[$pair[1]] -eq '') { $f[$pair[1]] = $v }
+        }
+        if ($names -contains 'enforced_by_policy') { $f.search_policy = [bool]$td.enforced_by_policy }
+    }
 
     if ($j.homepage) { $f.homepage = [string]$j.homepage }
 
@@ -190,5 +219,7 @@ if ($OutFile -eq '') {
 New-Item -ItemType Directory -Force -Path (Split-Path $OutFile) | Out-Null
 [IO.File]::WriteAllText($OutFile, $json, (New-Object Text.UTF8Encoding $false))
 $gAll = 0
-foreach ($x in $all) { $gAll += [int]$x.perm_keys_total }
-Write-Output ('browser_prefs: files=' + $all.Count + ' missing_roots=' + $missing.Count + ' perm_grants=' + $gAll + ' -> ' + $OutFile)
+$gRead = 0
+foreach ($x in $all) { $gAll += [int]$x.perm_keys_total; if ($x.search_read) { $gRead += 1 } }
+Write-Output ('browser_prefs: files=' + $all.Count + ' missing_roots=' + $missing.Count +
+    ' perm_grants=' + $gAll + ' search_read=' + $gRead + ' -> ' + $OutFile)

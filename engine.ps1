@@ -277,6 +277,43 @@ function New-BrowserSubjects($facts, $blocklist) {
         $s['perm_grants_bad'] = Get-BadGrants $grants $blocklist
         $s['perm_bad_settings'] = @($s['perm_grants_bad'] | ForEach-Object { ([string]$_ -split '\|')[0] } | Select-Object -Unique)
 
+        # Default search provider. `default_search_provider_data` is one of
+        # Chromium's protected preferences and only ever lands in Secure
+        # Preferences, so - like the seal and signature families above - it is
+        # scoped to that document. Falling back to the plain copy would let a
+        # profile that has no Secure Preferences claim a readable engine it could
+        # not actually have.
+        if ($null -eq $secure) {
+            $s['search_read'] = $false
+            $s['search_keyword'] = ''
+            $s['search_name'] = ''
+            $s['search_url'] = ''
+            $s['search_policy'] = $false
+            $s['search_bad'] = @()
+        } else {
+            $s['search_read'] = [bool]$secure.search_read
+            $s['search_keyword'] = [string]$secure.search_keyword
+            $s['search_name'] = [string]$secure.search_name
+            $s['search_url'] = [string]$secure.search_url
+            $s['search_policy'] = [bool]$secure.search_policy
+            $s['search_bad'] = Get-BadUrls @(
+                $s['search_keyword'], $s['search_name'], $s['search_url'],
+                [string]$secure.search_from) $blocklist
+        }
+
+        # What this tool could not see on this subject. A scan that reports
+        # "nothing found" and one that "could not look" are different statements,
+        # and only the second makes a clean result mean something. Codes, not
+        # sentences: the .ps1 layer must stay ASCII (PowerShell 5.1 decodes a
+        # BOM-less script with the active code page, so a Chinese literal here
+        # would survive on this machine and break on another one), and the
+        # rendering table in the template owns the wording.
+        $blind = @()
+        if ($s['doc_role'] -eq 'plain_only') { $blind += 'no_secure_prefs' }
+        if (-not $s['search_read']) { $blind += 'engine_unreadable' }
+        if ($null -ne $secure -and -not [bool]$secure.parse_ok) { $blind += 'prefs_unparseable' }
+        $s['blind_spots'] = @($blind)
+
         # recurrence: a repair backup that already contained a bad URL, and the
         # live file still containing one, with the live file newer than the backup
         $regrew = $false

@@ -1,7 +1,7 @@
 {
   "group": "browser",
   "group_title": "浏览器启动页与搜索引擎",
-  "provenance": "以下判据全部在真实机器上取证实测（2026-10-14 建规，2026-10-16 补 BR-08 并复验 BR-05：Edge 4 profile + Chrome 1 profile + content_settings 台账 1707 条），未实测的条件不进首版。",
+  "provenance": "以下判据全部在真实机器上取证实测（2026-10-14 建规，2026-10-16 补 BR-08 并复验 BR-05：Edge 4 profile + Chrome 1 profile + content_settings 台账 1708 条；同日补 BR-09/BR-10，其中 BR-09 本机命中 0 条并写明了为什么 Edge 不可判定，BR-10 本机 5 个 Profile 全命中），未实测的条件不进首版。",
   "blocklist_note": "domain_blocklist 是子串匹配，用户主动设置的合法首页也可能命中；命中后请用 acknowledge 标记为已知，而不是删除规则。",
   "domain_blocklist": [
     "2345",
@@ -189,6 +189,44 @@
       "why": "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
       "verified_on": "2026-10-16",
       "verified_evidence": "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。"
+    },
+    {
+      "id": "BR-09",
+      "title": "默认搜索引擎被替换或被策略锁定",
+      "severity": "medium",
+      "when": { "any": [ { "fact": "search_bad", "op": "nonEmpty" }, { "fact": "search_policy", "op": "eq", "value": true } ] },
+      "show": ["search_keyword", "search_name", "search_url", "search_policy", "search_bad", "startup_urls_bad", "sync_preferences_enabled"],
+      "advice": [
+        {
+          "if": { "fact": "search_bad", "op": "nonEmpty" },
+          "text": "默认搜索引擎的 keyword/URL 命中黑名单。撤销入口：edge://settings/search 或 chrome://settings/searchEngines，选中正确的引擎点\"设为默认\"，再把黑名单那一条删除；如果列表里删不掉，说明它是被策略或扩展装进来的，看下一条建议。注意本项在 Edge 上不可判定（见 BR-10），所以这条只在 Chrome 与手动添加的引擎上有意义。"
+        },
+        {
+          "if": { "fact": "search_policy", "op": "eq", "value": true },
+          "text": "这个引擎是 enforced_by_policy=true：它不是用户选的，是组策略或注册表策略强制的，所以浏览器设置页里改不动也删不掉。要查 HKLM\\SOFTWARE\\Policies\\Google\\Chrome 与 HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge 下的搜索/扩展策略键；企业设备上这可能是 IT 部门装的，用 ack.bat 标记为已知即可。"
+        },
+        { "if_any": true, "text": "查看证据里的 keyword 与 URL 判断这个引擎是不是你选的。" }
+      ],
+      "why": "启动页劫持决定你打开浏览器看到什么，搜索引擎劫持决定你搜什么出来什么——后者更隐蔽，因为它只在真的搜索时才暴露。判据取 keyword 而不是 search_url，是因为预置引擎（Google/Bing）的 URL 全是 {google:baseURL} 这类占位符，只有 keyword 这个裸域名稳定；而劫持者不是预置引擎，它一定带一条字面 URL，所以两个都读才能同时覆盖两种情况。enforced_by_policy 单列出来是因为它把\"你自己装错了\"和\"有东西替你决定了\"分开，这两种处置方式完全不同。",
+      "verified_on": "2026-10-16",
+      "verified_evidence": "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。"
+    },
+    {
+      "id": "BR-10",
+      "title": "本工具在这个对象上有判定盲区",
+      "severity": "info",
+      "when": { "fact": "blind_spots", "op": "nonEmpty" },
+      "show": ["blind_spots", "doc_role", "search_read", "bytes", "mtime"],
+      "advice": [
+        {
+          "if": { "fact": "doc_role", "op": "eq", "value": "plain_only" },
+          "text": "这个 Profile 没有 Secure Preferences。密封副本、签名保护和默认搜索引擎三项都只存在于那个文件里，所以本工具对它给出的\"干净\"只代表\"明文里没有\"。要么这个 Profile 从未被浏览器写过受保护设置，要么它不是标准 Profile——请人工确认它是不是你建的。"
+        },
+        { "if_any": true, "text": "这条不是威胁，是本工具主动声明的覆盖边界：证据里列出的每一项都是这次扫描看不到的东西。它们不该被忽略，因为\"没查到\"和\"查不了\"在处置上是两个结论。" }
+      ],
+      "why": "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
+      "verified_on": "2026-10-16",
+      "verified_evidence": "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。"
     }
   ]
 }

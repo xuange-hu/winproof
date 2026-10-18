@@ -171,7 +171,14 @@
     host_mtime: ['hosts 修改时间', 'host_mtime'],
     perm_grants_bad: ['命中的内容设置例外', 'perm_grants_bad'],
     perm_bad_settings: ['涉及的决定类型', 'perm_bad_settings'],
-    perm_total_keys: ['例外台账总条数', 'perm_total_keys']
+    perm_total_keys: ['例外台账总条数', 'perm_total_keys'],
+    search_keyword: ['默认搜索引擎域名', 'keyword'],
+    search_name: ['搜索引擎名称', 'short_name'],
+    search_url: ['搜索请求 URL', 'search_url'],
+    search_policy: ['被策略强制', 'enforced_by_policy'],
+    search_bad: ['搜索引擎命中黑名单', 'search_bad'],
+    search_read: ['引擎数据可读', 'search_read'],
+    blind_spots: ['本次扫描看不到的东西', 'blind_spots']
   };
   // Long paths and quoted command lines are the bulk of a persistence finding:
   // they must break inside the report.
@@ -190,6 +197,14 @@
   var DOCROLE = {
     secure: 'Secure Preferences（权威副本，会还原明文删除）',
     plain_only: '仅明文 Preferences（该 Profile 没有 Secure Preferences）'
+  };
+  // Blind-spot codes emitted by the engine. The engine only speaks ASCII codes
+  // because a BOM-less .ps1 with Chinese literals parses on one machine and
+  // breaks on another; the wording lives here with the rest of the rendering.
+  var BLIND = {
+    no_secure_prefs: '没有 Secure Preferences：密封副本、签名保护与默认搜索引擎三项都无法判定',
+    engine_unreadable: '默认搜索引擎不可读：Edge 把 default_search_provider_data 存成哈希，只有 Chrome 或手动添加的引擎能判定',
+    prefs_unparseable: 'Secure Preferences 解析失败，该 Profile 的密封副本与签名判定均无效'
   };
   var SEVN = { high: '高危', medium: '中危', low: '低危', info: '观察', good: '正常' };
   var STN = {
@@ -331,13 +346,18 @@
       if (k === 'signer' && v === '') txt = '（无签名者信息，可能不是 PE 文件）';
       if (k === 'drv_start') txt = DRVSTART[String(v)] || String(v);
       if (k === 'doc_role' && DOCROLE[v]) txt = DOCROLE[v];
+      if (k === 'blind_spots') txt = norm(v).map(function (x) { return BLIND[String(x)] || String(x); }).join('\n');
       if (v === false && (k === 'exe_exists' || k === 'in_writable' || k === 'in_windows')) {
         txt = k === 'exe_exists' ? '否 — 二进制已丢失' : '否';
       }
       if (v === true && k === 'exe_exists') txt = '是';
+      if (k === 'search_policy') txt = v ? '是 — 浏览器设置页里改不动' : '否 — 用户可自行更改';
+      if (k === 'search_read') txt = v ? '是' : '否 — Edge 把这一项存成了哈希，本工具无法判定当前引擎';
       var tv = el('td', 'val');
       tv.innerHTML = esc(txt).replace(/\n/g, '<br>');
       if (k === 'startup_urls_bad' && norm(v).length) tv.className = 'val hit';
+      if (k === 'search_bad' && norm(v).length) tv.className = 'val hit';
+      if (k === 'search_policy' && v === true) tv.className = 'val hit';
       if (k === 'sync_preferences_enabled') tv.className = 'val ' + (v ? 'hit' : 'miss');
       if (k === 'exit_type' && v === 'Crashed') tv.className = 'val hit';
       if (k === 'exe_exists' && v === false) tv.className = 'val hit';

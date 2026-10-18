@@ -4,9 +4,9 @@ $ErrorActionPreference = 'Stop'
 # and the rule files are the product's whole judgement, so both are exercised
 # against committed synthetic captures rather than hoped for.
 #
-# Sections [1]-[12] run on tests/fixtures/*.json and therefore give the same
+# Sections [1]-[13] run on tests/fixtures/*.json and therefore give the same
 # verdict on any machine, including one that has never been hijacked and one with
-# no browser installed at all. Sections [13]-[14] re-run the same rules against
+# no browser installed at all. Sections [14]-[15] re-run the same rules against
 # the real capture on this box and skip cleanly when it is absent.
 #
 # Nothing here writes outside out\selftest, and no real browser profile is read.
@@ -95,6 +95,18 @@ $wantBrowser = [ordered]@{
     # conditional advice branch observable inside the fixture instead of only on a
     # machine that happens to be infected.
     'BR-08' = @('Chrome / Default', 'Edge / Default', 'Edge / Profile 1')
+    # BR-09 has two independent triggers and the fixture gives one subject to each:
+    # Edge / Profile 2 is a blocklisted engine with a literal search_url (what a
+    # hijacker leaves behind), Chrome / Default is google.com but
+    # enforced_by_policy=true (what a policy or an extension leaves behind). A
+    # subject set that loses either one means a branch silently stopped firing.
+    'BR-09' = @('Edge / Profile 2', 'Chrome / Default')
+    # BR-10 is the coverage-honesty rule: it must fire on exactly the three
+    # subjects where something genuinely could not be read, and must NOT fire on
+    # Chrome / Default or Edge / Profile 2, whose engine was readable and clean.
+    # If the engine ever falls back to the plain Preferences for the provider,
+    # Chrome / Profile 3 would drop out of this set and the assertion fails.
+    'BR-10' = @('Chrome / Profile 3', 'Edge / Default', 'Edge / Profile 1')
 }
 $wantPers = [ordered]@{
     'PS-01' = @('run_key / ZzResidueGhost', 'service / ZzSvcGone', 'scheduled_task / \ZzTaskGone')
@@ -133,14 +145,14 @@ $browserBase = Load (Join-Path $work 'b0.json')
 Check-Manifest $browserBase $wantBrowser
 Expect 'fixture exposes 5 profiles' ([int]$browserBase.subjects_total -eq 5)
 
-Write-Output '[2] live capture and fixture must not be confusable: all 8 browser rules exercised'
+Write-Output '[2] live capture and fixture must not be confusable: all 10 browser rules exercised'
 $brIds = @($browserBase.findings | ForEach-Object { $_.rule_id } | Select-Object -Unique)
-Expect ('all 8 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 8)
+Expect ('all 10 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 10)
 
 Write-Output '[3] rescan the same facts: nothing may report as changed'
 Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $work 'store'); OutFile = (Join-Path $work 'scan-same.json') }
 $r0 = StateMap (Join-Path $work 'scan-same.json')
-Expect 'all 17 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 17)
+Expect 'all 22 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 22)
 Expect 'zero NEW' ([int]$r0.doc.counts.NEW -eq 0)
 Expect 'zero RESOLVED' ([int]$r0.doc.counts.RESOLVED -eq 0)
 
@@ -168,9 +180,15 @@ Expect 'BR-07 Edge/Profile 2 retired' (@($rB.doc.resolved | Where-Object { $_.ke
 Expect 'BR-05 Edge/Profile 2 is NEW as well (recurrence inferred)' ($rB.map['BR-05|Edge / Profile 2'] -eq 'NEW')
 Expect 'counts.NEW == 2' ([int]$rB.doc.counts.NEW -eq 2)
 Expect 'counts.RESOLVED == 1' ([int]$rB.doc.counts.RESOLVED -eq 1)
+# BR-09 Edge / Profile 2 cites startup_urls_bad alongside the engine fields, so a
+# hijacked startup page changes how much a bad default engine matters: with the
+# page still dirty the two have one root cause, with it clean the engine is a
+# separate decision the user has to undo in another settings page.
+Expect 'BR-09 Edge/Profile 2 is CHANGED (it cites startup_urls_bad)' ($rB.map['BR-09|Edge / Profile 2'] -eq 'CHANGED')
+Expect 'counts.CHANGED == 1' ([int]$rB.doc.counts.CHANGED -eq 1)
 Expect 'neighbour Edge/Profile 1 unaffected' ($rB.map['BR-01|Edge / Profile 1'] -eq 'PERSIST')
 Expect 'neighbour Chrome/Default unaffected' ($rB.map['BR-05|Chrome / Default'] -eq 'PERSIST')
-Expect 'finding set is 17 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 18)
+Expect 'finding set is 22 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 23)
 
 # --- [5] fixture C: the hijacked file is rewritten again ----------------------
 # Same findings, different evidence values: this is the CHANGED path, and it must
@@ -193,14 +211,18 @@ Expect 'BR-02 Edge P1 stays PERSIST (seal keys unchanged)' ($rC.map['BR-02|Edge 
 # reported as changed when the evidence it actually cites changed - otherwise
 # every file write would light up every rule on that profile.
 Expect 'BR-03 Edge P1 stays PERSIST (its own evidence did not change)' ($rC.map['BR-03|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'no finding lost' (@($rC.doc.findings).Count -eq 17)
+Expect 'no finding lost' (@($rC.doc.findings).Count -eq 22)
 Expect 'zero NEW on a metadata rewrite' ([int]$rC.doc.counts.NEW -eq 0)
-# Exactly three rows move, and they are the three whose cited evidence moved:
-# BR-01 and BR-05 show bytes/mtime, and BR-06 shows mtime as well - a rewrite
-# after a crash is real information, not noise. Pinning the number is what stops
-# the scoping from degrading back into "every rule on a touched file lights up".
-Expect 'only the three mtime-citing rules are CHANGED' ([int]$rC.doc.counts.CHANGED -eq 3)
+# Exactly four rows move, and they are the four whose cited evidence moved:
+# BR-01 and BR-05 show bytes/mtime, BR-06 shows mtime, and BR-10 shows both
+# because "we could not read the engine" is itself a statement about this file
+# version - a rewrite may have changed that. A rewrite after a crash is real
+# information, not noise. Pinning the number is what stops the scoping from
+# degrading back into "every rule on a touched file lights up".
+Expect 'only the four mtime-citing rules are CHANGED' ([int]$rC.doc.counts.CHANGED -eq 4)
 Expect 'BR-06 Edge P1 is CHANGED (its evidence cites mtime)' ($rC.map['BR-06|Edge / Profile 1'] -eq 'CHANGED')
+Expect 'BR-10 Edge P1 is CHANGED (its evidence cites mtime too)' ($rC.map['BR-10|Edge / Profile 1'] -eq 'CHANGED')
+Expect 'BR-08 Edge P1 stays PERSIST (the grants did not move)' ($rC.map['BR-08|Edge / Profile 1'] -eq 'PERSIST')
 Expect 'Chrome/Default rows are untouched by an Edge rewrite' (@($rC.doc.findings | Where-Object { $_.subject -eq 'Chrome / Default' -and $_.state -ne 'PERSIST' }).Count -eq 0)
 
 # --- [6] fixture D: a value change, isolated from the other rules -------------
@@ -238,7 +260,7 @@ Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $w
 $rA = StateMap (Join-Path $work 'scan-ack.json')
 Expect 'BR-06 Chrome/Profile 3 is KNOWN' ($rA.map['BR-06|Chrome / Profile 3'] -eq 'KNOWN')
 Expect 'the other BR-06 stays PERSIST (ack is per-subject)' ($rA.map['BR-06|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'finding still present after ack (17 total)' (@($rA.doc.findings).Count -eq 17)
+Expect 'finding still present after ack (22 total)' (@($rA.doc.findings).Count -eq 22)
 # low severity on this fixture is exactly the two BR-06 rows, so the count is the
 # proof that KNOWN rows are excluded from the severity histogram rather than the
 # list - the report must not still show "2 low" for something the user owns.
@@ -387,13 +409,47 @@ foreach ($f in @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-08' }
 Expect ('BR-08 evidence contains only blocklisted origins (' + $leakedClean.Count + ' leaks)') ($leakedClean.Count -eq 0)
 foreach ($l in $leakedClean) { Write-Output ('     ! ' + $l) }
 
-# --- [13] live rules vs a predicate recomputed from the real capture ----------
+# --- [13] the search provider is scoped to the protected document -------------
+# default_search_provider_data only ever lives in Secure Preferences. If the
+# engine ever fell back to the plain copy, Chrome / Profile 3 would report a
+# readable engine it cannot possibly have, and BR-10 would stop telling the
+# reader that this profile was only half examined. Both directions are pinned:
+# the two subjects with a readable engine must NOT carry a blind spot.
+Write-Output ''
+Write-Output '[13] provider scoping: an unreadable engine is a blind spot, not a clean result'
+$b09 = @(SubjectSet $browserBase 'BR-09')
+Expect ('BR-09 fires on the two planted shapes only (' + ($b09 -join ', ') + ')') (SetEq $b09 @('Chrome / Default', 'Edge / Profile 2'))
+$b10 = @(SubjectSet $browserBase 'BR-10')
+Expect ('BR-10 fires on the three unreadable subjects (' + ($b10 -join ', ') + ')') (SetEq $b10 @('Chrome / Profile 3', 'Edge / Default', 'Edge / Profile 1'))
+$readable = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-10' -and @('Chrome / Default', 'Edge / Profile 2') -contains [string]$_.subject })
+Expect ('a readable-and-clean engine produces no blind spot (' + $readable.Count + ' false rows)') ($readable.Count -eq 0)
+$p3 = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-10' -and $_.subject -eq 'Chrome / Profile 3' })
+Expect 'the plain-only profile reports search_read=false even though its Preferences parsed' `
+    (@($p3 | Where-Object { (-not [bool]$_.evidence.search_read) -and @($_.evidence.blind_spots).Count -eq 2 }).Count -eq 1)
+# The two BR-09 triggers are different problems with different fixes, so their
+# advice must differ - and neither may collapse onto the fallback text. The
+# fallback is read out of rules/browser.json rather than repeated here, so
+# rewording the advice cannot silently break the assertion or force a CJK
+# literal into a .ps1 file that must stay ASCII.
+$b09kw = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-09' -and $_.subject -eq 'Edge / Profile 2' } | ForEach-Object { [string]$_.advice })
+$b09po = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-09' -and $_.subject -eq 'Chrome / Default' } | ForEach-Object { [string]$_.advice })
+Expect 'BR-09 advice branches (blocklisted engine vs policy-enforced engine)' ($b09kw[0] -ne $b09po[0])
+$br09Rule = @(Load (Join-Path $root 'rules\browser.json')).rules | Where-Object { $_.id -eq 'BR-09' }
+$b09Fallback = [string]@($br09Rule.advice)[-1].text
+$b09fb = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-09' -and [string]$_.advice -eq $b09Fallback })
+Expect ('BR-09 never falls through to its fallback advice (' + $b09fb.Count + ' fell through)') ($b09fb.Count -eq 0)
+# BR-10 is severity=info and must never be counted as a threat: an info row is a
+# statement about the scan, and the severity histogram is what the reader trusts.
+$b10sev = @($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-10' -and $_.severity -ne 'info' })
+Expect 'BR-10 rows are all info severity' ($b10sev.Count -eq 0)
+
+# --- [14] live rules vs a predicate recomputed from the real capture ----------
 # The expected hit set here is recomputed from the raw facts by independent
 # filtering, not pasted from a snapshot. A machine that gains or loses autostart
 # entries tomorrow therefore does not break this test, while a rule whose logic
 # drifts from its stated predicate does.
 Write-Output ''
-Write-Output '[13] live persistence facts must agree with the same predicate recomputed from raw entries'
+Write-Output '[14] live persistence facts must agree with the same predicate recomputed from raw entries'
 if (-not (Test-Path $realPers)) {
     Skip 'no out\facts-persistence.json on this box - run scan.bat first'
 } else {
@@ -434,13 +490,13 @@ if (-not (Test-Path $realPers)) {
     Expect 'PS-06 fires iff a non-OS LSP provider exists' `
         ((SubjectSet $ld 'PS-06').Count -eq @($lents | Where-Object { $_.kind -eq 'winsock_lsp' -and $_.in_windows -eq $false }).Count)
 
-    # --- [14] residue claims must be real, not a PATH-resolution artifact -----
+    # --- [15] residue claims must be real, not a PATH-resolution artifact -----
     # The first version of PS-01 also fired on a scheduled task running
     # `rasdial <connection> <user> <password>`. A bare command name is not a missing
     # file: CreateProcess resolves it against the PATH. Any row the engine calls a
     # residue is therefore re-confirmed absent here, so the rule cannot quietly
     # decay back into reporting healthy Windows commands as leftovers.
-    Write-Output '[14] every live residue claim is independently re-confirmed absent'
+    Write-Output '[15] every live residue claim is independently re-confirmed absent'
     $res01 = SubjectSet $ld 'PS-01'
     $unconfirmed = @()
     foreach ($x in $lents) {

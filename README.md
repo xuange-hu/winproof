@@ -56,12 +56,12 @@ ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」�
 
 ---
 
-## 检测清单：15 条规则，每条都能被复述成一次具体观察
+## 检测清单：17 条规则，每条都能被复述成一次具体观察
 
 不是"清单长所以显得全"。每条规则后面写的是**它在你机器上长什么样**——
 `rules/*.json` 里的 `verified_evidence` 字段必须填作者本人跑出来的命中数和对象名，否则不进主干。
 
-**浏览器启动页与搜索引擎**（8 条）
+**浏览器启动页与搜索引擎**（10 条）
 
 | 规则 | 严重度 | 判据一句话 | 为什么单独列出来 |
 |---|---|---|---|
@@ -73,6 +73,8 @@ ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」�
 | BR-06 | 低危 | `profile.exit_type != Normal`（非阻塞加锁探测，不看进程名） | 后台常驻进程让"进程名 = 在用"永远误判；独占打开失败才是证据 |
 | BR-07 | 正常 | 修复备份里含恶意值，当前明文已干净 | 唯一能证明"处置方式对了"的信号；其余工具只会说"已删除" |
 | BR-08 | 中危 | `content_settings.exceptions` 台账里有黑名单源 | 权限、Cookie、`media_engagement` 都是**页面真被加载过**的留痕，明文删掉后它们还在 |
+| BR-09 | 中危 | 默认搜索引擎的 `keyword`/URL 命中黑名单，**或** `enforced_by_policy=true` | 启动页决定你打开浏览器看到什么，搜索引擎决定你搜什么出来什么——后者只在真搜索时才暴露。策略强制那一半把"你自己装错了"和"有东西替你决定了"分开，处置方式完全不同 |
+| BR-10 | 观察 | 这个对象上有本工具**读不到**的表面（引擎存成哈希、没有 Secure Preferences、JSON 解析失败） | 一个只报问题的扫描器，它的"没查到"没有信息量——无法区分"这台机器干净"和"这台机器上的东西我没覆盖到"。这条把覆盖边界变成一条会随基线变化的结论 |
 
 **开机驻留：启动项、服务、驱动与网络层**（7 条）
 
@@ -95,8 +97,8 @@ ack.bat "BR-06|Edge / Profile 1"   # 「这是我自己的配置，别再报」�
 ## 这台机器上它实际报了什么
 
 ```
-engine: subjects=63 rules=15 findings=22 high=4 resolved=2
-counts: NEW=4 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
+engine: subjects=63 rules=17 findings=26 high=4 resolved=2
+counts: NEW=8 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 ```
 
 | 严重度 | 规则 | 命中 | 对象 |
@@ -111,11 +113,18 @@ counts: NEW=4 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 | 低危 | BR-06 浏览器上次不是正常退出 | 1 | Edge / Profile 1 |
 | 低危 | PS-07 常驻程序位于用户可写目录 | 5 | Rd_Service、3 条 WPS 任务、OpenClaw |
 | 观察 | BR-03 启动模式被设为"打开特定页面" | 1 | Edge / Profile 1 |
+| 观察 | BR-10 本工具在这个对象上有判定盲区 | 4 | Edge 的 4 个 Profile：默认搜索引擎存成了哈希，读不出 |
 | 正常 | BR-07 上次修复经受住了复查 | 1 | Chrome / Default |
 
 `已消失`（RESOLVED）两条同样重要：`PS-02 / run_key / Lively`（我把那个自启项删了）和
 `BR-06 / Chrome / Default`（那个 Profile 后来正常退出过一次）。基线是 10-15 拍的，
 所以"消失"能被说出来——一个只会列当前问题的工具做不到这一点。
+
+**BR-09 命中 0 条，而 BR-10 命中 4 条，这两句要一起读。** Chrome / Default 的
+`default_search_provider_data.template_url_data` 是明文对象（keyword=google.com、
+enforced_by_policy=false），所以"这台机器的 Chrome 搜索引擎没被换过"是一句**查过了**的结论；
+Edge 的 4 个 Profile 同一位置存的是 40 位十六进制哈希加 `_encrypted_hash`，读不出引擎，
+所以那 4 条 BR-10 说的是"这里我没查"。如果只报"0 条 BR-09"，这两种情况在报告里长得一样。
 
 **PS-03 / PS-04 / PS-05 / PS-06 命中 0 条，这是正确状态而不是漏报。**
 Early-Launch 成员只有 `WdBoot`、hosts 只有 `127.0.0.1 localhost`、IFEO 下没有 `Debugger`、
@@ -124,7 +133,7 @@ Early-Launch 成员只有 `WdBoot`、hosts 只有 `127.0.0.1 localhost`、IFEO �
 
 ---
 
-## 架构：四层，各层职责不重叠
+## 架构：五层，各层职责不重叠
 
 ```
 probes/    只读采集事实，不做任何判断
@@ -310,36 +319,62 @@ S4U 上下文里 DPAPI CurrentUser 能不能解出主密钥，**不提权就测�
 而不是跨过我最容易想到的那个动作。这也是 `BR-05` 存在的意义：它不需要我再聪明一次，
 它只需要我明天再跑一遍 `scan.bat`。
 
+**23. 分组标题里写了"搜索引擎"，代码里那条事实却是个死字段。**
+`probes/browser_prefs.ps1` 早先用正则从原始文本里扫 `"search_url"|"template_url"`，
+但真实的默认引擎在 `default_search_provider_data.template_url_data` 这个对象里——正则扫不到它，
+于是这个字段**在本机上永远是空数组**，而报告标题一直宣称覆盖了搜索引擎。
+这类缺陷最难发现：它不报错、不崩溃、不产生假阳性，只是永远给出一个"干净的"假阴性。
+现在改成结构化读取，并且探针输出里直接带 `search_read=1`——一个恒为 0 的计数器和一个会变的计数器，
+后者才能在 CI 日志里自证它接上了。
+修这个的同时补了 `BR-10`：把"读不到"本身变成结论，因为一个只报问题的扫描器，
+它的"没查到"和"这台机器确实干净"在报告里长得一模一样。
+
+**24. `.ps1` 里的中文不只是乱码，它会吃掉解析器。**
+`hygiene.ps1` 拦的是**注释里**的中文（无 BOM 时按码页解码成乱码字节）。
+我这次踩的是另一层：引擎里 `blind_spots` 的**字符串字面量**写了中文，
+PowerShell 5.1 直接报"表达式或语句中包含意外的标记"，而且报在**下一行**的 `if` 上——
+错误位置离真正的肇事字符隔了几行，靠读错误信息找回去基本是猜。
+修法是引擎只输出 ASCII 码（`engine_unreadable` 这类），措辞全部放进渲染层的 `BLIND` 映射表。
+这顺带成了更好的分层：判据语言属于引擎，面向人的句子属于模板，
+同一个码以后要出英文版报告只需要换一张表，不用碰任何逻辑。
+
 ---
 
-## 已知答案测试：70 PASS / 0 FAIL
+## 已知答案测试：81 PASS / 0 FAIL
 
 判据先于扫描逻辑定义。跑 `powershell -File tools\selftest.ps1`：
 
 ```
 [1]  浏览器夹具：命中集合必须逐条等于清单            [9]  countGte 的标量语义，正反两个方向
-[2]  8 条浏览器规则全部被触发                        [10] 植入一条假残留 → 必须 NEW，且不得吞掉邻居
+[2]  10 条浏览器规则全部被触发                       [10] 植入一条假残留 → 必须 NEW，且不得吞掉邻居
 [3]  同一份事实复扫：不得有任何 CHANGED              [11] 未知探针名必须抛错，不许静默丢事实
 [4]  夹具 B：修好又回来 → NEW + 旧结论 RESOLVED      [12] 分组名/标题/建议/指纹必须完整
-[5]  夹具 C：文件再次被写 → CHANGED 而非 NEW         [13] 真机驻留事实 vs 独立重算的谓词
-[6]  夹具 D：只点亮引用了该字段的规则                [14] 每条"残留"都要独立复核为确实不存在
-[7]  acknowledge 只降级不删规则
+[5]  夹具 C：文件再次被写 → CHANGED 而非 NEW         [13] 搜索引擎必须只在受保护文档里判定，读不到要说出来
+[6]  夹具 D：只点亮引用了该字段的规则                [14] 真机驻留事实 vs 独立重算的谓词
+[7]  acknowledge 只降级不删规则                      [15] 每条"残留"都要独立复核为确实不存在
 [8]  驻留夹具：7 条规则全触发，含干净机器上闲置的那 4 条
 ```
 
-**[1]–[12] 跑在 `tests/fixtures/` 里两份提交的合成采集上，换任何一台 Windows 结果都一样**——
+**[1]–[13] 跑在 `tests/fixtures/` 里两份提交的合成采集上，换任何一台 Windows 结果都一样**——
 包括一台从没被劫持过的机器、一台没装浏览器的机器、以及 CI 里的一次性 runner。
-[13][14] 跑在 `out\` 下的真机采集上，缺文件时输出 `SKIP` 而不是失败（当前 0 SKIP）。
+[14][15] 跑在 `out\` 下的真机采集上，缺文件时输出 `SKIP` 而不是失败（当前 0 SKIP）。
 
 夹具不是快照。清单 `$wantBrowser` / `$wantPers` 把每条规则映射到"这个夹具应当命中的对象集合"，
 `Check-Manifest` 双向断言：既不许少，也不许出现清单之外的结论（`no finding outside the manifest`）。
 所以往 `rules/` 里加一条规则，如果它在夹具上意外点亮了别的对象，测试会红。
 
-[13] 是关键的另一半：**期望集合不是抄下来的快照，而是用独立逻辑从原始事实重算的。**
+[13] 钉住 `BR-09`/`BR-10` 这对新规则的语义边界：默认搜索引擎是 Chromium 的**受保护偏好**，
+只可能落在 `Secure Preferences` 里，所以夹具里那两条 plain-only 记录即使写着 `2345.com` 也**不许**被报成
+"引擎被换过"（那会是凭空指控）；同时反向断言：一个可读且干净的引擎**不许**产生任何盲区条目——
+否则 `BR-10` 会退化成人人亮灯的背景噪声，而它的全部价值就在于区分"查过了"和"查不了"。
+这一节还断言 `BR-09` 的三条处置建议**没有一条落到兜底分支**上，用的是运行时从规则文件里读出的原文，
+不是抄写一份副本——文案改了，断言跟着变，不会变成一句永远为真的空话。
+
+[14] 是关键的另一半：**期望集合不是抄下来的快照，而是用独立逻辑从原始事实重算的。**
 所以这台机器明天多一条或少一条启动项，测试不会红；
 但哪条规则的实现和它声称的判据漂移了，测试会红。
 
-[14] 专门用来防止第 8 条那个假阳性复发——任何被 `PS-01` 称为残留的行，
+[15] 专门用来防止第 8 条那个假阳性复发——任何被 `PS-01` 称为残留的行，
 都会在测试里重新 `Test-Path` 一次，且裸命令名直接判为缺陷。
 
 ### CI
@@ -376,7 +411,12 @@ msedge --headless=new --allow-file-access-from-files --virtual-time-budget=20000
 `profile.exit_type`、`profile.content_settings.exceptions` **全量台账**
 （`setting|origin|最后写入时间`，本机一次扫描 1700 余条；WebKit 微秒时间戳在探针里就换算成本地时间，
 因为"这台机器什么时候真的加载过那个页面"必须是可读的），
+`default_search_provider_data.template_url_data`（`keyword` / `short_name` / URL / `enforced_by_policy`，
+以及一个 `search_read` 布尔位——读不到是一件事，读到了但干净是另一件事），
 以及**历史修复备份的内容**（备份里当时有没有恶意值，是复发判定的时间轴证据）。
+
+探针层仍然不做判断：它把"这一项我读到了什么"和"这一项我根本没读到"都当成事实交出去，
+由引擎汇总成 `blind_spots` 码表（`no_secure_prefs` / `engine_unreadable` / `prefs_unparseable`）。
 
 **`persistence.ps1`** — 8 类开机驻留面：
 Run / RunOnce（5 个视图，含 WOW6432Node）、启动文件夹、非 `\Microsoft\` 路径的计划任务、
@@ -391,8 +431,16 @@ Auto 启动且不在 Windows 目录的服务、`Group=Early-Launch` 的 ELAM 驱
 ## 局限（说在前面）
 
 - **Windows only**，且依赖 PowerShell 5.1 自带的 `Get-AuthenticodeSignature` / `Get-ScheduledTask`。
-- 浏览器规则覆盖启动页/搜索引擎这一族劫持，加上 `BR-08` 之后也覆盖"恶意源留下的权限与访问台账"，
-  但**仍未覆盖**扩展策略、`Preferences` 之外的搜索引擎篡改、以及计划任务式的浏览器重启器。
+- 浏览器规则覆盖启动页与默认搜索引擎这一族劫持，加上 `BR-08` 之后也覆盖"恶意源留下的权限与访问台账"，
+  但**仍未覆盖**扩展策略、其它偏好段（如新标签页 / Omnibox 独立设置）里的搜索引擎篡改、
+  以及计划任务式的浏览器重启器。
+- **默认搜索引擎这一项在 Edge 上是读不出来的。** Edge 把 `default_search_provider_data` 存成
+  40 位十六进制哈希 + `_encrypted_hash`，只有 Chrome 或用户手动添加的引擎才是明文对象。
+  所以本机 `BR-09` 命中 0 条的同时，`BR-10` 在 4 个 Edge Profile 上亮了 4 条——这不是漏报，
+  是这条判据的能力边界，而且它现在是一条会被基线追踪的结论，不再是一段 README 里的坦白。
+  我们试过 `Web Data` 那张 SQLite 表：本机每个 Edge Profile 里都同时存在 baidu / sogou / so.com / 360
+  的 `{searchTerms}` 模板串，因为那是**可选引擎清单**而不是**当前引擎**，
+  用它做判据会把每台中文 Edge 都报成被劫持。这条路是被数字否掉的，不是被直觉否掉的。
 - `BR-08` 的证据是 `content_settings` 台账，它会**随浏览器的写入自己缩水**：本机 19:05 手测 Profile 1 有
   1355 条，Edge 在 19:24:58 自己回写这个文件，19:27 采集只剩 1251 条，同一段时间里
   `trackers_data|https://cdn.weather.hao.360.cn:443,*` 这条命中也从 12:38 有、19:27 无。
@@ -424,8 +472,12 @@ won't stick (sealed copy present? `sync.preferences` on?).
   arriving from a pull request or an LLM can never become executable input. Zero injection surface.
 - **Fingerprints cover only the evidence a rule cites**, so unrelated file writes don't light up every
   rule on that object.
-- **15 rules, 70 known-answer assertions.** [1]–[12] run on committed synthetic captures, so they
-  give the same verdict on a machine that has never been hijacked; [13]–[14] re-derive expected hit
+- **"Could not look" is a finding.** `BR-10` reports, per object, which surfaces this tool cannot read
+  (no `Secure Preferences`, an engine stored as a hash, an unparseable document). A scanner that only
+  emits problems has an uninformative "nothing found"; here, 4 Edge profiles light up `BR-10` while
+  `BR-09` stays at 0, and the report says which of the two means *clean* and which means *blind*.
+- **17 rules, 81 known-answer assertions.** [1]–[13] run on committed synthetic captures, so they
+  give the same verdict on a machine that has never been hijacked; [14]–[15] re-derive expected hit
   sets from the real facts by independent logic rather than snapshotting, so the suite survives a
   machine that changes.
 - **A remediation that gets reverted is a finding, not a success.** Browser profiles with
@@ -434,6 +486,11 @@ won't stick (sealed copy present? `sync.preferences` on?).
   hijacked value was rewritten at 15:55:40. `BR-05` reports that with both timestamps; `BR-08`
   additionally reads the `content_settings` ledger, which proves the page was actually *loaded*
   (with the write time decoded from WebKit microseconds) even after the startup entry is gone.
+- **Rejected heuristics are documented with numbers.** The default search engine was first attempted
+  via the `Web Data` SQLite table; every Edge profile on this box contains baidu / sogou / so.com / 360
+  `{searchTerms}` templates, because that table is the *available* engine list, not the selected one —
+  it would flag every Chinese-language Edge as hijacked. The rule files record that, so nobody
+  "rediscovers" it later.
 - Ships as a self-contained static HTML report. No server, no dependencies beyond PowerShell 5.1.
 - CI has really run red twice before going green: a YAML anchor indicator in `run: & script.ps1`
   (zero jobs started) and an unresolvable relative `& engine.ps1`. Both are documented above.
@@ -446,8 +503,15 @@ won't stick (sealed copy present? `sync.preferences` on?).
 **在你自己机器上跑出来的命中数和对象名**。没有实测证据的判据不会进主干——
 这个项目所有的可信度都来自"每条规则都能被复述成一次具体的观察"。
 
+写判据之前先跑 `powershell -File tools\shape-probe.ps1`（只读）。
+它把本机浏览器偏好文件的**真实结构**倒出来：哪些键存在、密封副本挂在哪、`protection.macs` 里到底有什么。
+主干里每条谓词都是对着这份输出写的，而不是对着某个格式说明文档写的——
+所以引擎读的是 `Secure Preferences` 的 `restore_on_startup` 和 `Preferences` 的 `startup_setting`，
+而不是随便挑一个键名。第 23 条那个死字段就是反面教材：一个从没被真实输出验证过的读取路径，
+可以永远返回空而不报错。
+
 ```bash
-powershell -File tools\selftest.ps1     # 70 PASS 才算过（夹具部分在任何 Windows 上都应一致）
+powershell -File tools\selftest.ps1     # 81 PASS 才算过（夹具部分在任何 Windows 上都应一致）
 node tools\verify.js                    # 结构 + 标签覆盖 + 脱敏
 powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCII 或带 BOM
 ```
@@ -456,9 +520,14 @@ powershell -File tools\hygiene.ps1      # .bat 必须 CRLF；.ps1 必须纯 ASCI
 请把它同时在 `tests/fixtures/` 里造一条能打中的记录，并在 `tools\selftest.ps1` 的清单里写上预期对象——
 否则这条规则永远不会被执行到。
 
+引入新的事实字段时，`show` 里每个键都要在 `render/template.html` 的标签表里有中文条目（`verify.js` 会遍历
+全部规则断言这一点，与本机命中与否无关）；如果它是一个盲区码，则要加进 `BLIND` 映射表。
+引擎只发码、模板负责句子——第 24 条解释了为什么必须是这个方向。
+
 `hygiene.ps1` 拦的是两类在 Windows 上不会报错的坑：LF-only 的 `.bat` 会被 cmd 执行一半；
 无 BOM 的 `.ps1` 会被 PowerShell 5.1 按活动代码页解码，注释里的中文变成乱码字节，
 万一其中某个字节解析成引号或反引号，就变成一个只在别人机器上出现的语法错误。
+（字符串**字面量**里写中文更糟：不是乱码，是解析直接失败——见第 24 条。）
 
 ## License
 
