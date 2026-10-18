@@ -11,8 +11,10 @@ Nothing pending.
 
 ## [1.1.0] — 2026-10-18
 
-The report is now bilingual without the evaluation becoming locale-aware. 90 assertions, four gates
-(`selftest.ps1`, `verify.js`, `hygiene.ps1`, and the two headless probes), one double-click entry point.
+The report is now bilingual without the evaluation becoming locale-aware. 90 assertions behind the
+three CI gates (`selftest.ps1`, `verify.js`, `hygiene.ps1`), plus two headless probes
+(`layout-probe.html`, `i18n-probe.html`) that measure geometry and wording rather than gate a merge,
+and one double-click entry point.
 
 ### Added
 
