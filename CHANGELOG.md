@@ -5,7 +5,15 @@ All notable changes to this project are documented here. The format follows
 are the dates the commits landed — this file was written after `v1.0.0` and describes work already in
 the tree rather than pretending the history was planned.
 
-## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.1.0...HEAD)
+## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.2.0...HEAD)
+
+Nothing pending.
+
+## [1.2.0] — 2026-10-18
+
+One new rule, and its whole difficulty is that it reports a finding *about* a secret without ever
+carrying the secret. 18 rules, 90 assertions, three CI gates (`selftest.ps1`, `verify.js`,
+`hygiene.ps1`), two headless probes, one double-click entry point.
 
 ### Added
 
@@ -157,5 +165,6 @@ static HTML report.
   like in the wild comes from public cases, and the README says so instead of inventing a success
   story.
 
+[1.2.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.2.0
 [1.1.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.1.0
 [1.0.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.0.0
