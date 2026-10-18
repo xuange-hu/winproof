@@ -2,6 +2,7 @@
 
 [![scan and tests](https://github.com/xuange-hu/winproof/actions/workflows/ci.yml/badge.svg)](https://github.com/xuange-hu/winproof/actions/workflows/ci.yml)
 [![demo report](https://img.shields.io/badge/demo-live%20report-35d39a)](https://xuange-hu.github.io/winproof/demo/)
+[![release](https://img.shields.io/github/v/release/xuange-hu/winproof)](https://github.com/xuange-hu/winproof/releases)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 ![powershell](https://img.shields.io/badge/powershell-5.1%20only-informational)
 ![deps](https://img.shields.io/badge/dependencies-0-green)
@@ -47,6 +48,10 @@
 ---
 
 ## 30 秒上手
+
+不想 clone：到 [Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.0.0) 下
+`winproof-1.0.0.zip`（183 KB，解压即用；CI 每次都会验证这个包里三个 `.bat` 全是 CRLF，
+因为一个 LF-only 的批处理会被 cmd 执行一半，然后在你的机器上报一个跟真因无关的语法错误）。
 
 ```
 scan.bat                       # 只读采集 + 求值 + 生成 out\report.html 并打开

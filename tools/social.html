@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<!--
+  Source of docs/social.png (1200x630, the GitHub social preview and the share card).
+  The cards shown here are real findings from the author's machine, not a mockup.
+  Regenerate with:
+    msedge --headless=new --disable-gpu --window-size=1200,630 ^
+      --virtual-time-budget=4000 --screenshot=<path> file:///<this file>
+  GitHub has no API for the social preview: upload it in Settings -> General ->
+  Social preview image.
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1d212a; --line: #272d38;
+    --txt: #e6e9ef; --dim: #98a2b3; --faint: #6b7280;
+    --high: #ff5f56; --medium: #ffb020; --good: #35d39a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    background: var(--bg); color: var(--txt);
+    font: 15px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; gap: 34px; padding: 40px 44px;
+  }
+  .left { width: 470px; flex: none; display: flex; flex-direction: column; }
+  h1 { font-size: 46px; letter-spacing: -1px; font-weight: 700; }
+  h1 span { color: var(--high); }
+  .tag { color: var(--dim); font-size: 16px; margin-top: 6px; }
+  .q { margin-top: 26px; font-size: 19px; line-height: 1.75; font-weight: 600; }
+  .q i { font-style: normal; color: var(--medium); }
+  ul { list-style: none; margin-top: 22px; }
+  ul li { color: var(--dim); font-size: 14px; padding-left: 17px; position: relative; margin-bottom: 7px; }
+  ul li::before { content: ''; position: absolute; left: 0; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+  ul li b { color: var(--txt); font-weight: 600; }
+  .chips { margin-top: auto; display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    font: 12px/1.0 Consolas, monospace; color: var(--dim);
+    border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; background: var(--panel);
+  }
+  .chip.g { color: var(--good); border-color: #1f4d3d; }
+  .right { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--high);
+    border-radius: 10px; padding: 15px 17px;
+  }
+  .card.mid { border-left-color: var(--medium); }
+  .card.good { border-left-color: var(--good); }
+  .hd { display: flex; align-items: center; gap: 9px; }
+  .id { font: 12px/1 Consolas, monospace; color: var(--faint); }
+  .ttl { font-size: 16px; font-weight: 700; }
+  .st { font-size: 11px; border-radius: 4px; padding: 3px 7px; font-weight: 600; }
+  .st.ch { background: #3a2a10; color: var(--medium); }
+  .st.nw { background: #3a1512; color: var(--high); }
+  .st.gd { background: #11301f; color: var(--good); }
+  .sub { color: var(--faint); font-size: 12px; margin-top: 3px; }
+  table { width: 100%; margin-top: 11px; border-collapse: collapse; }
+  td { border-top: 1px solid var(--line); padding: 7px 0; vertical-align: top; font-size: 13px; }
+  td.k { width: 132px; color: var(--dim); }
+  td.k em { display: block; font: 10px/1.5 Consolas, monospace; font-style: normal; color: #4f5764; }
+  .val { font-family: Consolas, monospace; }
+  .hit { color: var(--high); }
+  .fix {
+    margin-top: 10px; background: var(--panel2); border-radius: 7px; padding: 9px 12px;
+    font-size: 12.5px; color: var(--dim); line-height: 1.6;
+  }
+  .fix b { color: var(--medium); font-weight: 700; margin-right: 6px; }
+  .note { color: var(--faint); font-size: 12px; padding-left: 2px; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <h1>Win<span>Proof</span></h1>
+    <div class="tag">Windows 驻留取证与基线比对 · 零依赖 · 只读</div>
+    <div class="q">
+      什么东西<i>变了</i> ·<br>
+      什么时候<i>变的</i> ·<br>
+      你刚才那个处置方式<i>会不会被还原</i>
+    </div>
+    <ul>
+      <li>清理工具答不了这三问：它只做一次「扫描—删除」，删掉的和删成功的<b>长得一样</b></li>
+      <li><b>17 条规则全是 JSON 数据</b>，跑在受限谓词解释器上 —— 提交进来的规则永远不可能变成可执行输入</li>
+      <li>基线<b>永不自动更新</b>：否则写你机器的那位，重采一次基线就把自己洗白了</li>
+      <li>它还会说<b>「这里我读不到」</b>——「没查到」和「查不了」是两句话</li>
+    </ul>
+    <div class="chips">
+      <div class="chip">PowerShell 5.1 only</div>
+      <div class="chip">dependencies: 0</div>
+      <div class="chip g">81 known-answer tests</div>
+      <div class="chip g">双击 scan.bat → HTML</div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card">
+      <div class="hd">
+        <div class="id">BR-01</div>
+        <div class="ttl">浏览器启动页被劫持</div>
+        <div class="st ch">已变化</div>
+      </div>
+      <div class="sub">Edge / Profile 1 · 浏览器启动页与搜索引擎</div>
+      <table>
+        <tr><td class="k">当前启动页 URL<em>startup_urls</em></td><td class="val hit">http://2345.pbgia.com/win23</td></tr>
+        <tr><td class="k">取值来源<em>doc_role</em></td><td class="val">Secure Preferences（权威副本，会还原明文删除）</td></tr>
+        <tr><td class="k">文件修改时间<em>mtime</em></td><td class="val">2026-10-16 15:55:40</td></tr>
+      </table>
+      <div class="fix"><b>处置</b>这个 Profile 开了 sync.preferences。手改文件会被云端配置回灌，请先在 edge://settings/onStartup 里改掉，再动文件。</div>
+    </div>
+    <div class="note">↑ 14:18 做完文件级修复并复查通过 · 15:55:30 Edge 后台进程自己起来 · 15:55:40 恶意值回来了</div>
+
+    <div class="card">
+      <div class="hd">
+        <div class="id">BR-02</div>
+        <div class="ttl">存在密封副本，只删明文会被还原</div>
+        <div class="st nw">新发现</div>
+      </div>
+      <div class="sub">Edge / Default · seal_keys = 4 个 *_edge_lightweight 键（含两个 _verify）</div>
+    </div>
+
+    <div class="card good">
+      <div class="hd">
+        <div class="id">BR-07</div>
+        <div class="ttl">上次修复经受住了复查</div>
+        <div class="st gd">正常</div>
+      </div>
+      <div class="sub">Chrome / Default · 唯一能证明「处置方式对了」的信号</div>
+    </div>
+  </div>
+</body>
+</html>
