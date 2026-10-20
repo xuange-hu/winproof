@@ -57,8 +57,8 @@ look exactly like "deleted".
 
 ## 30-second start
 
-Do not want to clone: download `winproof-1.1.0.zip` from
-[Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.1.0) (388 KB, unzip and double-click).
+Do not want to clone: download `winproof-1.3.0.zip` from
+[Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.3.0) (419 KB, unzip and double-click).
 CI re-verifies on every push that the three `.bat` files inside that archive are CRLF — an LF-only batch
 file is executed half-way by cmd and then reports a syntax error that has nothing to do with your machine.
 
