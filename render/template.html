@@ -299,7 +299,14 @@
     search_policy: ['被策略强制', 'Enforced by policy'],
     search_bad: ['搜索引擎命中黑名单', 'Engine matches the blocklist'],
     search_read: ['引擎数据可读', 'Engine data readable'],
-    blind_spots: ['本次扫描看不到的东西', 'What this scan could not see']
+    blind_spots: ['本次扫描看不到的东西', 'What this scan could not see'],
+    // BR-11 reads .lnk files, which sit outside every profile directory, so the
+    // evidence has to name the shortcut itself or the reader cannot act on it.
+    path: ['条目所在路径', 'Path of the entry'],
+    lnk_target_exe: ['快捷方式指向的程序', 'Program the shortcut launches'],
+    lnk_args: ['快捷方式附加参数', 'Extra arguments on the shortcut'],
+    lnk_urls: ['快捷方式携带的 URL', 'URLs carried by the shortcut'],
+    lnk_url_bad: ['命中黑名单的 URL', 'Blocklisted URL']
   };
   // Signature failures: a raw Win32 token is not something a reader can act on.
   var HIT = {

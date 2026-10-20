@@ -1,9 +1,9 @@
 {
   "group": "browser",
-  "group_title": "浏览器启动页与搜索引擎",
+  "group_title": "浏览器启动页、搜索引擎与快捷方式",
   "i18n": {
     "en": {
-      "group_title": "Browser startup page and default search engine"
+      "group_title": "Browser startup page, search engine and shortcuts"
     }
   },
   "provenance": "以下判据全部在真实机器上取证实测（2026-10-14 建规，2026-10-16 补 BR-08 并复验 BR-05：Edge 4 profile + Chrome 1 profile + content_settings 台账 1708 条；同日补 BR-09/BR-10，其中 BR-09 本机命中 0 条并写明了为什么 Edge 不可判定，BR-10 本机 5 个 Profile 全命中），未实测的条件不进首版。",
@@ -336,6 +336,36 @@
           ],
           "why": "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
           "verified_evidence": "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot."
+          }
+      }
+    },
+    {
+      "id": "BR-11",
+      "title": "浏览器快捷方式被加了强制启动 URL",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "lnk_url_bad", "op": "nonEmpty" }
+        ]
+      },
+      "show": ["lnk_target_exe", "lnk_url_bad", "lnk_urls", "lnk_args", "path"],
+      "advice": [
+        {
+          "if_any": true,
+          "text": "右键这个快捷方式 -> 属性 -> 「目标」，浏览器可执行文件路径后面被追加了一个启动 URL（证据里 lnk_urls 那条）。删掉路径之后的部分、只留 exe 本身即可。注意：这正是你改了浏览器启动页、下次开机又变回去的根因——清理工具只动 Profile 里的 session.startup_urls，而快捷方式每次打开浏览器都会把那个页面重新加载、于是配置被重建。只要这个 .lnk 还在，BR-01 的修复就会被它反复覆盖。"
+        }
+      ],
+      "why": "启动页劫持有两种落点：一种写进浏览器 Profile（BR-01 能看到），另一种写进快捷方式的可执行参数里。后者在 Profile 之外，任何清浏览器配置的工具都碰不到它，而且它每次冷启动都重新触发一次劫持，看起来就像「删了又活」。把 .lnk 的目标命令行纳入取证，才第一次能把「反复复发」这件事本身变成一条有路径、有域名的证据，而不是一种感觉。",
+      "verified_on": "2026-10-20",
+      "verified_evidence": "本机 5 个浏览器快捷方式全部为良性，命中 0 条：msedge.exe 的两个只带 --profile-directory=\"Default\"/\"Profile 1\"（合法地固定配置文件，无 URL），chrome.exe 与另一个 msedge.exe 参数为空，GitHub.lnk 是 msedge_proxy.exe --app-url=https://github.com/ 的标准 PWA（github 不在黑名单）。判据只对 lnk_urls 命中 domain_blocklist 的行报 high，所以合法的「用浏览器打开某网站」快捷方式不会被误报；探针只采集目标为浏览器可执行文件的 .lnk，且从不在此处匹配黑名单。合成夹具 tests/fixtures/facts-browser.json 的 shortcuts 造了两条：一条 chrome.exe 带 http://www.2345.com/ 必须命中、一条只有 --profile-directory 必须不命中，selftest 双向钉住。",
+      "i18n": {
+        "en": {
+          "title": "The browser shortcut was given a forced start URL",
+          "advice": [
+            "Right-click this shortcut -> Properties -> the \"Target\" field: a start URL has been appended after the browser's executable path (the lnk_urls row in the evidence). Delete everything after the exe and leave only the exe itself. Note: this is exactly why the startup page you cleaned keeps coming back after the next boot - cleaning tools only touch session.startup_urls inside the profile, while this shortcut reloads that page every time it opens the browser, so the configuration gets rebuilt. As long as this .lnk is present, it overwrites the BR-01 fix over and over."
+          ],
+          "why": "Startup-page hijacking has two places to land: one is written into the browser profile (BR-01 sees it), the other is written into the executable arguments of the shortcut. The second lives outside the profile, so no tool that cleans browser configuration can reach it, and it re-fires on every cold start, which looks like \"it was deleted but came back\". Bringing the .lnk command line into the forensics is what finally turns \"it keeps recurring\" into an evidence row with a path and a domain, rather than a feeling.",
+          "verified_evidence": "All 5 browser shortcuts on this machine are benign and it fires 0: the two msedge.exe shortcuts only carry --profile-directory=\"Default\"/\"Profile 1\" (legally pinning a profile, no URL), chrome.exe and another msedge.exe have empty arguments, and GitHub.lnk is a standard PWA (msedge_proxy.exe --app-url=https://github.com/, github is not on the blocklist). The criterion reports high only for rows whose lnk_urls match the domain_blocklist, so a legitimate \"open this site in the browser\" shortcut is not a false positive; the probe collects only .lnk files whose target is a browser executable and never matches the blocklist there. The shortcuts array in tests/fixtures/facts-browser.json plants two rows: one chrome.exe carrying http://www.2345.com/ that must fire, one with only --profile-directory that must not, and the selftest pins both directions."
           }
       }
     }

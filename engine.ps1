@@ -340,6 +340,26 @@ function New-BrowserSubjects($facts, $blocklist) {
 
         $subjects += $s
     }
+
+    # Machine-level shortcut rows. Each .lnk that launches a browser is its own
+    # subject, because a hijacked launch argument is a single artefact with no
+    # profile to attribute it to. The blocklist is applied here (never in the
+    # probe), so the probe stays reputation-blind and the judgement lives with the
+    # rules - the same contract the persistence group follows.
+    foreach ($sc in As-Array $facts.shortcuts) {
+        if ($null -eq $sc) { continue }
+        $t = @{}
+        $t['kind'] = 'browser_shortcut'
+        $t['name'] = [string]$sc.name
+        $t['subject'] = 'browser_shortcut / ' + [string]$sc.name
+        $t['lnk_target_exe'] = [string]$sc.target_exe
+        $t['lnk_args'] = [string]$sc.args
+        $t['lnk_urls'] = @(As-Array $sc.urls)
+        $t['lnk_url_bad'] = Get-BadUrls (As-Array $sc.urls) $blocklist
+        $t['path'] = [string]$sc.path
+        $subjects += $t
+    }
+
     return $subjects
 }
 

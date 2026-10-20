@@ -203,12 +203,59 @@ foreach ($r in $roots) {
     }
 }
 
+# --- browser shortcut launch arguments ----------------------------------------
+# A hijacker that survives profile cleaning usually does NOT live in the profile:
+# it rewrites the .lnk so the shortcut launches the browser with a start URL
+# appended after the exe path. Every time the user opens the browser from that
+# icon the page loads again and the profile value is re-created, which is exactly
+# the "I cleaned it and it came back" loop. This is a machine-level surface, not
+# per profile, and no profile cleaner inspects it. Read only: CreateShortcut does
+# not write, and WScript.Shell is a standard Windows component.
+$shortcutRoots = @(
+    (Join-Path $env:USERPROFILE 'Desktop'),
+    (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'),
+    (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'),
+    (Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar')
+)
+# Only browser executables are collected. The reputation decision is left to the
+# engine: the probe records the launch URL verbatim and never matches a blocklist,
+# because it must not decide what is suspicious. PWA/app hosts (msedge_proxy.exe,
+# chrome.exe --app-id=) are included deliberately - an app shortcut pointed at a
+# blacklisted origin is still a hijack, and a benign one simply will not match.
+$BROWSER_RX = '(?i)(chrome|msedge|firefox|brave|opera|vivaldi|edge|360se|360chrome|qqbrowser|sogouexplorer|2345explorer|2345chrome|maxthon|ucbrowser|liebao)([a-z0-9_\-]*)\.exe$'
+$shortcuts = @()
+$wsh = $null
+try { $wsh = New-Object -ComObject WScript.Shell } catch { $wsh = $null }
+if ($null -ne $wsh) {
+    foreach ($sr in $shortcutRoots) {
+        if (-not (Test-Path $sr)) { continue }
+        foreach ($lnk in @(Get-ChildItem -Path $sr -Filter *.lnk -Recurse -ErrorAction SilentlyContinue)) {
+            $sc = $null
+            try { $sc = $wsh.CreateShortcut($lnk.FullName) } catch { continue }
+            $tp = [string]$sc.TargetPath
+            $ar = [string]$sc.Arguments
+            if ($tp -notmatch $BROWSER_RX) { continue }
+            $urls = @()
+            foreach ($m in [regex]::Matches($ar, 'https?://[^\s"' + [char]39 + '<>]+')) { $urls += $m.Value }
+            $urls = @($urls | Select-Object -Unique)
+            $shortcuts += [pscustomobject]@{
+                name       = $lnk.Name
+                path       = $lnk.FullName
+                target_exe = [IO.Path]::GetFileName($tp)
+                args       = $ar
+                urls       = $urls
+            }
+        }
+    }
+}
+
 $payload = [ordered]@{
     probe           = 'browser_prefs'
     captured_at     = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
     computer        = $env:COMPUTERNAME
     user            = $env:USERNAME
     files           = $all
+    shortcuts       = $shortcuts
     missing_roots   = @($missing)
 }
 
@@ -221,5 +268,5 @@ New-Item -ItemType Directory -Force -Path (Split-Path $OutFile) | Out-Null
 $gAll = 0
 $gRead = 0
 foreach ($x in $all) { $gAll += [int]$x.perm_keys_total; if ($x.search_read) { $gRead += 1 } }
-Write-Output ('browser_prefs: files=' + $all.Count + ' missing_roots=' + $missing.Count +
+Write-Output ('browser_prefs: files=' + $all.Count + ' shortcuts=' + $shortcuts.Count + ' missing_roots=' + $missing.Count +
     ' perm_grants=' + $gAll + ' search_read=' + $gRead + ' -> ' + $OutFile)
