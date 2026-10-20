@@ -1,7 +1,7 @@
 # Contributing
 
 Start with the README's
-[detection inventory](README.md#detection-inventory-18-rules-each-restatable-as-one-concrete-observation)
+[detection inventory](README.md#detection-inventory-19-rules-each-restatable-as-one-concrete-observation)
 — every shipped rule there carries the hit count and
 subject names it produced on the author's machine. That convention is the whole contribution model:
 **a judgement you have not measured does not enter the tree.**
@@ -24,10 +24,17 @@ accident, and new operators expand the surface that lets a contributed rule do s
 3. If it does not fire on your machine, add a fixture row in `tests/fixtures/` that *does* fire and
    list the expected subjects in the `$wantBrowser` / `$wantPers` manifest in `tools/selftest.ps1`.
    A rule with no executing test is a rule whose predicate can be inverted and nobody finds out
-   until it matters.
+   until it matters. When the rule reads a surface the fixture did not carry before, give it a
+   **neighbour that must stay clean**, not just a positive row: `BR-11` ships three shortcut rows, one
+   hijacked and two benign (one with no URL, one with a legitimate `--app-url`), because a manifest
+   check alone would still pass if the predicate had been weakened to "any shortcut carrying any URL".
 4. If your rule cites a new evidence field, add its `[zh, en]` label pair to the table in
    `render/template.html` (and to `BLIND` if it is a blind-spot code). `tools/verify.js` walks every
    `show` key in every rule file and fails on an untranslated one, regardless of whether it fired.
+   If your rule introduces a new **subject kind** rather than a new field, the engine's `subject`
+   string is `"<kind> / <name>"`; `KIND` in the template translates known prefixes and passes anything
+   else through, so a new kind is readable without a code change — but check the rendered card, because
+   a machine-level subject has no profile to name itself after.
 5. **Write the English wording**, or the run aborts. A rule needs an `i18n.en` block with `title`, one
    `advice` string *per branch* of your `advice` list, `why` and `verified_evidence`; the rule file needs
    `i18n.en.group_title`. The engine validates this while loading rules, not while rendering, so a short

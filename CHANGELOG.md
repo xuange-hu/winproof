@@ -5,9 +5,49 @@ All notable changes to this project are documented here. The format follows
 are the dates the commits landed — this file was written after `v1.0.0` and describes work already in
 the tree rather than pretending the history was planned.
 
-## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.2.0...HEAD)
+## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.3.0...HEAD)
 
 Nothing pending.
+
+## [1.3.0] — 2026-10-20
+
+One new rule, and the first one that reads a surface outside the browser profile directories.
+19 rules, 91 assertions, three CI gates (`selftest.ps1`, `verify.js`, `hygiene.ps1`), two headless
+probes, one double-click entry point.
+
+### Added
+
+- **BR-11 — a browser shortcut carries a forced startup URL.** The probe now walks Desktop, both Start
+  Menu trees and the pinned-Taskbar folder through `WScript.Shell`, keeps only shortcuts whose target
+  resolves to a browser binary, and reports the URL tokens found in the arguments. A hijack that edits
+  the `.lnk` instead of the prefs file opens the page on every launch from that icon while touching no
+  profile key at all — and it quietly re-applies itself over a BR-01 repair done from the settings UI.
+  The judgement reuses the existing `domain_blocklist`, so the rule adds a **surface**, not a new
+  opinion; the probe stays reputation-blind and the blocklist match happens in the engine.
+- **A machine-level subject kind.** `New-BrowserSubjects` now emits `browser_shortcut / <name>` subjects
+  alongside the per-profile ones, which is why a report's subject count is profiles *plus* shortcuts.
+  The renderer passes an unknown subject prefix through unchanged, so no template code was needed.
+- **The fixture carries a negative for it.** `tests/fixtures/facts-browser.json` gained three shortcut
+  rows: one `chrome.exe` with `http://www.2345.com/?cid=win23` appended, one bare `msedge.exe` with only
+  `--profile-directory`, and one `msedge_proxy.exe` PWA launcher whose `--app-url` is legitimate.
+  `selftest [1]` asserts the hit set is exactly the first row — a manifest check alone would keep passing
+  if the predicate had degraded to "any shortcut with any URL", and this rule has 0 hits on the author's
+  machine, so the fixture is the only place its logic is actually executed.
+
+### Changed
+
+- 18 rules → 19; the browser group is now 11 rules. Known-answer assertions 90 → 91, and the fixture
+  subject count 5 → 8 (baseline findings 22 → 23).
+- `probes/browser_prefs.ps1` emits a `shortcuts` array in its payload; `engine.ps1` reads it;
+  `render/template.html` gained `[zh, en]` label pairs for `path`, `lnk_target_exe`, `lnk_args`,
+  `lnk_urls`, `lnk_url_bad` — `verify.js` fails a `show` key with no label, fired or not.
+- The README's live-scan table is re-measured on 2026-10-20 (`subjects=69 rules=19 findings=27`), which
+  also documents how a rule retires: `PS-08` no longer fires because the author's dial task had its
+  plaintext arguments removed, but it cannot be reported as `RESOLVED` — it postdates the 2026-10-15
+  baseline, so there is no baseline record to retire. "This stopped being a problem" and "this was never
+  measured" are different statements, and the report must be able to say which one it is making.
+- `CONTRIBUTING.md` now states the negative-row requirement, and what to do when a rule introduces a new
+  subject kind rather than a new evidence field.
 
 ## [1.2.0] — 2026-10-18
 
@@ -165,6 +205,7 @@ static HTML report.
   like in the wild comes from public cases, and the README says so instead of inventing a success
   story.
 
+[1.3.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.3.0
 [1.2.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.2.0
 [1.1.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.1.0
 [1.0.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.0.0

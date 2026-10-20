@@ -88,13 +88,13 @@ and the toggle is in the header (see [Architecture](#architecture-five-layers-no
 
 ---
 
-## Detection inventory: 18 rules, each restatable as one concrete observation
+## Detection inventory: 19 rules, each restatable as one concrete observation
 
 This is not "a long list so it looks thorough". What follows each rule is **what it looks like on your
 machine**. Every rule in `rules/*.json` must fill `verified_evidence` with hit counts and object names
 produced by an actual run — a rule without measured evidence does not reach main.
 
-**Browser startup page and search engine — 10 rules**
+**Browser startup page, search engine and shortcuts — 11 rules**
 
 | Rule | Severity | The condition, in one line | Why it is a separate rule |
 |---|---|---|---|
@@ -108,6 +108,7 @@ produced by an actual run — a rule without measured evidence does not reach ma
 | BR-08 | medium | A blocklisted origin still holds rows in `content_settings.exceptions` | Permissions, cookies and `media_engagement` are traces that the page **was actually loaded** — they survive after the startup URL is deleted |
 | BR-09 | medium | The default search engine's `keyword`/URL is blocklisted, **or** `enforced_by_policy=true` | The startup page decides what you see when you open the browser; the search engine decides what your searches return, and that only shows up when you actually search. The policy half separates "you installed the wrong thing" from "something decided for you" — the remediations are not the same |
 | BR-10 | info | This object has surfaces this tool **cannot read** (engine stored as a hash, no `Secure Preferences`, JSON parse failure) | A scanner that only reports problems has an uninformative "nothing found": it cannot distinguish *this machine is clean* from *this machine contains things I do not cover*. This rule turns the coverage boundary into a conclusion that is itself baseline-tracked |
+| BR-11 | high | A browser `.lnk` on the Desktop, Start Menu or Taskbar carries an appended URL that matches the blocklist | The prefs file is not the only place a hijack can live: rewriting the shortcut itself forces the page to open **on every launch from that icon**, no profile key touched, nothing for a prefs-level cleaner to find — and it silently overwrites any BR-01 repair you make from the settings UI |
 
 **Boot-time persistence: Run keys, services, drivers, network layer — 8 rules**
 
@@ -127,32 +128,47 @@ The blocklist is currently 9 tokens (`2345` `pbgia` `hao.360` `mydown` `so.com` 
 touches the engine. It matches by **substring**, so if you set `so.com` as your own homepage you will be
 reported — the correct response is `ack.bat`, marking it as known, not dulling the rule.
 
+`BR-11` reuses that same blocklist, so it introduces no new judgement of its own. What it adds is a
+**surface**: the probe walks Desktop, both Start Menu trees and the pinned-Taskbar folder with
+`WScript.Shell`, keeps only shortcuts whose target is a browser binary, and reads the URL out of the
+arguments. The shortcut's own subject kind is `browser_shortcut`, i.e. machine-level, not one per
+profile — which is why the subject count in a report is profiles *plus* shortcuts.
+
 ---
 
 ## What it actually reports on this machine
 
 ```
-engine: subjects=65 rules=18 findings=27 high=5 resolved=2
+engine: subjects=69 rules=19 findings=27 high=4 resolved=2
 counts: NEW=9 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 ```
-(Re-scanned on 10-18. The baseline was captured on 10-15, so every state above is a judgement **about
-five days ago**, not about yesterday.)
+(Re-scanned on 10-20. The baseline was captured on 10-15, so every state above is a judgement **about
+five days ago**, not about yesterday. `subjects=69` is 59 autostart entries + 5 browser profiles + 5
+browser shortcuts.)
 
 | Severity | Rule | Hits | Objects |
 |---|---|---|---|
 | high | BR-01 startup page hijacked | 1 | Edge / Profile 1 — state `changed`, i.e. the cloud write-back above |
 | high | BR-02 sealed copy exists, plaintext deletion will be reverted | 2 | Edge / Default, Edge / Profile 1 |
 | high | BR-05 it came back after being cleaned | 1 | Edge / Profile 1 |
-| high | PS-08 a credential is stored in plaintext on a command line | 1 | scheduled task `\自动拨号` — `rasdial 宽带连接 *** ***`, state `new` in this scan |
 | medium | BR-04 orphan signature (this place was tampered with and cleaned up) | 4 | Edge ×3, Chrome ×1 — the Edge / Profile row is **new** in this scan |
-| medium | BR-08 blacklisted domain still holds content-setting exceptions | 3 | Edge / Profile 1, Edge / Default, Chrome / Default |
-| medium | PS-01 startup entry points at a missing file | 1 | service / AndrowsSvr |
+| medium | BR-08 blacklisted domain still holds content-setting exceptions | 3 | Edge / Profile 1, Edge / Default, Chrome / Default — all three `changed`→`new` because the ledger itself shrank since the baseline |
+| medium | PS-01 startup entry points at a missing file | 2 | service / AndrowsSvr, service / Everything (**new** since 10-15: an uninstall left the service behind) |
 | medium | PS-02 boot-time binary without a valid signature | 2 | Authenticator, OpenClaw Gateway |
 | low | BR-06 browser did not exit normally | 1 | Edge / Profile 1 — state `changed` (Chrome / Default is now `resolved`, see below) |
 | low | PS-07 resident binary in a user-writable directory | 5 | Rd_Service, 3 WPS tasks, OpenClaw |
 | info | BR-03 startup mode set to "open specific pages" | 1 | Edge / Profile 1 |
 | info | BR-10 surfaces this tool cannot read | 4 | the 4 Edge profiles: the default engine is stored as a hash |
 | good | BR-07 the previous repair survived re-check | 1 | Chrome / Default |
+
+**`PS-08` stopped firing, and the way it stopped is itself a lesson about baselines.**
+The scheduled task `\自动拨号` used to carry the broadband account and password as plaintext `rasdial`
+arguments. On 10-20 those arguments were reduced to `rasdial "<connection>"`, so the credentials now come
+from the RAS phonebook (an LSA secret the service reads in its own context) instead of from a world-readable
+task XML. The row does **not** appear above as `resolved`, though: `PS-08` was written on 10-19, after the
+10-15 baseline was captured, so it has no baseline record to retire. It simply no longer matches. A finding
+can only be reported as resolved if it was once baselined — that is the honest difference between "this
+stopped being a problem" and "this was never measured".
 
 **The `resolved` column is the part that keeps moving, and that is the point.**
 `BR-06 / Chrome / Default` has now flipped across four scans: reported → resolved → back to `changed`
@@ -169,6 +185,15 @@ Chrome / Default keeps `default_search_provider_data.template_url_data` as a pla
 swapped" is a conclusion that was **looked at**. The same position in Edge's 4 profiles is a 40-character
 hex digest plus an `_encrypted_hash`: the engine cannot be recovered, so those 4 BR-10 rows mean
 "here, I did not look". Report only "0 BR-09 hits" and both situations look identical.
+
+**BR-11 has 0 hits on this machine, and the five rows behind that zero are listed.**
+The probe found 5 browser shortcuts: four with no URL argument at all (a bare `Microsoft Edge.lnk` and
+`Google Chrome.lnk`, plus two profiles that pass only `--profile-directory=Default` / `Profile 1`), and one
+GitHub PWA launcher whose arguments carry `--app-url=https://github.com/`.
+None matches the blocklist, so the rule is idle here — which is exactly why its known-answer test is the
+synthetic fixture, where one row is planted with `http://www.2345.com/?cid=win23` and two neighbours stay
+clean. A rule that has never hit on the author's machine is only trustworthy if something can still prove
+it fires.
 
 **PS-03 / PS-04 / PS-05 / PS-06 have 0 hits, and that is the correct state, not a miss.**
 The Early-Launch group contains only `WdBoot`, hosts contains only `127.0.0.1 localhost`, there is no
@@ -464,19 +489,19 @@ secret. Three decisions carry that:
 
 ---
 
-## Known-answer tests: 90 PASS / 0 FAIL
+## Known-answer tests: 91 PASS / 0 FAIL
 
 The criteria are defined before the scanning logic. Run `powershell -File tools\selftest.ps1`:
 
 ```
 [1]  browser fixture: the hit set must equal the manifest, row by row
-[2]  all 10 browser rules get triggered
+[2]  all 11 browser rules get triggered
 [3]  re-scan of the same facts: no CHANGED allowed
 [4]  fixture B: fixed, then came back → NEW, and the retired conclusion becomes RESOLVED
 [5]  fixture C: the file written again → CHANGED, not NEW
 [6]  fixture D: only the rules citing that field light up
 [7]  acknowledge downgrades, it never deletes a rule
-[8]  persistence fixture: all 7 rules fire, including the 4 idle on a clean machine
+[8]  persistence fixture: all 8 rules fire, including the 5 idle on a clean machine
 [9]  countGte's scalar semantics, asserted in both directions
 [10] plant a fake residue → must be NEW, and must not swallow its neighbours
 [11] an unknown probe name must throw, facts may never be dropped silently
@@ -498,6 +523,12 @@ The fixture is not a snapshot. The manifests `$wantBrowser` / `$wantPers` map ea
 the capture *should* hit, and `Check-Manifest` asserts both directions: nothing may be missing, and no
 conclusion may exist outside the manifest (`no finding outside the manifest`). So adding a rule to `rules/`
 that unexpectedly lights up another object turns the test red.
+
+`BR-11` is the first rule whose **negative** direction had to be built into the capture rather than left to
+the manifest check alone: the fixture carries three shortcut rows, one hijacked and two clean (one with no
+URL, one a legitimate `--app-url` PWA launcher). Section [1] asserts the hitting set explicitly, because
+"the rule fired on exactly one of three nearly identical rows" is the only version of this test that would
+also pass if the matcher had been weakened to "any shortcut with a URL".
 
 [13] pins the semantic boundary of the `BR-09`/`BR-10` pair: the default search engine is a Chromium
 **protected preference**, so it can only live in `Secure Preferences`. The two plain-only records in the
@@ -535,7 +566,7 @@ two probes → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` 
 
 `verify.js` carries the bilingual checks that need no browser at all: it evaluates the renderer's locale
 tables out of `render/template.html`, and fails on a row that is not a `[zh, en]` pair, on an English half
-that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 18 rules
+that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 19 rules
 whose overlay is short. It also checks the *published* demo for the same property, because a visitor who
 clicks "English" on a stale artefact gets Chinese anyway — and a stale demo is invisible to every other gate
 in here, since its counts can be perfectly correct while its wording is a build behind.
@@ -601,8 +632,12 @@ startup mode, sealed key families, `protection.macs` and orphan signatures, `syn
 converted to local time inside the probe, because "when did this machine actually load that page" has to be
 readable), `default_search_provider_data.template_url_data` (`keyword` / `short_name` / URL /
 `enforced_by_policy`, plus a `search_read` boolean — "cannot read it" is one fact, "read it and it is clean"
-is another), and **the contents of past repair backups** (whether a backup contained a malicious value at the
-time is the timeline evidence a recurrence verdict is built from).
+is another), **the contents of past repair backups** (whether a backup contained a malicious value at the
+time is the timeline evidence a recurrence verdict is built from), and **browser shortcuts** — Desktop, both
+Start Menu trees and the pinned Taskbar folder, read through `WScript.Shell`, keeping the target binary and
+any `http(s)://` token found in the arguments. That last one is the only part of the probe that leaves the
+profile directories, and it still resolves nothing: it reports which `.lnk` carries which URL, and the
+blocklist decision stays in the engine.
 
 The probe layer still judges nothing: it hands over both "what I read here" and "what I could not read here"
 as facts, and the engine aggregates the latter into `blind_spots` codes
@@ -623,10 +658,12 @@ sealed copy and a sync switch exist, and that judgement does not necessarily tra
 ## Limitations, stated up front
 
 - **Windows only**, relying on `Get-AuthenticodeSignature` / `Get-ScheduledTask` as shipped by PowerShell 5.1.
-- The browser rules cover the startup-page and default-search-engine family of hijacks, and `BR-08` adds the
-  permissions-and-visits ledger a malicious origin leaves behind. Still **not covered**: extension policy,
-  tampering inside other preference sections (new tab page, per-Omnibox engine settings), and scheduled tasks
-  that relaunch the browser.
+- The browser rules cover the startup-page and default-search-engine family of hijacks, `BR-08` adds the
+  permissions-and-visits ledger a malicious origin leaves behind, and `BR-11` adds the layer **outside** the
+  profile directory — the `.lnk` files that decide what the browser is launched with. Still **not covered**:
+  extension policy, tampering inside other preference sections (new tab page, per-Omnibox engine settings),
+  a hijacked registry `Open With` command that would rewrite the same URL on every launch regardless of
+  shortcut, and scheduled tasks that relaunch the browser.
 - **The default search engine cannot be read on Edge.** Edge stores
   `default_search_provider_data` as a 40-hex digest plus `_encrypted_hash`; only Chrome, or a user-added
   engine, is a plaintext object. So on this machine `BR-09` has 0 hits while `BR-10` lights up on 4 Edge
@@ -672,7 +709,7 @@ a format document — which is why the engine reads `restore_on_startup` in `Sec
 path that was never validated against real output can return empty forever without an error.
 
 ```bash
-powershell -File tools\selftest.ps1     # 90 PASS or it did not pass (the fixture part must be identical on any Windows)
+powershell -File tools\selftest.ps1     # 91 PASS or it did not pass (the fixture part must be identical on any Windows)
 node tools\verify.js                    # structure + label coverage + redaction
 powershell -File tools\hygiene.ps1      # .bat must be CRLF; .ps1 must be pure ASCII or carry a BOM
 ```
