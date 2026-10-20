@@ -57,8 +57,10 @@ look exactly like "deleted".
 
 ## 30-second start
 
-Do not want to clone: download `winproof-1.3.0.zip` from
-[Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.3.0) (419 KB, unzip and double-click).
+Do not want to clone: download `winproof-1.4.0.zip` from
+[Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.4.0) — under half a megabyte, unzip and
+double-click. (No byte count here on purpose: GitHub shows the exact size on the release page, and a number
+copied into the README is one more thing that can go stale.)
 CI re-verifies on every push that the three `.bat` files inside that archive are CRLF — an LF-only batch
 file is executed half-way by cmd and then reports a syntax error that has nothing to do with your machine.
 
@@ -88,13 +90,13 @@ and the toggle is in the header (see [Architecture](#architecture-five-layers-no
 
 ---
 
-## Detection inventory: 19 rules, each restatable as one concrete observation
+## Detection inventory: 21 rules, each restatable as one concrete observation
 
 This is not "a long list so it looks thorough". What follows each rule is **what it looks like on your
 machine**. Every rule in `rules/*.json` must fill `verified_evidence` with hit counts and object names
 produced by an actual run — a rule without measured evidence does not reach main.
 
-**Browser startup page, search engine and shortcuts — 11 rules**
+**Browser startup page, search engine, shortcuts and the registry launch chain — 13 rules**
 
 | Rule | Severity | The condition, in one line | Why it is a separate rule |
 |---|---|---|---|
@@ -109,6 +111,8 @@ produced by an actual run — a rule without measured evidence does not reach ma
 | BR-09 | medium | The default search engine's `keyword`/URL is blocklisted, **or** `enforced_by_policy=true` | The startup page decides what you see when you open the browser; the search engine decides what your searches return, and that only shows up when you actually search. The policy half separates "you installed the wrong thing" from "something decided for you" — the remediations are not the same |
 | BR-10 | info | This object has surfaces this tool **cannot read** (engine stored as a hash, no `Secure Preferences`, JSON parse failure) | A scanner that only reports problems has an uninformative "nothing found": it cannot distinguish *this machine is clean* from *this machine contains things I do not cover*. This rule turns the coverage boundary into a conclusion that is itself baseline-tracked |
 | BR-11 | high | A browser `.lnk` on the Desktop, Start Menu or Taskbar carries an appended URL that matches the blocklist | The prefs file is not the only place a hijack can live: rewriting the shortcut itself forces the page to open **on every launch from that icon**, no profile key touched, nothing for a prefs-level cleaner to find — and it silently overwrites any BR-01 repair you make from the settings UI |
+| BR-12 | high | A registry browser launch command (`Clients\StartMenuInternet`, or the ProgID that `http`/`https`/a browser file type resolves to) contains a **literal URL** | This is the layer that writes the other two: it defines what "open a browser on this machine" runs at all, so it re-applies the hijack to every profile and every shell-initiated open. It fires on *any* URL rather than on the blocklist, because a real-machine sweep found 33 of 33 browser launch commands with none — the URL itself is the anomaly |
+| BR-13 | medium | A browser file type's `UserChoice` points at a ProgID that is no longer registered anywhere under `Classes` (AppX handlers excluded) | The program that claimed `.htm`/`.html` is gone but its claim is still there: double-clicking a saved page now fails, and the row is timeline evidence of what was installed and removed. Reported as residue, not as an active hijack — and the AppX exclusion is measured, not guessed: 13 of 211 `UserChoice` extensions on a real machine dangle legitimately |
 
 **Boot-time persistence: Run keys, services, drivers, network layer — 8 rules**
 
@@ -134,17 +138,26 @@ reported — the correct response is `ack.bat`, marking it as known, not dulling
 arguments. The shortcut's own subject kind is `browser_shortcut`, i.e. machine-level, not one per
 profile — which is why the subject count in a report is profiles *plus* shortcuts.
 
+`BR-12` deliberately does **not** use the blocklist as its trigger, and the asymmetry is the point: a
+`.lnk` that opens a site is a normal Windows construct (that is what a PWA launcher is), so the blocklist
+is what keeps `BR-11` from reporting your own shortcuts. A registry launch command is different — across
+both `Classes` hives on a real machine, all 33 browser-named open commands carry no URL at all, so the
+presence of one *is* the anomaly and reputation only decides which advice you get. `BR-13` shows the
+other half of the same discipline: its naive predicate ("the handler no longer resolves") fires 13 times
+on a clean machine, so the capture is scoped to browser document types and AppX-shaped identifiers are
+classified separately instead of being reported.
+
 ---
 
 ## What it actually reports on this machine
 
 ```
-engine: subjects=69 rules=19 findings=27 high=4 resolved=2
-counts: NEW=9 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
+engine: subjects=82 rules=21 findings=29 high=4 resolved=2
+counts: NEW=11 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 ```
 (Re-scanned on 10-20. The baseline was captured on 10-15, so every state above is a judgement **about
-five days ago**, not about yesterday. `subjects=69` is 59 autostart entries + 5 browser profiles + 5
-browser shortcuts.)
+five days ago**, not about yesterday. `subjects=82` is 59 autostart entries + 5 browser profiles + 5
+browser shortcuts + 8 registry launch commands + 5 browser file-type associations.)
 
 | Severity | Rule | Hits | Objects |
 |---|---|---|---|
@@ -153,6 +166,7 @@ browser shortcuts.)
 | high | BR-05 it came back after being cleaned | 1 | Edge / Profile 1 |
 | medium | BR-04 orphan signature (this place was tampered with and cleaned up) | 4 | Edge ×3, Chrome ×1 — the Edge / Profile row is **new** in this scan |
 | medium | BR-08 blacklisted domain still holds content-setting exceptions | 3 | Edge / Profile 1, Edge / Default, Chrome / Default — all three `changed`→`new` because the ledger itself shrank since the baseline |
+| medium | BR-13 browser file type points at a ProgID that no longer exists | 2 | `.htm`, `.html` — both point at `ZEROBURL`, which is registered in neither `Classes` hive, and both carry a Hash, so a program wrote them through the proper API. **New** in this scan: the rule was written the day it caught this |
 | medium | PS-01 startup entry points at a missing file | 2 | service / AndrowsSvr, service / Everything (**new** since 10-15: an uninstall left the service behind) |
 | medium | PS-02 boot-time binary without a valid signature | 2 | Authenticator, OpenClaw Gateway |
 | low | BR-06 browser did not exit normally | 1 | Edge / Profile 1 — state `changed` (Chrome / Default is now `resolved`, see below) |
@@ -194,6 +208,18 @@ None matches the blocklist, so the rule is idle here — which is exactly why it
 synthetic fixture, where one row is planted with `http://www.2345.com/?cid=win23` and two neighbours stay
 clean. A rule that has never hit on the author's machine is only trustworthy if something can still prove
 it fires.
+
+**BR-12 has 0 hits and BR-13 has 2, and the pair is why both rules exist.**
+`BR-12` read 8 registry launch commands here: 6 under `Clients\StartMenuInternet`, plus the ProgIDs that
+`http`/`https` and `.shtml`/`.xhtml`/`.mhtml` resolve to. None contains a URL. Two of them look close
+enough to be worth naming, because they are what a looser predicate would have reported: `Quark`'s Start
+Menu value is `C:\Program Files\Quark\quark.exe --brand-quark` (an OEM branding flag) and the Edge handler
+is `--single-argument %1` (a placeholder, not an address). `BR-13` then caught something real on the
+author's machine: `.htm` and `.html` both point at a ProgID called `ZEROBURL` that exists in neither
+`Classes` hive, each with a valid `UserChoice` Hash — so a program took over those two file types through
+the proper API and was later removed, leaving the claim behind. That row is why the rule is `medium`
+rather than `high`: nothing can be re-hijacked through a handler that no longer exists, but the machine is
+now demonstrably holding a dead claim on every saved web page.
 
 **PS-03 / PS-04 / PS-05 / PS-06 have 0 hits, and that is the correct state, not a miss.**
 The Early-Launch group contains only `WdBoot`, hosts contains only `127.0.0.1 localhost`, there is no
@@ -489,13 +515,13 @@ secret. Three decisions carry that:
 
 ---
 
-## Known-answer tests: 91 PASS / 0 FAIL
+## Known-answer tests: 92 PASS / 0 FAIL
 
 The criteria are defined before the scanning logic. Run `powershell -File tools\selftest.ps1`:
 
 ```
 [1]  browser fixture: the hit set must equal the manifest, row by row
-[2]  all 11 browser rules get triggered
+[2]  all 13 browser rules get triggered
 [3]  re-scan of the same facts: no CHANGED allowed
 [4]  fixture B: fixed, then came back → NEW, and the retired conclusion becomes RESOLVED
 [5]  fixture C: the file written again → CHANGED, not NEW
@@ -529,6 +555,15 @@ the manifest check alone: the fixture carries three shortcut rows, one hijacked 
 URL, one a legitimate `--app-url` PWA launcher). Section [1] asserts the hitting set explicitly, because
 "the rule fired on exactly one of three nearly identical rows" is the only version of this test that would
 also pass if the matcher had been weakened to "any shortcut with a URL".
+
+`BR-12` and `BR-13` inherit that discipline, and they need it more, because both of their naive predicates
+fire on a clean machine. The launch-command capture carries 4 rows: the blocklisted hijack, an Outlook app
+handler that must fire **without** the blocklist (that pair is what documents the deliberate difference from
+`BR-11`), and two that must stay silent — an OEM `--brand-quark` flag and a `--single-argument %1`
+placeholder. The association table carries 4 rows for the same reason: two dangling ProgIDs must fire (one
+with a `UserChoice` Hash, one without, so both advice branches are exercised inside the fixture), while an
+AppX-shaped identifier and a live handler must not. The AppX row is not hypothetical: unscoped, that
+predicate fired 13 times on the author's machine.
 
 [13] pins the semantic boundary of the `BR-09`/`BR-10` pair: the default search engine is a Chromium
 **protected preference**, so it can only live in `Secure Preferences`. The two plain-only records in the
@@ -566,7 +601,7 @@ two probes → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` 
 
 `verify.js` carries the bilingual checks that need no browser at all: it evaluates the renderer's locale
 tables out of `render/template.html`, and fails on a row that is not a `[zh, en]` pair, on an English half
-that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 19 rules
+that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 21 rules
 whose overlay is short. It also checks the *published* demo for the same property, because a visitor who
 clicks "English" on a stale artefact gets Chinese anyway — and a stale demo is invisible to every other gate
 in here, since its counts can be perfectly correct while its wording is a build behind.
@@ -639,6 +674,16 @@ any `http(s)://` token found in the arguments. That last one is the only part of
 profile directories, and it still resolves nothing: it reports which `.lnk` carries which URL, and the
 blocklist decision stays in the engine.
 
+Since `BR-12`/`BR-13` it leaves them in one more place: the **registry launch chain** — every
+`Clients\StartMenuInternet` open command, plus the ProgIDs that `http`, `https` and the browser document
+types actually resolve to (resolved through `UserChoice`, user hive before machine hive, because that is the
+order the shell uses), and the **browser document-type handler table** (`.htm`/`.html`/`.shtml`/`.xhtml`/
+`.mhtml` → ProgID, whether it resolves under `Classes`, and whether the `UserChoice` carries a Hash). Both
+arrays are stored verbatim: the probe never matches the blocklist and never judges a key by its name — on
+this machine a ProgID called `secure-browser` turns out to be Avast's, and a Start Menu command ending in
+`--brand-quark` turns out to be Quark branding its own launcher, which is exactly what a name-matching probe
+would have got wrong.
+
 The probe layer still judges nothing: it hands over both "what I read here" and "what I could not read here"
 as facts, and the engine aggregates the latter into `blind_spots` codes
 (`no_secure_prefs` / `engine_unreadable` / `prefs_unparseable`).
@@ -659,11 +704,15 @@ sealed copy and a sync switch exist, and that judgement does not necessarily tra
 
 - **Windows only**, relying on `Get-AuthenticodeSignature` / `Get-ScheduledTask` as shipped by PowerShell 5.1.
 - The browser rules cover the startup-page and default-search-engine family of hijacks, `BR-08` adds the
-  permissions-and-visits ledger a malicious origin leaves behind, and `BR-11` adds the layer **outside** the
-  profile directory — the `.lnk` files that decide what the browser is launched with. Still **not covered**:
+  permissions-and-visits ledger a malicious origin leaves behind, and `BR-11`/`BR-12`/`BR-13` add the layers
+  **outside** the profile directory: the `.lnk` files, the registry launch commands that define what "open a
+  browser" runs, and the file-type handlers that define what a saved page opens with. Still **not covered**:
   extension policy, tampering inside other preference sections (new tab page, per-Omnibox engine settings),
-  a hijacked registry `Open With` command that would rewrite the same URL on every launch regardless of
-  shortcut, and scheduled tasks that relaunch the browser.
+  and scheduled tasks that relaunch the browser. One further gap is named because it is measured on this box:
+  a handler that still resolves in `Classes` but points at a deleted executable
+  (`HKCU\SOFTWARE\Classes\secure-browser` → an `AvastBrowser.exe` that is no longer installed) is not
+  reported, because judging it means slicing an executable path out of a command line, and a wrong slice
+  would report "the program is missing" about a browser that is installed.
 - **The default search engine cannot be read on Edge.** Edge stores
   `default_search_provider_data` as a 40-hex digest plus `_encrypted_hash`; only Chrome, or a user-added
   engine, is a plaintext object. So on this machine `BR-09` has 0 hits while `BR-10` lights up on 4 Edge
@@ -709,7 +758,7 @@ a format document — which is why the engine reads `restore_on_startup` in `Sec
 path that was never validated against real output can return empty forever without an error.
 
 ```bash
-powershell -File tools\selftest.ps1     # 91 PASS or it did not pass (the fixture part must be identical on any Windows)
+powershell -File tools\selftest.ps1     # 92 PASS or it did not pass (the fixture part must be identical on any Windows)
 node tools\verify.js                    # structure + label coverage + redaction
 powershell -File tools\hygiene.ps1      # .bat must be CRLF; .ps1 must be pure ASCII or carry a BOM
 ```

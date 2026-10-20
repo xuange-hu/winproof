@@ -1,9 +1,9 @@
 {
   "group": "browser",
-  "group_title": "浏览器启动页、搜索引擎与快捷方式",
+  "group_title": "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
   "i18n": {
     "en": {
-      "group_title": "Browser startup page, search engine and shortcuts"
+      "group_title": "Browser startup page, search engine, shortcuts and the registry launch chain"
     }
   },
   "provenance": "以下判据全部在真实机器上取证实测（2026-10-14 建规，2026-10-16 补 BR-08 并复验 BR-05：Edge 4 profile + Chrome 1 profile + content_settings 台账 1708 条；同日补 BR-09/BR-10，其中 BR-09 本机命中 0 条并写明了为什么 Edge 不可判定，BR-10 本机 5 个 Profile 全命中），未实测的条件不进首版。",
@@ -367,6 +367,76 @@
           "why": "Startup-page hijacking has two places to land: one is written into the browser profile (BR-01 sees it), the other is written into the executable arguments of the shortcut. The second lives outside the profile, so no tool that cleans browser configuration can reach it, and it re-fires on every cold start, which looks like \"it was deleted but came back\". Bringing the .lnk command line into the forensics is what finally turns \"it keeps recurring\" into an evidence row with a path and a domain, rather than a feeling.",
           "verified_evidence": "All 5 browser shortcuts on this machine are benign and it fires 0: the two msedge.exe shortcuts only carry --profile-directory=\"Default\"/\"Profile 1\" (legally pinning a profile, no URL), chrome.exe and another msedge.exe have empty arguments, and GitHub.lnk is a standard PWA (msedge_proxy.exe --app-url=https://github.com/, github is not on the blocklist). The criterion reports high only for rows whose lnk_urls match the domain_blocklist, so a legitimate \"open this site in the browser\" shortcut is not a false positive; the probe collects only .lnk files whose target is a browser executable and never matches the blocklist there. The shortcuts array in tests/fixtures/facts-browser.json plants two rows: one chrome.exe carrying http://www.2345.com/ that must fire, one with only --profile-directory that must not, and the selftest pins both directions."
           }
+      }
+    },
+    {
+      "id": "BR-12",
+      "title": "注册表里的浏览器启动命令带了强制 URL",
+      "severity": "high",
+      "when": {
+        "all": [
+          { "fact": "cmd_urls", "op": "nonEmpty" }
+        ]
+      },
+      "show": ["cmd_source", "cmd_value", "cmd_urls", "cmd_bad", "path"],
+      "advice": [
+        {
+          "if": { "fact": "cmd_bad", "op": "nonEmpty" },
+          "text": "这个 URL 在黑名单上，它就是 BR-01 反复复发的源头：Profile 里的启动页是被这一层每次启动重新写进去的。用 regedit 定位到证据里的 path 键，把「默认」值改成只留浏览器可执行文件，原本跟在后面的 %1 或 --single-argument %1 要保留（那是 Windows 把用户点击的地址传给浏览器的占位符）。不要整键删除：删了 http 处理器，所有链接都打不开。改完再清 BR-01 的 Profile 值——顺序反了会被这一层重新覆盖。"
+        },
+        {
+          "if_any": true,
+          "text": "URL 不在黑名单上，先判断这是不是你自己装的软件：部分国产浏览器和网盘客户端会在这里放自己的引导页。是你认识的就用 acknowledge 标记为已知，不认识的就按上一条把「默认」值改回只有 exe。"
+        }
+      ],
+      "why": "浏览器启动页有三个落点，这一层在最上游：Profile 里的值（BR-01）和快捷方式里的参数（BR-11）都只是每次启动被写入的结果，而注册表里的启动命令决定了「这台机器打开浏览器 / 点击链接」这条路径本身长什么样。它同样是机器级的，重置 Profile 不动它、重装浏览器也不一定覆盖它，而且它对所有 Profile 和所有从系统发起的打开动作都生效，所以比前两层更稳。",
+      "verified_on": "2026-10-20",
+      "verified_evidence": "本机 8 条注册表启动命令，命中 0 条。6 条来自 HKLM:\\SOFTWARE\\Clients\\StartMenuInternet（Google Chrome、IEXPLORE.EXE、Lenovo SLBrowser、Microsoft Edge、Quark、Quark.pdf），其中 Quark 的值是 C:\\Program Files\\Quark\\quark.exe --brand-quark——带附加参数、不带 URL；另外 2 条由 http/https 与 .shtml/.xhtml/.mhtml 的处理器解析得到（Classes/MSEdgeHTM、Classes/MSEdgeMHT），值是 --single-argument %1。判据只看命令行里有没有字面的 http(s) 地址：%1 是占位符、--brand-quark 是合法参数，两者都不该命中，实测也确实不命中。夹具 tests/fixtures/facts-browser.json 的 launch_cmds 造了三条钉住这个边界：一条带 http:// 必须命中、一条带 --brand-quark \"%1\" 必须不命中、一条只有 exe 必须不命中。判据从不看键名——本机 HKCU:\\SOFTWARE\\Classes\\secure-browser 指向 Avast Browser，名字看着就像劫持，实际是卸载残留（AvastBrowser.exe 在本机已不存在）。",
+      "i18n": {
+        "en": {
+          "title": "The registry browser launch command carries a forced URL",
+          "advice": [
+            "This URL is on the blocklist, so this is the source that keeps re-creating the BR-01 finding: the startup value in the profile is rewritten by this layer on every launch. Open the key in the evidence's path with regedit and set the (Default) value back to the browser executable alone, keeping the %1 or --single-argument %1 that follows it (that placeholder is how Windows hands the clicked address to the browser). Do not delete the whole key: remove the http handler and no link opens anything. Change this layer first, then clean the BR-01 profile value - in the other order this layer overwrites your fix again.",
+            "The URL is not on the blocklist, so first decide whether it is your own software: some Chinese browsers and cloud-disk clients put their own landing page here. If you recognise it, mark it known with acknowledge; if not, set the (Default) back to the exe as in the previous step."
+          ],
+          "why": "The browser start page has three places to land and this layer is the most upstream: the value in the profile (BR-01) and the argument in the shortcut (BR-11) are only what gets written on each launch, while the registry launch command defines what the path \"open a browser / click a link on this machine\" is in the first place. It is machine-level too, resetting the profile does not touch it, reinstalling the browser does not necessarily overwrite it, and it applies to every profile and every open action started by the shell, which makes it sturdier than the two layers below it.",
+          "verified_evidence": "8 registry launch commands on this machine, 0 hits. Six come from HKLM:\\SOFTWARE\\Clients\\StartMenuInternet (Google Chrome, IEXPLORE.EXE, Lenovo SLBrowser, Microsoft Edge, Quark, Quark.pdf), where Quark's value is C:\\Program Files\\Quark\\quark.exe --brand-quark - an extra argument with no URL. The other two come from resolving the http/https and .shtml/.xhtml/.mhtml handlers (Classes/MSEdgeHTM, Classes/MSEdgeMHT), whose value is --single-argument %1. The criterion looks only for a literal http(s) address on the command line: %1 is a placeholder and --brand-quark is a legitimate argument, neither should fire, and neither does. The launch_cmds array in tests/fixtures/facts-browser.json pins that boundary with three rows: one carrying http:// that must fire, one carrying --brand-quark \"%1\" that must not, and one exe-only row that must not. The criterion never looks at the key name - HKCU:\\SOFTWARE\\Classes\\secure-browser on this machine belongs to Avast Browser, a name that looks exactly like a hijack but is uninstall residue (AvastBrowser.exe no longer exists)."
+        }
+      }
+    },
+    {
+      "id": "BR-13",
+      "title": "浏览器文件类型指向一个已不存在的处理程序",
+      "severity": "medium",
+      "when": {
+        "all": [
+          { "fact": "assoc_kind", "op": "eq", "value": "missing" }
+        ]
+      },
+      "show": ["assoc_progid", "assoc_kind", "assoc_hash", "path"],
+      "advice": [
+        {
+          "if": { "fact": "assoc_hash", "op": "eq", "value": true },
+          "text": "这条 UserChoice 带 Hash，说明它是某个程序通过正规 API 写的、Windows 认它。去 设置 → 应用 → 默认应用 把 .htm/.html 重新指给你在用的浏览器。不要手工 reg 导入替代：UserChoice 的 Hash 与当前用户的密钥绑定，手写的副本会被判无效并回退到上一个处理器。"
+        },
+        {
+          "if_any": true,
+          "text": "没有 Hash 的 UserChoice 是手工导入的，Windows 本来就会忽略它，但这个悬空键仍然会出现在「打开方式」列表里误导后面的人，也骗不过取证。删掉这个 UserChoice 子键，让系统按 Classes 里的默认处理器走。"
+        }
+      ],
+      "why": "文件类型关联是「某个程序曾经接管过你的 .htm/.html」的化石。目标 ProgID 已经不在了，说明那个程序被删过或卸载干净了，但它的接管声明还留在注册表里：双击本地网页会打不开或弹窗问用什么应用，而这条记录本身给出了「这台机器装过什么、什么时候被卸载」的时间线证据。它是残留而不是主动劫持，所以给 medium；但同一条链上如果处理器还在、命令行又带着 URL，那就是 BR-12，两个判据互补。",
+      "verified_on": "2026-10-20",
+      "verified_evidence": "本机命中 2 条：.htm 与 .html 的 UserChoice Progid 都是 ZEROBURL，而 HKLM 与 HKCU 的 SOFTWARE\\Classes 下都没有 ZEROBURL（直接打开 HKEY_CLASSES_ROOT\\ZEROBURL 也是空的），两条都带 Hash。范围是实测收敛出来的：本机共有 211 个扩展名带 UserChoice，其中 13 个指向 Classes 里不存在的 ProgID，绝大多数是 AppX 包（.3mf/.stl → AppX…）和 Windows 组件（Windows.XPSReachViewer、Windows.Sandbox），它们本来就不注册在 Classes 下面——如果不做范围限制，这一条规则一次就能造 13 条误报。所以探针只采集浏览器文档类型（.htm/.html/.shtml/.xhtml/.mhtml），并把 AppX 形态（^appx[a-z0-9]{20,}$）单独标成 appx 而不是 missing。剩下 3 个扩展名在本机都正常解析到 MSEdgeHTM/MSEdgeMHT。夹具的 file_assocs 造了三条：悬空且非 AppX 必须命中、AppX 形态必须不命中、能解析到在用的 ProgID 必须不命中。已知盲区：ProgID 能解析、但它指向的 exe 已被删除（本机的 secure-browser → AvastBrowser.exe 就是这种），探针没有判定，因为从命令行里可靠地切出可执行文件路径需要一个真正的命令行解析器，切错就会对着装着的浏览器报「程序不见了」。",
+      "i18n": {
+        "en": {
+          "title": "A browser file type points at a handler that no longer exists",
+          "advice": [
+            "This UserChoice carries a Hash, which means a program wrote it through the proper API and Windows honours it. Re-point .htm/.html at the browser you actually use in Settings -> Apps -> Default apps. Do not import a hand-written .reg over it: the UserChoice Hash is bound to the current user's secret, so a copied value is judged invalid and the shell falls back to the previous handler.",
+            "A UserChoice without a Hash was imported by hand and Windows ignores it anyway, but this dangling key still misleads whoever looks at the Open with list later, and it does not fool a forensic read either. Delete this UserChoice subkey so the shell uses the default handler under Classes."
+          ],
+          "why": "A file-type association is the fossil of \"some program once took over your .htm/.html\". The target ProgID is gone, which means that program was deleted or uninstalled cleanly, but its claim on your file types is still in the registry: double-clicking a saved web page now fails or asks which app to use, and the record itself is timeline evidence for what was installed on this machine and when it was removed. It is residue rather than an active hijack, hence medium; if the handler is still present and its command line carries a URL, that is BR-12, so the two criteria are complementary.",
+          "verified_evidence": "2 hits on this machine: the UserChoice Progid for .htm and .html is ZEROBURL, while neither HKLM nor HKCU SOFTWARE\\Classes contains ZEROBURL (opening HKEY_CLASSES_ROOT\\ZEROBURL directly returns nothing), and both rows carry a Hash. The scope was narrowed by measurement: 211 extensions on this machine have a UserChoice and 13 of them point at a ProgID that does not resolve under Classes - mostly AppX packages (.3mf/.stl -> AppX...) and Windows components (Windows.XPSReachViewer, Windows.Sandbox), which are legitimately not registered under Classes. Without that scope this single rule would produce 13 false positives at once. So the probe captures only browser document types (.htm/.html/.shtml/.xhtml/.mhtml) and marks AppX-shaped identifiers (^[Aa]pp[xX][a-z0-9]{20,}$) as appx rather than missing. The other three extensions resolve normally to MSEdgeHTM/MSEdgeMHT. file_assocs in the fixture plants three rows: a dangling non-AppX ProgID that must fire, an AppX-shaped one that must not, and one that resolves to a live ProgID and must not. Known blind spot: a ProgID that resolves but whose command points at a deleted executable (this machine's secure-browser -> AvastBrowser.exe is exactly that) is not judged, because slicing the executable reliably out of a command line needs a real command-line parser and a wrong slice would report \"the program is missing\" about a browser that is installed."
+        }
       }
     }
   ]

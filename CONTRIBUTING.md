@@ -1,7 +1,7 @@
 # Contributing
 
 Start with the README's
-[detection inventory](README.md#detection-inventory-19-rules-each-restatable-as-one-concrete-observation)
+[detection inventory](README.md#detection-inventory-21-rules-each-restatable-as-one-concrete-observation)
 — every shipped rule there carries the hit count and
 subject names it produced on the author's machine. That convention is the whole contribution model:
 **a judgement you have not measured does not enter the tree.**
@@ -28,6 +28,13 @@ accident, and new operators expand the surface that lets a contributed rule do s
    **neighbour that must stay clean**, not just a positive row: `BR-11` ships three shortcut rows, one
    hijacked and two benign (one with no URL, one with a legitimate `--app-url`), because a manifest
    check alone would still pass if the predicate had been weakened to "any shortcut carrying any URL".
+   If your predicate **fires on a clean machine**, the negative row is not enough on its own — scope the
+   capture instead, and put the excluded class in the fixture so the scoping itself is tested. `BR-13`
+   is that case: "the handler no longer resolves" fired 13 times on the author's healthy box, because
+   AppX package identifiers never resolve under `Classes`. The probe now labels those rows `appx` and
+   the rule ignores them, and the fixture carries one AppX-shaped dangling identifier that must stay
+   silent — without it, a future edit that drops the classifier turns those 13 false positives back on
+   and every manifest assertion still passes.
 4. If your rule cites a new evidence field, add its `[zh, en]` label pair to the table in
    `render/template.html` (and to `BLIND` if it is a blind-spot code). `tools/verify.js` walks every
    `show` key in every rule file and fails on an untranslated one, regardless of whether it fired.

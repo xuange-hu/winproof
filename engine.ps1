@@ -360,6 +360,37 @@ function New-BrowserSubjects($facts, $blocklist) {
         $subjects += $t
     }
 
+    # Registry launch-chain rows: one per browser launch command, one per browser
+    # document type the shell has a handler for. Like the shortcuts above these are
+    # machine-level - they belong to no profile, which is why they survive every
+    # profile reset - and the blocklist is applied here, never in the probe.
+    foreach ($lc in As-Array $facts.launch_cmds) {
+        if ($null -eq $lc) { continue }
+        $t = @{}
+        $t['kind'] = 'browser_launch_cmd'
+        $t['name'] = [string]$lc.name
+        $t['subject'] = 'browser_launch_cmd / ' + [string]$lc.hive + ':' + [string]$lc.name
+        $t['cmd_hive'] = [string]$lc.hive
+        $t['cmd_source'] = [string]$lc.source
+        $t['cmd_value'] = [string]$lc.cmd
+        $t['cmd_urls'] = @(As-Array $lc.urls)
+        $t['cmd_bad'] = Get-BadUrls (As-Array $lc.urls) $blocklist
+        $t['path'] = [string]$lc.path
+        $subjects += $t
+    }
+    foreach ($fa in As-Array $facts.file_assocs) {
+        if ($null -eq $fa) { continue }
+        $t = @{}
+        $t['kind'] = 'browser_file_assoc'
+        $t['name'] = [string]$fa.ext
+        $t['subject'] = 'browser_file_assoc / ' + [string]$fa.ext
+        $t['assoc_progid'] = [string]$fa.progid
+        $t['assoc_kind'] = [string]$fa.progid_kind
+        $t['assoc_hash'] = [bool]$fa.has_hash
+        $t['path'] = [string]$fa.path
+        $subjects += $t
+    }
+
     return $subjects
 }
 

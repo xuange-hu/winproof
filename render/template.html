@@ -306,7 +306,17 @@
     lnk_target_exe: ['快捷方式指向的程序', 'Program the shortcut launches'],
     lnk_args: ['快捷方式附加参数', 'Extra arguments on the shortcut'],
     lnk_urls: ['快捷方式携带的 URL', 'URLs carried by the shortcut'],
-    lnk_url_bad: ['命中黑名单的 URL', 'Blocklisted URL']
+    lnk_url_bad: ['命中黑名单的 URL', 'Blocklisted URL'],
+    // BR-12/BR-13 read the registry launch chain, which belongs to the machine
+    // rather than to any profile, so the evidence has to say which hive, which
+    // handler and which literal command line a fix would have to edit.
+    cmd_source: ['这条命令是谁的启动路径', 'Which launch path this command is'],
+    cmd_value: ['注册表里的启动命令', 'Launch command stored in the registry'],
+    cmd_urls: ['命令里出现的字面 URL', 'Literal URLs inside the command'],
+    cmd_bad: ['启动命令命中黑名单', 'Launch command matches the blocklist'],
+    assoc_progid: ['文件类型指向的 ProgID', 'ProgID the file type points at'],
+    assoc_kind: ['ProgID 的解析结果', 'How the ProgID resolves'],
+    assoc_hash: ['UserChoice 带 Hash', 'UserChoice carries a Hash']
   };
   // Signature failures: a raw Win32 token is not something a reader can act on.
   var HIT = {
@@ -318,7 +328,13 @@
     run_key: ['注册表 Run', 'Registry Run key'], startup_folder: ['启动文件夹', 'Startup folder'],
     scheduled_task: ['计划任务', 'Scheduled task'], service: ['服务', 'Service'],
     elam_driver: ['Early-Launch 驱动', 'Early-Launch driver'], hosts_file: ['hosts 文件', 'hosts file'],
-    ifeo_debugger: ['IFEO 劫持', 'IFEO hijack'], winsock_lsp: ['Winsock LSP', 'Winsock LSP']
+    ifeo_debugger: ['IFEO 劫持', 'IFEO hijack'], winsock_lsp: ['Winsock LSP', 'Winsock LSP'],
+    // The three machine-level browser surfaces. They sit outside every profile, so
+    // without a display name a reader sees an internal token where an action should
+    // be - and the subject prefix is what tells them which layer to fix.
+    browser_shortcut: ['浏览器快捷方式', 'Browser shortcut'],
+    browser_launch_cmd: ['注册表浏览器启动命令', 'Registry browser launch command'],
+    browser_file_assoc: ['浏览器文件类型关联', 'Browser file-type association']
   };
   var DRV = {
     '0': ['BOOT_START（开机最早期）', 'BOOT_START (earliest boot stage)'],
@@ -330,6 +346,23 @@
   var DOC = {
     secure: ['Secure Preferences（权威副本，会还原明文删除）', 'Secure Preferences (authoritative copy, restores deleted plaintext)'],
     plain_only: ['仅明文 Preferences（该 Profile 没有 Secure Preferences）', 'plain Preferences only (this profile has no Secure Preferences)']
+  };
+  // How the registry launch chain reached this command, and what the handler table
+  // found. The engine emits the tokens; a reader needs to know which user action
+  // this command is on the path for, because that decides where to look first.
+  var SRC = {
+    start_menu: ['从开始菜单/任务栏打开浏览器时', 'when the browser is opened from the Start Menu or taskbar'],
+    url_handler: ['点击链接时的协议处理器', 'the protocol handler used when a link is clicked'],
+    file_handler: ['双击该类型文件时的处理器', 'the handler used when a file of this type is opened']
+  };
+  var AKIND = {
+    class: ['能解析到在用的处理程序', 'resolves to a handler that is still registered'],
+    appx: ['AppX 包处理器：它本来就不注册在 Classes 下', 'AppX package handler: legitimately not registered under Classes'],
+    missing: ['Classes 里已经找不到这个 ProgID', 'this ProgID is no longer anywhere under Classes']
+  };
+  var HASH = {
+    'true': ['带 Hash：程序通过正规 API 写的，Windows 认它', 'hashed: written by a program through the proper API, so Windows honours it'],
+    'false': ['没有 Hash：手工导入的，Windows 本来就会忽略它', 'no hash: hand-imported, so Windows ignores it anyway']
   };
   // Blind-spot codes emitted by the engine. The engine only speaks ASCII codes
   // because a BOM-less .ps1 with Chinese literals parses on one machine and
@@ -538,6 +571,22 @@
       if (k === 'signer' && v === '') txt = t(S.noSigner);
       if (k === 'drv_start') txt = (DRV[String(v)] ? t(DRV[String(v)]) : String(v));
       if (k === 'doc_role' && DOC[v]) txt = t(DOC[v]);
+      if (k === 'assoc_kind' && AKIND[v]) txt = t(AKIND[v]);
+      if (k === 'assoc_hash') txt = t(HASH[String(v)]);
+      if (k === 'cmd_source') {
+        var bits = String(v).split('+'), read = [];
+        for (var bi = 0; bi < bits.length; bi++) {
+          var b = bits[bi];
+          if (b.indexOf('url_handler_') === 0) {
+            read.push(t(SRC.url_handler) + ' (' + b.slice(12).split('_').join(', ') + ')');
+          } else if (b.indexOf('file_handler_') === 0) {
+            read.push(t(SRC.file_handler) + ' (' + b.slice(13) + ')');
+          } else if (SRC[b]) {
+            read.push(t(SRC[b]));
+          } else { read.push(b); }
+        }
+        txt = read.join(' / ');
+      }
       if (k === 'blind_spots') txt = norm(v).map(function (x) { return BLIND[String(x)] ? t(BLIND[String(x)]) : String(x); }).join('\n');
       if (v === false && (k === 'exe_exists' || k === 'in_writable' || k === 'in_windows')) {
         txt = k === 'exe_exists' ? t(S.existsNo) : t(S.falseNo);

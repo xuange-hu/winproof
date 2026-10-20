@@ -5,9 +5,65 @@ All notable changes to this project are documented here. The format follows
 are the dates the commits landed — this file was written after `v1.0.0` and describes work already in
 the tree rather than pretending the history was planned.
 
-## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.3.0...HEAD)
+## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.4.0...HEAD)
 
 Nothing pending.
+
+## [1.4.0] — 2026-10-20
+
+Two new rules, both about the layer that **writes** the other layers. 21 rules, 92 assertions, three CI
+gates (`selftest.ps1`, `verify.js`, `hygiene.ps1`), two headless probes, one double-click entry point.
+
+### Added
+
+- **BR-12 — a registry browser launch command contains a URL.** The probe now reads every
+  `SOFTWARE\Clients\StartMenuInternet\<app>\shell\open\command` in both hives, plus the ProgIDs that
+  `http`/`https` and the browser document types actually resolve to — resolved through `UserChoice` with
+  the user hive before the machine hive, because that is the order the shell itself uses. This is the
+  layer that decides what "open a browser on this machine" executes at all, so it re-applies a hijack to
+  every profile and every shell-initiated open.
+- **BR-13 — a browser file type is still claimed by a program that is gone.** `.htm`/`.html`/`.shtml`/
+  `.xhtml`/`.mhtml` `UserChoice` entries are captured with their ProgID, whether that ProgID resolves
+  anywhere under `Classes`, and whether the choice carries a `Hash` (a Hash means some program wrote it
+  through the supported API rather than having a key dropped in by hand). Reported as residue, not as an
+  active hijack — a handler that no longer resolves cannot re-hijack anything, but the machine is holding
+  a dead claim on every saved web page, and the row is timeline evidence of what was installed and removed.
+- **Two machine-level subject kinds**, `browser_launch_cmd` and `browser_file_assoc`, so a report's subject
+  count is now profiles + shortcuts + launch commands + file-type associations.
+- **BR-13 caught something real the day it was written.** On the author's machine `.htm` and `.html` both
+  point at a ProgID called `ZEROBURL` that exists in neither `Classes` hive, each with a valid
+  `UserChoice` Hash: a program took over those two file types properly and was later removed. It is in the
+  live-scan table in the README, and it is why `verified_evidence` is mandatory — BR-12 shipped with 0 hits
+  and would otherwise have been an unverifiable claim.
+
+### Changed
+
+- 19 rules → 21; the browser group is now 13 rules. Known-answer assertions 91 → 92, fixture subjects
+  8 → 16 (baseline findings 23 → 27).
+- **The asymmetry between BR-11 and BR-12 is documented, not incidental.** `BR-11` fires only on a
+  blocklist hit, because a `.lnk` that opens a URL is a normal Windows construct — that is what a PWA
+  launcher is. `BR-12` fires on *any* literal URL: a sweep of both `Classes` hives found 33 browser-named
+  open commands and not one carries a URL, so presence is the anomaly and reputation only picks which
+  advice you get.
+- **`BR-13`'s capture was scoped by measurement, not by taste.** Its naive predicate ("the handler no
+  longer resolves") fires 13 times on a clean machine, because AppX package identifiers never resolve
+  under `Classes`. Those are classified as `appx` and excluded; the exclusion count is recorded in the
+  rule's evidence rather than left as an unexplained gap.
+- **Exe-existence judgement was deliberately not implemented.** Slicing an executable path out of a
+  command line is unreliable for unquoted paths containing spaces, and a wrong slice would report "the
+  program is missing" about a browser that is installed. The resulting gap — a handler that resolves but
+  points at a deleted binary (`HKCU\SOFTWARE\Classes\secure-browser`, which turns out to be an
+  `AvastBrowser.exe` that is no longer there) — is named in Limitations instead of being papered over.
+- The fixture gained 8 rows (4 launch commands, 4 associations) with the negatives chosen from the real
+  near-misses: an OEM `--brand-quark` flag, a `--single-argument %1` placeholder, an AppX-shaped dangling
+  identifier, and a live handler. One BR-12 row must fire **without** the blocklist, which is what keeps
+  the BR-11/BR-12 difference from silently collapsing back into each other.
+- `probes/browser_prefs.ps1` emits `launch_cmds` and `file_assocs` arrays; `engine.ps1` reads them;
+  `render/template.html` gained `[zh, en]` label pairs plus value maps for `cmd_source`, `cmd_value`,
+  `cmd_urls`, `cmd_bad`, `assoc_progid`, `assoc_kind`, `assoc_hash`.
+- The README's live-scan block is re-measured on 2026-10-20 (`subjects=82 rules=21 findings=29`).
+- `CONTRIBUTING.md` states the negative-row requirement for a rule whose naive predicate fires on a clean
+  machine, and points at the AppX case as the worked example.
 
 ## [1.3.0] — 2026-10-20
 
@@ -205,6 +261,7 @@ static HTML report.
   like in the wild comes from public cases, and the README says so instead of inventing a success
   story.
 
+[1.4.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.4.0
 [1.3.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.3.0
 [1.2.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.2.0
 [1.1.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.1.0

@@ -117,6 +117,25 @@ $wantBrowser = [ordered]@{
     # a legitimate --app-url. A manifest that grows to three subjects here means
     # the blocklist match leaked into benign launchers.
     'BR-11' = @('browser_shortcut / Zz 2345 Chrome.lnk')
+    # BR-12 shares BR-11's surface family but not its criterion, and the fixture
+    # carries both consequences of that: the blocklisted launch command and a
+    # benign Outlook app-url both fire, because on a real machine no registry
+    # browser launch command carries a URL at all (33 of 33 measured), so the URL
+    # itself is the signal and the reputation only decides the advice branch. The
+    # two other launch rows - a StartMenuInternet value with --brand-quark and an
+    # MSEdgeHTM value with --single-argument %1 - must stay silent, which is what
+    # stops the rule from firing on every OEM browser. Two subjects also mean both
+    # advice branches are exercised inside the fixture.
+    'BR-12' = @('browser_launch_cmd / HKLM:Classes/2345HTM',
+                'browser_launch_cmd / HKCU:Classes/TaskbarEdgeOffice')
+    # BR-13 is the false-positive trap made explicit. On a real machine 13 of 211
+    # UserChoice extensions point at a ProgID that does not resolve under Classes,
+    # and they are AppX packages and Windows components - so the AppX-shaped row
+    # must NOT fire while the two genuinely dangling ones must, one carrying a Hash
+    # (written through the proper API) and one without (hand-imported), which is
+    # again both advice branches. The .shtml row resolves to a live ProgID and must
+    # stay silent.
+    'BR-13' = @('browser_file_assoc / .htm', 'browser_file_assoc / .xhtml')
 }
 $wantPers = [ordered]@{
     'PS-01' = @('run_key / ZzResidueGhost', 'service / ZzSvcGone', 'scheduled_task / \ZzTaskGone')
@@ -154,20 +173,23 @@ Write-Output '[1] browser fixture: the rule set must equal the manifest'
 Run-Engine @{ Mode = 'baseline'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $work 'store'); OutFile = (Join-Path $work 'b0.json') }
 $browserBase = Load (Join-Path $work 'b0.json')
 Check-Manifest $browserBase $wantBrowser
-# 5 profiles + 3 machine-level shortcut rows. Counting them here is what makes a
-# shortcut that silently stopped reaching the engine visible as a subject miss
-# rather than as an unexplained clean result.
-Expect 'fixture exposes 5 profiles and 3 shortcuts' ([int]$browserBase.subjects_total -eq 8)
+# 5 profiles + 3 machine-level shortcut rows + 4 registry launch commands +
+# 4 browser document-type associations. Counting them here is what makes a row
+# that silently stopped reaching the engine visible as a subject miss rather than
+# as an unexplained clean result.
+Expect 'fixture exposes 5 profiles, 3 shortcuts, 4 launch cmds, 4 file assocs' ([int]$browserBase.subjects_total -eq 16)
 Expect 'only the blocklisted shortcut fires BR-11' (SetEq (SubjectSet $browserBase 'BR-11') @('browser_shortcut / Zz 2345 Chrome.lnk'))
+Expect 'the AppX-shaped dangling ProgID does not fire BR-13' `
+    (-not ((SubjectSet $browserBase 'BR-13') -contains 'browser_file_assoc / .html'))
 
-Write-Output '[2] live capture and fixture must not be confusable: all 11 browser rules exercised'
+Write-Output '[2] live capture and fixture must not be confusable: all 13 browser rules exercised'
 $brIds = @($browserBase.findings | ForEach-Object { $_.rule_id } | Select-Object -Unique)
-Expect ('all 11 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 11)
+Expect ('all 13 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 13)
 
 Write-Output '[3] rescan the same facts: nothing may report as changed'
 Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $work 'store'); OutFile = (Join-Path $work 'scan-same.json') }
 $r0 = StateMap (Join-Path $work 'scan-same.json')
-Expect 'all 23 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 23)
+Expect 'all 27 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 27)
 Expect 'zero NEW' ([int]$r0.doc.counts.NEW -eq 0)
 Expect 'zero RESOLVED' ([int]$r0.doc.counts.RESOLVED -eq 0)
 
@@ -203,7 +225,7 @@ Expect 'BR-09 Edge/Profile 2 is CHANGED (it cites startup_urls_bad)' ($rB.map['B
 Expect 'counts.CHANGED == 1' ([int]$rB.doc.counts.CHANGED -eq 1)
 Expect 'neighbour Edge/Profile 1 unaffected' ($rB.map['BR-01|Edge / Profile 1'] -eq 'PERSIST')
 Expect 'neighbour Chrome/Default unaffected' ($rB.map['BR-05|Chrome / Default'] -eq 'PERSIST')
-Expect 'finding set is 23 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 24)
+Expect 'finding set is 27 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 28)
 
 # --- [5] fixture C: the hijacked file is rewritten again ----------------------
 # Same findings, different evidence values: this is the CHANGED path, and it must
@@ -226,7 +248,7 @@ Expect 'BR-02 Edge P1 stays PERSIST (seal keys unchanged)' ($rC.map['BR-02|Edge 
 # reported as changed when the evidence it actually cites changed - otherwise
 # every file write would light up every rule on that profile.
 Expect 'BR-03 Edge P1 stays PERSIST (its own evidence did not change)' ($rC.map['BR-03|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'no finding lost' (@($rC.doc.findings).Count -eq 23)
+Expect 'no finding lost' (@($rC.doc.findings).Count -eq 27)
 Expect 'zero NEW on a metadata rewrite' ([int]$rC.doc.counts.NEW -eq 0)
 # Exactly four rows move, and they are the four whose cited evidence moved:
 # BR-01 and BR-05 show bytes/mtime, BR-06 shows mtime, and BR-10 shows both
@@ -275,7 +297,7 @@ Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $w
 $rA = StateMap (Join-Path $work 'scan-ack.json')
 Expect 'BR-06 Chrome/Profile 3 is KNOWN' ($rA.map['BR-06|Chrome / Profile 3'] -eq 'KNOWN')
 Expect 'the other BR-06 stays PERSIST (ack is per-subject)' ($rA.map['BR-06|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'finding still present after ack (23 total)' (@($rA.doc.findings).Count -eq 23)
+Expect 'finding still present after ack (27 total)' (@($rA.doc.findings).Count -eq 27)
 # low severity on this fixture is exactly the two BR-06 rows, so the count is the
 # proof that KNOWN rows are excluded from the severity histogram rather than the
 # list - the report must not still show "2 low" for something the user owns.
@@ -474,7 +496,7 @@ if (-not (Test-Path $realPers)) {
     $lents = @($live.entries)
     Run-Engine @{ Mode = 'baseline'; FactsFile = @($fxBrowser, $realPers); StoreDir = (Join-Path $work 'store-live'); OutFile = (Join-Path $work 'live.json') }
     $ld = Load (Join-Path $work 'live.json')
-    Expect ('subjects = fixture 8 + live persistence ' + $lents.Count) ([int]$ld.subjects_total -eq (8 + $lents.Count))
+    Expect ('subjects = fixture 16 + live persistence ' + $lents.Count) ([int]$ld.subjects_total -eq (16 + $lents.Count))
 
     $want01 = @($lents | Where-Object {
         $_.exe_exists -eq $false -and [string]$_.exe -ne '' -and

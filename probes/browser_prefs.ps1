@@ -223,6 +223,7 @@ $shortcutRoots = @(
 # chrome.exe --app-id=) are included deliberately - an app shortcut pointed at a
 # blacklisted origin is still a hijack, and a benign one simply will not match.
 $BROWSER_RX = '(?i)(chrome|msedge|firefox|brave|opera|vivaldi|edge|360se|360chrome|qqbrowser|sogouexplorer|2345explorer|2345chrome|maxthon|ucbrowser|liebao)([a-z0-9_\-]*)\.exe$'
+$URL_RX = 'https?://[^\s"' + [char]39 + '<>]+'
 $shortcuts = @()
 $wsh = $null
 try { $wsh = New-Object -ComObject WScript.Shell } catch { $wsh = $null }
@@ -236,7 +237,7 @@ if ($null -ne $wsh) {
             $ar = [string]$sc.Arguments
             if ($tp -notmatch $BROWSER_RX) { continue }
             $urls = @()
-            foreach ($m in [regex]::Matches($ar, 'https?://[^\s"' + [char]39 + '<>]+')) { $urls += $m.Value }
+            foreach ($m in [regex]::Matches($ar, $URL_RX)) { $urls += $m.Value }
             $urls = @($urls | Select-Object -Unique)
             $shortcuts += [pscustomobject]@{
                 name       = $lnk.Name
@@ -249,6 +250,139 @@ if ($null -ne $wsh) {
     }
 }
 
+# --- registry browser launch chain ------------------------------------------
+# The third place a start page can live: not in the profile (BR-01) and not in the
+# .lnk (BR-11), but in the registry command that decides how a browser is launched
+# at all. Two keys matter and both were read on a real machine first:
+#   Clients\StartMenuInternet\<app>\shell\open\command  -> Start Menu / taskbar
+#   the ProgID that http/https and .htm/.html resolve to -> link and file clicks
+# A literal URL appended after the executable there reloads the hijack on every
+# launch, from outside every profile, which no browser-side cleaner reaches.
+#
+# The probe stores the command verbatim and never matches the blocklist here.
+# Parsing the executable out of the command line is deliberately NOT done: an
+# unquoted path with spaces (C:\Program Files\Internet Explorer\iexplore.exe) is
+# easy to mis-slice, and a wrong slice would print "the binary is missing" about a
+# browser that is installed. Asserting that needs a real command-line parser, so
+# the fact is left out rather than guessed - see the rule's limitation.
+$lcBy = [ordered]@{}
+
+function Get-DefaultValue($keyPath) {
+    if (-not (Test-Path -LiteralPath $keyPath)) { return '' }
+    $itm = Get-Item -LiteralPath $keyPath -ErrorAction SilentlyContinue
+    if ($null -eq $itm) { return '' }
+    return [string]$itm.GetValue('')
+}
+
+function Add-LaunchRow($key, $hive, $name, $source, $cmd, $path) {
+    if ($script:lcBy.Contains($key)) {
+        $o = $script:lcBy[$key]
+        $parts = @([string]$o['source']) -split '\+'
+        if (-not ($parts -contains $source)) { $o['source'] = [string]$o['source'] + '+' + $source }
+        return
+    }
+    $urls = @()
+    foreach ($m in [regex]::Matches($cmd, $URL_RX)) { $urls += $m.Value }
+    $script:lcBy[$key] = @{
+        hive   = $hive
+        name   = $name
+        source = $source
+        cmd    = $cmd
+        path   = $path
+        urls   = @($urls | Select-Object -Unique)
+    }
+}
+
+foreach ($hive in @('HKLM', 'HKCU')) {
+    foreach ($app in @(Get-ChildItem -LiteralPath ($hive + ':\SOFTWARE\Clients\StartMenuInternet') -ErrorAction SilentlyContinue)) {
+        $kp = $app.PSPath + '\shell\open\command'
+        $v = Get-DefaultValue $kp
+        if ($v -eq '') { continue }
+        Add-LaunchRow ($hive + '|' + $app.PSChildName) $hive ('StartMenuInternet/' + $app.PSChildName) 'start_menu' $v $kp
+    }
+}
+
+# Resolve the handler chain before reading it, so the subject is the command that
+# Windows actually uses. UrlAssociations UserChoice stores the ProgID as a named
+# value, not as the (default) - reading the default there yields nothing and looks
+# like an absent key.
+$protoForProgid = @{}
+foreach ($hive in @('HKCU', 'HKLM')) {
+    foreach ($proto in @('http', 'https')) {
+        $uc = $hive + ':\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\' + $proto + '\UserChoice'
+        if (-not (Test-Path -LiteralPath $uc)) { continue }
+        $itm = Get-Item -LiteralPath $uc -ErrorAction SilentlyContinue
+        if ($null -eq $itm) { continue }
+        $pg = [string]$itm.GetValue('Progid')
+        if ($pg -eq '') { continue }
+        if (-not $protoForProgid.ContainsKey($pg)) { $protoForProgid[$pg] = @() }
+        if (-not ($protoForProgid[$pg] -contains $proto)) { $protoForProgid[$pg] += $proto }
+    }
+}
+
+# Browser document types, and only these. Measured on a real machine: 211 extensions
+# carry a UserChoice and 13 of them point at a ProgID that does not resolve under
+# Classes - AppX package handlers and Windows components do legitimately look that
+# way, so "the handler is gone" is only evidence when the file type belongs to a
+# browser. Scoping the capture to browser document types is what keeps the criterion
+# from becoming a false-positive generator.
+$DOC_EXTS = @('.htm', '.html', '.shtml', '.xhtml', '.mhtml')
+$APPX_RX = '(?i)^appx[a-z0-9]{20,}$'
+$fileAssocs = @()
+
+function Resolve-ProgidCommand($progid) {
+    # A user Classes entry overrides the machine one, exactly like the shell does.
+    foreach ($hive in @('HKCU', 'HKLM')) {
+        $kp = $hive + ':\SOFTWARE\Classes\' + $progid + '\shell\open\command'
+        $v = Get-DefaultValue $kp
+        if ($v -ne '') { return @{ hive = $hive; cmd = $v; path = $kp } }
+    }
+    return $null
+}
+
+foreach ($pg in ($protoForProgid.Keys | Sort-Object)) {
+    $r = Resolve-ProgidCommand $pg
+    if ($null -eq $r) { continue }
+    $src = 'url_handler_' + (@($protoForProgid[$pg]) -join '_')
+    Add-LaunchRow ($r.hive + '|' + $pg) $r.hive ('Classes/' + $pg) $src $r.cmd $r.path
+}
+
+foreach ($ext in $DOC_EXTS) {
+    $uc = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FileExts\' + $ext + '\UserChoice'
+    if (-not (Test-Path -LiteralPath $uc)) { continue }
+    $itm = Get-Item -LiteralPath $uc -ErrorAction SilentlyContinue
+    if ($null -eq $itm) { continue }
+    $pg = [string]$itm.GetValue('Progid')
+    if ($pg -eq '') { continue }
+    $resolves = $false
+    $cr = $null
+    try { $cr = [Microsoft.Win32.Registry]::ClassesRoot.OpenSubKey($pg) } catch { $cr = $null }
+    if ($null -ne $cr) { $resolves = $true; try { $cr.Close() } catch { } }
+    $kind = 'class'
+    if (-not $resolves) {
+        if ($pg -match $APPX_RX) { $kind = 'appx' } else { $kind = 'missing' }
+    }
+    $row = @{
+        ext            = $ext
+        progid         = $pg
+        progid_resolves = $resolves
+        progid_kind    = $kind
+        has_hash       = (@($itm.GetValueNames()) -contains 'Hash')
+        path           = $uc
+        cmd            = ''
+    }
+    if ($resolves) {
+        $r = Resolve-ProgidCommand $pg
+        if ($null -ne $r) {
+            $row['cmd'] = [string]$r.cmd
+            Add-LaunchRow ($r.hive + '|' + $pg) $r.hive ('Classes/' + $pg) ('file_handler_' + $ext) $r.cmd $r.path
+        }
+    }
+    $fileAssocs += $row
+}
+
+$launchCmds = @($lcBy.Values)
+
 $payload = [ordered]@{
     probe           = 'browser_prefs'
     captured_at     = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -256,6 +390,8 @@ $payload = [ordered]@{
     user            = $env:USERNAME
     files           = $all
     shortcuts       = $shortcuts
+    launch_cmds     = $launchCmds
+    file_assocs     = $fileAssocs
     missing_roots   = @($missing)
 }
 
@@ -268,5 +404,7 @@ New-Item -ItemType Directory -Force -Path (Split-Path $OutFile) | Out-Null
 $gAll = 0
 $gRead = 0
 foreach ($x in $all) { $gAll += [int]$x.perm_keys_total; if ($x.search_read) { $gRead += 1 } }
-Write-Output ('browser_prefs: files=' + $all.Count + ' shortcuts=' + $shortcuts.Count + ' missing_roots=' + $missing.Count +
+Write-Output ('browser_prefs: files=' + $all.Count + ' shortcuts=' + $shortcuts.Count +
+    ' launch_cmds=' + $launchCmds.Count + ' file_assocs=' + $fileAssocs.Count +
+    ' missing_roots=' + $missing.Count +
     ' perm_grants=' + $gAll + ' search_read=' + $gRead + ' -> ' + $OutFile)

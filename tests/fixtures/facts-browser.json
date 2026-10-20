@@ -3,7 +3,7 @@
   "captured_at": "2026-10-15 03:00:00",
   "computer": "FIXTURE",
   "user": "example",
-  "fixture_note": "Synthetic capture. No real profile is read here: every record is a hand-built clone of the shape probes/browser_prefs.ps1 emits, sized so that each browser rule fires on a documented subject and one rule (BR-01 on a plain-only document) can only fire after the anchor fallback fix. tools/selftest.ps1 sections [1]-[5] treat this file as the oracle. Values are fake; the domain strings are the blocklisted ones on purpose. perm_grants is the merged content-settings ledger as setting|origin|last_written_local strings: only the plain Preferences document carries it on a real machine, so BR-08 can fire on a profile whose startup page is clean. The search provider block is scoped the same way it is in Chromium - default_search_provider_data only ever lives in Secure Preferences - so Chrome/Default carries the policy-enforced case, Edge/Profile 2 the blocklisted-engine case, and the three records whose engine is unreadable (Edge/Profile 1, Edge/Default hashed by Edge itself, Chrome/Profile 3 with no Secure Preferences at all) are what BR-10 reports as blind spots rather than as clean. shortcuts is the machine-level .lnk ledger the same probe appends: three rows, one of which points a browser at a blocklisted startup URL (what a hijacker leaves when it replaces the Desktop shortcut rather than the prefs file), one of which is a plain browser shortcut with no URL at all, and one of which is a legitimately URL-bearing PWA launcher (msedge_proxy --app-url). The last two must produce no finding, so BR-11 is pinned in both directions on the fixture instead of only on an infected box.",
+  "fixture_note": "Synthetic capture. No real profile is read here: every record is a hand-built clone of the shape probes/browser_prefs.ps1 emits, sized so that each browser rule fires on a documented subject and one rule (BR-01 on a plain-only document) can only fire after the anchor fallback fix. tools/selftest.ps1 sections [1]-[5] treat this file as the oracle. Values are fake; the domain strings are the blocklisted ones on purpose. perm_grants is the merged content-settings ledger as setting|origin|last_written_local strings: only the plain Preferences document carries it on a real machine, so BR-08 can fire on a profile whose startup page is clean. The search provider block is scoped the same way it is in Chromium - default_search_provider_data only ever lives in Secure Preferences - so Chrome/Default carries the policy-enforced case, Edge/Profile 2 the blocklisted-engine case, and the three records whose engine is unreadable (Edge/Profile 1, Edge/Default hashed by Edge itself, Chrome/Profile 3 with no Secure Preferences at all) are what BR-10 reports as blind spots rather than as clean. shortcuts is the machine-level .lnk ledger the same probe appends: three rows, one of which points a browser at a blocklisted startup URL (what a hijacker leaves when it replaces the Desktop shortcut rather than the prefs file), one of which is a plain browser shortcut with no URL at all, and one of which is a legitimately URL-bearing PWA launcher (msedge_proxy --app-url). The last two must produce no finding, so BR-11 is pinned in both directions on the fixture instead of only on an infected box. launch_cmds is the registry launch chain (StartMenuInternet plus the ProgIDs that http/https and the browser document types resolve to) and file_assocs is the browser document-type handler table. These two arrays carry a deliberate asymmetry with shortcuts: BR-11 needs the blocklist because a .lnk that opens a site is a normal Windows construct (a PWA launcher), while BR-12 fires on any literal URL because a real-machine sweep of every browser-named open command in both Classes hives found 33 of 33 with none, so the URL itself is the signal - which is why one fixture row carries a benign Outlook app-url and is expected to fire, with the advice telling the reader how to judge it. file_assocs exists to pin the false-positive trap that the scope was narrowed for: on a real machine 13 of 211 UserChoice extensions point at a ProgID that does not resolve under Classes, and they are AppX packages and Windows components, so the AppX-shaped row must NOT fire while the two genuinely dangling ones must, one with a Hash (written through the proper API) and one without (hand-imported).",
   "missing_roots": [],
   "files": [
     {
@@ -319,6 +319,78 @@
       "target_exe": "msedge_proxy.exe",
       "args": "--profile-directory=Default --app-id=hpdmehepbglnahmidjpfbcaofnbaejmh --app-url=https://outlook.office.com/mail/ --app-launch-source=4",
       "urls": ["https://outlook.office.com/mail/"]
+    }
+  ],
+  "launch_cmds": [
+    {
+      "hive": "HKLM",
+      "name": "Classes/2345HTM",
+      "source": "url_handler_http_https",
+      "cmd": "\"C:\\Program Files\\2345Explorer\\2345Explorer.exe\" http://www.2345.com/?cid=win23 --single-argument %1",
+      "path": "HKLM:\\SOFTWARE\\Classes\\2345HTM\\shell\\open\\command",
+      "urls": ["http://www.2345.com/?cid=win23"]
+    },
+    {
+      "hive": "HKLM",
+      "name": "StartMenuInternet/Quark",
+      "source": "start_menu",
+      "cmd": "C:\\Program Files\\Quark\\quark.exe --brand-quark",
+      "path": "HKLM:\\SOFTWARE\\Clients\\StartMenuInternet\\Quark\\shell\\open\\command",
+      "urls": []
+    },
+    {
+      "hive": "HKLM",
+      "name": "Classes/MSEdgeHTM",
+      "source": "url_handler_http_https+file_handler_.shtml",
+      "cmd": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --single-argument %1",
+      "path": "HKLM:\\SOFTWARE\\Classes\\MSEdgeHTM\\shell\\open\\command",
+      "urls": []
+    },
+    {
+      "hive": "HKCU",
+      "name": "Classes/TaskbarEdgeOffice",
+      "source": "file_handler_.html",
+      "cmd": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --noerrdialogs --user-data-dir=\"C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Edge\\Web Apps\\Profiles\\Default\\hpdmehepbglnahmidjpfbcaofnbaejmh\" --app-url=https://outlook.office.com/mail/ %1",
+      "path": "HKCU:\\SOFTWARE\\Classes\\TaskbarEdgeOffice\\shell\\open\\command",
+      "urls": ["https://outlook.office.com/mail/"]
+    }
+  ],
+  "file_assocs": [
+    {
+      "ext": ".htm",
+      "progid": "2345HTML",
+      "progid_resolves": false,
+      "progid_kind": "missing",
+      "has_hash": true,
+      "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.htm\\UserChoice",
+      "cmd": ""
+    },
+    {
+      "ext": ".html",
+      "progid": "Appxvepbp3z66accmsd0x877zbbxjctkpr6t",
+      "progid_resolves": false,
+      "progid_kind": "appx",
+      "has_hash": true,
+      "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.html\\UserChoice",
+      "cmd": ""
+    },
+    {
+      "ext": ".shtml",
+      "progid": "MSEdgeHTM",
+      "progid_resolves": true,
+      "progid_kind": "class",
+      "has_hash": true,
+      "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.shtml\\UserChoice",
+      "cmd": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --single-argument %1"
+    },
+    {
+      "ext": ".xhtml",
+      "progid": "pbgiaHTM",
+      "progid_resolves": false,
+      "progid_kind": "missing",
+      "has_hash": false,
+      "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.xhtml\\UserChoice",
+      "cmd": ""
     }
   ]
 }
