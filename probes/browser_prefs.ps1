@@ -383,6 +383,109 @@ foreach ($ext in $DOC_EXTS) {
 
 $launchCmds = @($lcBy.Values)
 
+# --- browser policy surface -------------------------------------------------
+# Policies are the layer the settings UI cannot change: while one is set,
+# edge://settings shows "managed by your organisation" and the value you click
+# is ignored. HKCU matters separately from HKLM because writing policy there
+# needs no administration rights at all.
+#
+# The registry provider exposes no write time (a key object has only Handle,
+# Name, SubKeyCount, ValueCount, View), so without RegQueryInfoKey a policy row
+# is a "what" with no "when" and the baseline cannot put it on a timeline. If
+# Add-Type is unavailable we degrade to an empty mtime instead of failing.
+if (-not ('WPRegTime' -as [type])) {
+    try {
+        Add-Type -Namespace '' -Name WPRegTime -MemberDefinition @'
+[System.Runtime.InteropServices.DllImport("advapi32.dll", SetLastError=true, CharSet=System.Runtime.InteropServices.CharSet.Unicode)]
+public static extern int RegQueryInfoKeyW(
+    System.Runtime.InteropServices.SafeHandle hKey, IntPtr lpClass, IntPtr lpcchClass, IntPtr lpReserved,
+    out int lpcSubKeys, out int lpcMaxSubKeyLen, out int lpcMaxClassLen,
+    out int lpcValues, out int lpcMaxValueNameLen, out int lpcMaxValueLen,
+    out int lpcbSecurityDescriptor, out long lpftLastWriteTime);
+'@
+    } catch { }
+}
+$script:haveRegTime = [bool]('WPRegTime' -as [type])
+
+function Get-KeyWriteTime($sub) {
+    if (-not $script:haveRegTime) { return '' }
+    try {
+        $sk = 0; $mskl = 0; $mcl = 0; $nv = 0; $mvn = 0; $mvl = 0; $sd = 0; $ft = 0L
+        $rc = [WPRegTime]::RegQueryInfoKeyW($sub.Handle, [IntPtr]::Zero, [IntPtr]::Zero, [IntPtr]::Zero,
+            [ref]$sk, [ref]$mskl, [ref]$mcl, [ref]$nv, [ref]$mvn, [ref]$mvl, [ref]$sd, [ref]$ft)
+        if ($rc -ne 0 -or $ft -le 0) { return '' }
+        return ([DateTime]::FromFileTimeUtc($ft)).ToString('yyyy-MM-dd HH:mm:ss')
+    } catch { return '' }
+}
+
+$POLICY_VENDORS = @(
+    @{ Name = 'Edge';     Root = 'SOFTWARE\Policies\Microsoft\Edge' },
+    @{ Name = 'Chrome';   Root = 'SOFTWARE\Policies\Google\Chrome' },
+    @{ Name = 'Chromium'; Root = 'SOFTWARE\Policies\Chromium' },
+    @{ Name = 'Brave';    Root = 'SOFTWARE\Policies\BraveSoftware\Brave-Browser' }
+)
+$policyAcc = New-Object System.Collections.ArrayList
+
+function Add-PolicyRow($sub, $hiveLabel, $vendor, $relKey, $fullPath) {
+    $names = @($sub.GetValueNames())
+    $subs  = @($sub.GetSubKeyNames())
+    $mt = Get-KeyWriteTime $sub
+    if ($names.Count -eq 0 -and $subs.Count -eq 0) {
+        # A policy key that exists but says nothing. Someone created it and wrote
+        # no value: either a leftover or a probe. Reported, because the alternative
+        # is that a key appearing in the user hive is invisible.
+        [void]$script:policyAcc.Add([ordered]@{
+            hive = $hiveLabel; vendor = $vendor; key = $relKey; value = ''; data = ''
+            kind = 'empty_key'; mtime = $mt; path = $fullPath
+        })
+        return
+    }
+    foreach ($vn in $names) {
+        $dv = ''
+        try { $dv = [string]$sub.GetValue($vn) } catch { $dv = '<unreadable>' }
+        if ($dv.Length -gt 400) { $dv = $dv.Substring(0, 400) + '...' }
+        [void]$script:policyAcc.Add([ordered]@{
+            hive = $hiveLabel; vendor = $vendor; key = $relKey
+            value = $(if ($vn -eq '') { '(default)' } else { $vn })
+            data = $dv; kind = 'value'; mtime = $mt; path = $fullPath
+        })
+    }
+}
+
+function Walk-Policy($sub, $hiveLabel, $vendor, $relPrefix, $fullPrefix) {
+    Add-PolicyRow $sub $hiveLabel $vendor $relPrefix $fullPrefix
+    foreach ($sn in @($sub.GetSubKeyNames())) {
+        $child = $null
+        try { $child = $sub.OpenSubKey($sn) } catch { $child = $null }
+        if ($null -eq $child) { continue }
+        Walk-Policy $child $hiveLabel $vendor ($relPrefix + '\' + $sn) ($fullPrefix + '\' + $sn)
+        try { $child.Close() } catch { }
+    }
+}
+
+foreach ($hk in @(
+    @{ Label = 'HKCU'; Hive = [Microsoft.Win32.RegistryHive]::CurrentUser; Prefixes = @('') },
+    @{ Label = 'HKLM'; Hive = [Microsoft.Win32.RegistryHive]::LocalMachine; Prefixes = @('', 'WOW6432Node\') }
+)) {
+    $baseKey = $null
+    try { $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey($hk.Hive, [Microsoft.Win32.RegistryView]::Default) } catch { $baseKey = $null }
+    if ($null -eq $baseKey) { continue }
+    foreach ($v in $POLICY_VENDORS) {
+        foreach ($pre in $hk.Prefixes) {
+            $rel = $pre + $v.Root
+            $sub = $null
+            try { $sub = $baseKey.OpenSubKey($rel) } catch { $sub = $null }
+            if ($null -eq $sub) { continue }
+            $label = $hk.Label
+            if ($pre -ne '') { $label = 'HKLM\WOW6432Node' }
+            Walk-Policy $sub $label $v.Name '' ($label + '\' + $rel)
+            try { $sub.Close() } catch { }
+        }
+    }
+    try { $baseKey.Close() } catch { }
+}
+$policyEntries = @($policyAcc)
+
 $payload = [ordered]@{
     probe           = 'browser_prefs'
     captured_at     = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
@@ -392,6 +495,8 @@ $payload = [ordered]@{
     shortcuts       = $shortcuts
     launch_cmds     = $launchCmds
     file_assocs     = $fileAssocs
+    policy_entries  = $policyEntries
+    policy_mtime_readable = $script:haveRegTime
     missing_roots   = @($missing)
 }
 
@@ -406,5 +511,6 @@ $gRead = 0
 foreach ($x in $all) { $gAll += [int]$x.perm_keys_total; if ($x.search_read) { $gRead += 1 } }
 Write-Output ('browser_prefs: files=' + $all.Count + ' shortcuts=' + $shortcuts.Count +
     ' launch_cmds=' + $launchCmds.Count + ' file_assocs=' + $fileAssocs.Count +
+    ' policy_entries=' + $policyEntries.Count + ' policy_mtime=' + $script:haveRegTime +
     ' missing_roots=' + $missing.Count +
     ' perm_grants=' + $gAll + ' search_read=' + $gRead + ' -> ' + $OutFile)

@@ -190,18 +190,18 @@
 
 <script id="wp-data" type="application/json">{
     "schema":  "winproof/1",
-    "scanned_at":  "2026-10-20 13:29:49",
+    "scanned_at":  "2026-10-21 19:41:31",
     "computer":  "<host>",
     "user":  "<user>",
     "os_version":  "10.0.26200.0",
     "ps_version":  "5.1.26100.9711",
-    "baseline_at":  "2026-10-20 13:29:48",
+    "baseline_at":  "2026-10-21 19:41:30",
     "probes_run":  [
                        "browser_prefs",
                        "persistence"
                    ],
-    "rules_total":  21,
-    "subjects_total":  32,
+    "rules_total":  23,
+    "subjects_total":  39,
     "domain_blocklist":  [
                              "2345",
                              "pbgia",
@@ -216,14 +216,14 @@
     "counts":  {
                    "NEW":  2,
                    "CHANGED":  1,
-                   "PERSIST":  36,
+                   "PERSIST":  40,
                    "KNOWN":  0,
                    "UNBASELINED":  0,
                    "RESOLVED":  1
                },
     "severity_counts":  {
-                            "high":  17,
-                            "medium":  13,
+                            "high":  19,
+                            "medium":  15,
                             "low":  3,
                             "info":  6,
                             "good":  0
@@ -234,7 +234,7 @@
                          "title":  "浏览器启动页被劫持",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 2",
                          "key":  "BR-01|Edge / Profile 2",
                          "fingerprint":  "445B59467F8B8729",
@@ -256,7 +256,7 @@
                                                  "advice":  "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten.",
                                                  "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
                                                  "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "NEW"
@@ -266,7 +266,7 @@
                          "title":  "浏览器启动页被劫持",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Profile 3",
                          "key":  "BR-01|Chrome / Profile 3",
                          "fingerprint":  "89AC8BFC2111A28D",
@@ -288,7 +288,7 @@
                                                  "advice":  "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten.",
                                                  "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
                                                  "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -298,39 +298,7 @@
                          "title":  "浏览器启动页被劫持",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "Edge / Profile 1",
-                         "key":  "BR-01|Edge / Profile 1",
-                         "fingerprint":  "9BA92B2E0D1F5A43",
-                         "evidence":  {
-                                          "startup_urls":  "http://2345.pbgia.com/win23",
-                                          "startup_mode":  4,
-                                          "doc_role":  "secure",
-                                          "bytes":  145715,
-                                          "mtime":  "2026-10-14 21:58:28"
-                                      },
-                         "advice":  "这个 Profile 开了 sync.preferences。手改文件会被云端配置回灌，请先在 edge://settings/onStartup 或 chrome://settings/onStartup 里改掉，再动文件。",
-                         "why":  "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
-                         "verified_on":  "2026-10-15",
-                         "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "The browser startup page is hijacked",
-                                                 "advice":  "This profile has sync.preferences switched on. A hand edit of the file gets pushed back by the cloud configuration, so change it first in edge://settings/onStartup or chrome://settings/onStartup, and only then touch the file.",
-                                                 "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
-                                                 "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "BR-01",
-                         "title":  "浏览器启动页被劫持",
-                         "severity":  "high",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Default",
                          "key":  "BR-01|Chrome / Default",
                          "fingerprint":  "6FD5C73708B63D1B",
@@ -352,7 +320,39 @@
                                                  "advice":  "Quit the browser completely first (including the tray/background process), otherwise it writes the value it still holds in memory back into the file on exit and your edit is overwritten.",
                                                  "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
                                                  "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-01",
+                         "title":  "浏览器启动页被劫持",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-01|Edge / Profile 1",
+                         "fingerprint":  "9BA92B2E0D1F5A43",
+                         "evidence":  {
+                                          "startup_urls":  "http://2345.pbgia.com/win23",
+                                          "startup_mode":  4,
+                                          "doc_role":  "secure",
+                                          "bytes":  145715,
+                                          "mtime":  "2026-10-14 21:58:28"
+                                      },
+                         "advice":  "这个 Profile 开了 sync.preferences。手改文件会被云端配置回灌，请先在 edge://settings/onStartup 或 chrome://settings/onStartup 里改掉，再动文件。",
+                         "why":  "启动页劫持是国产软件最常见的驻留方式：它不改 hosts、不装服务、不出现在任务管理器里，只写浏览器的 session.startup_urls，所以常规杀毒和启动项管理器都看不见它。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"]，restore_on_startup=4。判据原先还要求 doc_role=secure，于是只有明文 Preferences、没有 Secure Preferences 的 Profile 里被劫持的 session.startup_urls 会被静默放过；合成夹具 tests/fixtures/facts-browser.json 的 Chrome / Profile 3 复现了这个漏报，已改为按锚定文档取值。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The browser startup page is hijacked",
+                                                 "advice":  "This profile has sync.preferences switched on. A hand edit of the file gets pushed back by the cloud configuration, so change it first in edge://settings/onStartup or chrome://settings/onStartup, and only then touch the file.",
+                                                 "why":  "Startup-page hijacking is the most common way Chinese software persists: it does not touch hosts, does not install a service, does not appear in Task Manager. It only writes session.startup_urls in the browser, so ordinary antivirus and startup managers never see it.",
+                                                 "verified_evidence":  "Edge / Profile 1 / Secure Preferences = [\"http://2345.pbgia.com/win23\"], restore_on_startup=4. The criterion used to also require doc_role=secure, which silently let a hijacked session.startup_urls through in a profile that has only the plain Preferences and no Secure Preferences at all; Chrome / Profile 3 in tests/fixtures/facts-browser.json reproduces that miss, and the engine now reads from the anchored document.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -362,7 +362,41 @@
                          "title":  "存在密封副本，只删明文会被还原",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-02|Edge / Profile 1",
+                         "fingerprint":  "B5871EDFA479D43B",
+                         "evidence":  {
+                                          "seal_keys":  [
+                                                            "restore_on_startup_edge_enclave",
+                                                            "restore_on_startup_edge_enclave_verify",
+                                                            "startup_urls_edge_enclave",
+                                                            "startup_urls_edge_enclave_verify"
+                                                        ],
+                                          "startup_urls_bad":  "http://2345.pbgia.com/win23"
+                                      },
+                         "advice":  "Edge 在 session 下另存了一份加密密封值（*_edge_enclave 或 *_edge_lightweight 及其 _verify）。清理必须把整个键名族一起删掉，只删明文的 startup_urls 会被这份密封副本还原。",
+                         "why":  "这是绝大多数手工清理失败的真正原因：明明删干净了，下次打开浏览器又回来了，看起来像\"没删掉\"，实际上是另一份副本被当成权威值重新落盘。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A sealed copy exists: deleting the plaintext alone will be reverted",
+                                                 "advice":  "Edge keeps an additional sealed, encrypted value under session (the *_edge_enclave or *_edge_lightweight family plus its _verify). Cleaning means deleting the whole key-name family; deleting only the plaintext startup_urls gets restored from this sealed copy.",
+                                                 "why":  "This is the real reason most manual cleanups fail: you clearly deleted it, and it is back the next time the browser opens. It looks like \"it was not deleted\", when in fact another copy was treated as authoritative and written back.",
+                                                 "verified_evidence":  "Profile 1 spells it enclave, Default spells it lightweight; a given profile contains only one of the two spellings, so the match has to be on the suffix family rather than on a specific key name.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-02",
+                         "title":  "存在密封副本，只删明文会被还原",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Default",
                          "key":  "BR-02|Edge / Default",
                          "fingerprint":  "C3DBEBEF66F886AD",
@@ -388,41 +422,7 @@
                                                  "advice":  "Edge keeps an additional sealed, encrypted value under session (the *_edge_enclave or *_edge_lightweight family plus its _verify). Cleaning means deleting the whole key-name family; deleting only the plaintext startup_urls gets restored from this sealed copy.",
                                                  "why":  "This is the real reason most manual cleanups fail: you clearly deleted it, and it is back the next time the browser opens. It looks like \"it was not deleted\", when in fact another copy was treated as authoritative and written back.",
                                                  "verified_evidence":  "Profile 1 spells it enclave, Default spells it lightweight; a given profile contains only one of the two spellings, so the match has to be on the suffix family rather than on a specific key name.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "BR-02",
-                         "title":  "存在密封副本，只删明文会被还原",
-                         "severity":  "high",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "Edge / Profile 1",
-                         "key":  "BR-02|Edge / Profile 1",
-                         "fingerprint":  "B5871EDFA479D43B",
-                         "evidence":  {
-                                          "seal_keys":  [
-                                                            "restore_on_startup_edge_enclave",
-                                                            "restore_on_startup_edge_enclave_verify",
-                                                            "startup_urls_edge_enclave",
-                                                            "startup_urls_edge_enclave_verify"
-                                                        ],
-                                          "startup_urls_bad":  "http://2345.pbgia.com/win23"
-                                      },
-                         "advice":  "Edge 在 session 下另存了一份加密密封值（*_edge_enclave 或 *_edge_lightweight 及其 _verify）。清理必须把整个键名族一起删掉，只删明文的 startup_urls 会被这份密封副本还原。",
-                         "why":  "这是绝大多数手工清理失败的真正原因：明明删干净了，下次打开浏览器又回来了，看起来像\"没删掉\"，实际上是另一份副本被当成权威值重新落盘。",
-                         "verified_on":  "2026-10-14",
-                         "verified_evidence":  "Profile 1 用 enclave 拼写，Default 用 lightweight 拼写；两种拼写同一 Profile 只出现一种，所以匹配必须按后缀族而不是具体键名。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "A sealed copy exists: deleting the plaintext alone will be reverted",
-                                                 "advice":  "Edge keeps an additional sealed, encrypted value under session (the *_edge_enclave or *_edge_lightweight family plus its _verify). Cleaning means deleting the whole key-name family; deleting only the plaintext startup_urls gets restored from this sealed copy.",
-                                                 "why":  "This is the real reason most manual cleanups fail: you clearly deleted it, and it is back the next time the browser opens. It looks like \"it was not deleted\", when in fact another copy was treated as authoritative and written back.",
-                                                 "verified_evidence":  "Profile 1 spells it enclave, Default spells it lightweight; a given profile contains only one of the two spellings, so the match has to be on the suffix family rather than on a specific key name.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -432,7 +432,7 @@
                          "title":  "清理后又回来了：劫持值复发",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 1",
                          "key":  "BR-05|Edge / Profile 1",
                          "fingerprint":  "2DFD16F0389D86F6",
@@ -467,7 +467,7 @@
                                                  "advice":  "The recurrence is later than the previous repair in time, and this profile synchronises preferences - a cloud configuration write-back is the most likely source. Break that sync category before cleaning, otherwise every sync cycle brings the value back.",
                                                  "why":  "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
                                                  "verified_evidence":  "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -477,7 +477,7 @@
                          "title":  "清理后又回来了：劫持值复发",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 2",
                          "key":  "BR-05|Edge / Profile 2",
                          "fingerprint":  "9F8C30CA8C86BDF1",
@@ -509,7 +509,7 @@
                                                  "advice":  "The recurrence is later than the previous repair, but preferences sync is off - then some still-running program is more likely rewriting the file. Keep looking along the startup-entry and scheduled-task paths.",
                                                  "why":  "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
                                                  "verified_evidence":  "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "NEW"
@@ -519,7 +519,7 @@
                          "title":  "清理后又回来了：劫持值复发",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Default",
                          "key":  "BR-05|Chrome / Default",
                          "fingerprint":  "5E4304EBFEB61321",
@@ -551,7 +551,7 @@
                                                  "advice":  "The recurrence is later than the previous repair, but preferences sync is off - then some still-running program is more likely rewriting the file. Keep looking along the startup-entry and scheduled-task paths.",
                                                  "why":  "A one-shot scanner cannot answer \"I cleaned this before, why is it still here\". Putting the .bak_ timestamps left by the previous repair next to the current file mtime turns \"it came back\" from a feeling into a dated piece of evidence.",
                                                  "verified_evidence":  "Edge Profile 1 has Secure Preferences.bak_20261010-221049 (71212 bytes, 10-10 22:10) while the live file is 145715 bytes with mtime 10-14 21:58: the malicious value reappeared after the backup. A full closed-loop measurement was added on 10-16: at 14:18:33 a file-level fix rewrote session to restore_on_startup=1 and startup_urls=[], deleted the 4 *_edge_enclave keys and their _verify, every other top-level value was byte-checked before writing, and a re-check at 14:4x was clean (winproof reported BR-07 good at the time). The Edge background process started at 15:55:30 and at 15:55:40 Secure Preferences again contained mode=4 plus http://2345.pbgia.com/win23 (148932 bytes). At that moment session in the plain Preferences was empty and no local copy of the value remained on disk; the only still-active channel was sync.preferences=true, so the write-back came from the cloud configuration, not from local residue. Conclusion: on a profile that synchronises preferences, a file-level fix survives until the next browser start, and the change has to be made through the UI (edge://settings/onStartup) so the cloud copy changes with it.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -561,7 +561,7 @@
                          "title":  "浏览器快捷方式被加了强制启动 URL",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "browser_shortcut / Zz 2345 Chrome.lnk",
                          "key":  "BR-11|browser_shortcut / Zz 2345 Chrome.lnk",
                          "fingerprint":  "41BF974E138BC479",
@@ -585,7 +585,7 @@
                                                  "advice":  "Right-click this shortcut -\u003e Properties -\u003e the \"Target\" field: a start URL has been appended after the browser\u0027s executable path (the lnk_urls row in the evidence). Delete everything after the exe and leave only the exe itself. Note: this is exactly why the startup page you cleaned keeps coming back after the next boot - cleaning tools only touch session.startup_urls inside the profile, while this shortcut reloads that page every time it opens the browser, so the configuration gets rebuilt. As long as this .lnk is present, it overwrites the BR-01 fix over and over.",
                                                  "why":  "Startup-page hijacking has two places to land: one is written into the browser profile (BR-01 sees it), the other is written into the executable arguments of the shortcut. The second lives outside the profile, so no tool that cleans browser configuration can reach it, and it re-fires on every cold start, which looks like \"it was deleted but came back\". Bringing the .lnk command line into the forensics is what finally turns \"it keeps recurring\" into an evidence row with a path and a domain, rather than a feeling.",
                                                  "verified_evidence":  "All 5 browser shortcuts on this machine are benign and it fires 0: the two msedge.exe shortcuts only carry --profile-directory=\"Default\"/\"Profile 1\" (legally pinning a profile, no URL), chrome.exe and another msedge.exe have empty arguments, and GitHub.lnk is a standard PWA (msedge_proxy.exe --app-url=https://github.com/, github is not on the blocklist). The criterion reports high only for rows whose lnk_urls match the domain_blocklist, so a legitimate \"open this site in the browser\" shortcut is not a false positive; the probe collects only .lnk files whose target is a browser executable and never matches the blocklist there. The shortcuts array in tests/fixtures/facts-browser.json plants two rows: one chrome.exe carrying http://www.2345.com/ that must fire, one with only --profile-directory that must not, and the selftest pins both directions.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -595,41 +595,7 @@
                          "title":  "注册表里的浏览器启动命令带了强制 URL",
                          "severity":  "high",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "browser_launch_cmd / HKLM:Classes/2345HTM",
-                         "key":  "BR-12|browser_launch_cmd / HKLM:Classes/2345HTM",
-                         "fingerprint":  "3E8071D3299FAF14",
-                         "evidence":  {
-                                          "cmd_source":  "url_handler_http_https",
-                                          "cmd_value":  "\"C:\\Program Files\\2345Explorer\\2345Explorer.exe\" http://www.2345.com/?cid=win23 --single-argument %1",
-                                          "cmd_urls":  [
-                                                           "http://www.2345.com/?cid=win23"
-                                                       ],
-                                          "cmd_bad":  "http://www.2345.com/?cid=win23",
-                                          "path":  "HKLM:\\SOFTWARE\\Classes\\2345HTM\\shell\\open\\command"
-                                      },
-                         "advice":  "这个 URL 在黑名单上，它就是 BR-01 反复复发的源头：Profile 里的启动页是被这一层每次启动重新写进去的。用 regedit 定位到证据里的 path 键，把「默认」值改成只留浏览器可执行文件，原本跟在后面的 %1 或 --single-argument %1 要保留（那是 Windows 把用户点击的地址传给浏览器的占位符）。不要整键删除：删了 http 处理器，所有链接都打不开。改完再清 BR-01 的 Profile 值——顺序反了会被这一层重新覆盖。",
-                         "why":  "浏览器启动页有三个落点，这一层在最上游：Profile 里的值（BR-01）和快捷方式里的参数（BR-11）都只是每次启动被写入的结果，而注册表里的启动命令决定了「这台机器打开浏览器 / 点击链接」这条路径本身长什么样。它同样是机器级的，重置 Profile 不动它、重装浏览器也不一定覆盖它，而且它对所有 Profile 和所有从系统发起的打开动作都生效，所以比前两层更稳。",
-                         "verified_on":  "2026-10-20",
-                         "verified_evidence":  "本机 8 条注册表启动命令，命中 0 条。6 条来自 HKLM:\\SOFTWARE\\Clients\\StartMenuInternet（Google Chrome、IEXPLORE.EXE、Lenovo SLBrowser、Microsoft Edge、Quark、Quark.pdf），其中 Quark 的值是 C:\\Program Files\\Quark\\quark.exe --brand-quark——带附加参数、不带 URL；另外 2 条由 http/https 与 .shtml/.xhtml/.mhtml 的处理器解析得到（Classes/MSEdgeHTM、Classes/MSEdgeMHT），值是 --single-argument %1。判据只看命令行里有没有字面的 http(s) 地址：%1 是占位符、--brand-quark 是合法参数，两者都不该命中，实测也确实不命中。夹具 tests/fixtures/facts-browser.json 的 launch_cmds 造了三条钉住这个边界：一条带 http:// 必须命中、一条带 --brand-quark \"%1\" 必须不命中、一条只有 exe 必须不命中。判据从不看键名——本机 HKCU:\\SOFTWARE\\Classes\\secure-browser 指向 Avast Browser，名字看着就像劫持，实际是卸载残留（AvastBrowser.exe 在本机已不存在）。",
-                         "detail_path":  "HKLM:\\SOFTWARE\\Classes\\2345HTM\\shell\\open\\command",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "The registry browser launch command carries a forced URL",
-                                                 "advice":  "This URL is on the blocklist, so this is the source that keeps re-creating the BR-01 finding: the startup value in the profile is rewritten by this layer on every launch. Open the key in the evidence\u0027s path with regedit and set the (Default) value back to the browser executable alone, keeping the %1 or --single-argument %1 that follows it (that placeholder is how Windows hands the clicked address to the browser). Do not delete the whole key: remove the http handler and no link opens anything. Change this layer first, then clean the BR-01 profile value - in the other order this layer overwrites your fix again.",
-                                                 "why":  "The browser start page has three places to land and this layer is the most upstream: the value in the profile (BR-01) and the argument in the shortcut (BR-11) are only what gets written on each launch, while the registry launch command defines what the path \"open a browser / click a link on this machine\" is in the first place. It is machine-level too, resetting the profile does not touch it, reinstalling the browser does not necessarily overwrite it, and it applies to every profile and every open action started by the shell, which makes it sturdier than the two layers below it.",
-                                                 "verified_evidence":  "8 registry launch commands on this machine, 0 hits. Six come from HKLM:\\SOFTWARE\\Clients\\StartMenuInternet (Google Chrome, IEXPLORE.EXE, Lenovo SLBrowser, Microsoft Edge, Quark, Quark.pdf), where Quark\u0027s value is C:\\Program Files\\Quark\\quark.exe --brand-quark - an extra argument with no URL. The other two come from resolving the http/https and .shtml/.xhtml/.mhtml handlers (Classes/MSEdgeHTM, Classes/MSEdgeMHT), whose value is --single-argument %1. The criterion looks only for a literal http(s) address on the command line: %1 is a placeholder and --brand-quark is a legitimate argument, neither should fire, and neither does. The launch_cmds array in tests/fixtures/facts-browser.json pins that boundary with three rows: one carrying http:// that must fire, one carrying --brand-quark \"%1\" that must not, and one exe-only row that must not. The criterion never looks at the key name - HKCU:\\SOFTWARE\\Classes\\secure-browser on this machine belongs to Avast Browser, a name that looks exactly like a hijack but is uninstall residue (AvastBrowser.exe no longer exists).",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "BR-12",
-                         "title":  "注册表里的浏览器启动命令带了强制 URL",
-                         "severity":  "high",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "browser_launch_cmd / HKCU:Classes/TaskbarEdgeOffice",
                          "key":  "BR-12|browser_launch_cmd / HKCU:Classes/TaskbarEdgeOffice",
                          "fingerprint":  "FBC2C23450F00DF6",
@@ -655,7 +621,111 @@
                                                  "advice":  "The URL is not on the blocklist, so first decide whether it is your own software: some Chinese browsers and cloud-disk clients put their own landing page here. If you recognise it, mark it known with acknowledge; if not, set the (Default) back to the exe as in the previous step.",
                                                  "why":  "The browser start page has three places to land and this layer is the most upstream: the value in the profile (BR-01) and the argument in the shortcut (BR-11) are only what gets written on each launch, while the registry launch command defines what the path \"open a browser / click a link on this machine\" is in the first place. It is machine-level too, resetting the profile does not touch it, reinstalling the browser does not necessarily overwrite it, and it applies to every profile and every open action started by the shell, which makes it sturdier than the two layers below it.",
                                                  "verified_evidence":  "8 registry launch commands on this machine, 0 hits. Six come from HKLM:\\SOFTWARE\\Clients\\StartMenuInternet (Google Chrome, IEXPLORE.EXE, Lenovo SLBrowser, Microsoft Edge, Quark, Quark.pdf), where Quark\u0027s value is C:\\Program Files\\Quark\\quark.exe --brand-quark - an extra argument with no URL. The other two come from resolving the http/https and .shtml/.xhtml/.mhtml handlers (Classes/MSEdgeHTM, Classes/MSEdgeMHT), whose value is --single-argument %1. The criterion looks only for a literal http(s) address on the command line: %1 is a placeholder and --brand-quark is a legitimate argument, neither should fire, and neither does. The launch_cmds array in tests/fixtures/facts-browser.json pins that boundary with three rows: one carrying http:// that must fire, one carrying --brand-quark \"%1\" that must not, and one exe-only row that must not. The criterion never looks at the key name - HKCU:\\SOFTWARE\\Classes\\secure-browser on this machine belongs to Avast Browser, a name that looks exactly like a hijack but is uninstall residue (AvastBrowser.exe no longer exists).",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-12",
+                         "title":  "注册表里的浏览器启动命令带了强制 URL",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "browser_launch_cmd / HKLM:Classes/2345HTM",
+                         "key":  "BR-12|browser_launch_cmd / HKLM:Classes/2345HTM",
+                         "fingerprint":  "3E8071D3299FAF14",
+                         "evidence":  {
+                                          "cmd_source":  "url_handler_http_https",
+                                          "cmd_value":  "\"C:\\Program Files\\2345Explorer\\2345Explorer.exe\" http://www.2345.com/?cid=win23 --single-argument %1",
+                                          "cmd_urls":  [
+                                                           "http://www.2345.com/?cid=win23"
+                                                       ],
+                                          "cmd_bad":  "http://www.2345.com/?cid=win23",
+                                          "path":  "HKLM:\\SOFTWARE\\Classes\\2345HTM\\shell\\open\\command"
+                                      },
+                         "advice":  "这个 URL 在黑名单上，它就是 BR-01 反复复发的源头：Profile 里的启动页是被这一层每次启动重新写进去的。用 regedit 定位到证据里的 path 键，把「默认」值改成只留浏览器可执行文件，原本跟在后面的 %1 或 --single-argument %1 要保留（那是 Windows 把用户点击的地址传给浏览器的占位符）。不要整键删除：删了 http 处理器，所有链接都打不开。改完再清 BR-01 的 Profile 值——顺序反了会被这一层重新覆盖。",
+                         "why":  "浏览器启动页有三个落点，这一层在最上游：Profile 里的值（BR-01）和快捷方式里的参数（BR-11）都只是每次启动被写入的结果，而注册表里的启动命令决定了「这台机器打开浏览器 / 点击链接」这条路径本身长什么样。它同样是机器级的，重置 Profile 不动它、重装浏览器也不一定覆盖它，而且它对所有 Profile 和所有从系统发起的打开动作都生效，所以比前两层更稳。",
+                         "verified_on":  "2026-10-20",
+                         "verified_evidence":  "本机 8 条注册表启动命令，命中 0 条。6 条来自 HKLM:\\SOFTWARE\\Clients\\StartMenuInternet（Google Chrome、IEXPLORE.EXE、Lenovo SLBrowser、Microsoft Edge、Quark、Quark.pdf），其中 Quark 的值是 C:\\Program Files\\Quark\\quark.exe --brand-quark——带附加参数、不带 URL；另外 2 条由 http/https 与 .shtml/.xhtml/.mhtml 的处理器解析得到（Classes/MSEdgeHTM、Classes/MSEdgeMHT），值是 --single-argument %1。判据只看命令行里有没有字面的 http(s) 地址：%1 是占位符、--brand-quark 是合法参数，两者都不该命中，实测也确实不命中。夹具 tests/fixtures/facts-browser.json 的 launch_cmds 造了三条钉住这个边界：一条带 http:// 必须命中、一条带 --brand-quark \"%1\" 必须不命中、一条只有 exe 必须不命中。判据从不看键名——本机 HKCU:\\SOFTWARE\\Classes\\secure-browser 指向 Avast Browser，名字看着就像劫持，实际是卸载残留（AvastBrowser.exe 在本机已不存在）。",
+                         "detail_path":  "HKLM:\\SOFTWARE\\Classes\\2345HTM\\shell\\open\\command",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The registry browser launch command carries a forced URL",
+                                                 "advice":  "This URL is on the blocklist, so this is the source that keeps re-creating the BR-01 finding: the startup value in the profile is rewritten by this layer on every launch. Open the key in the evidence\u0027s path with regedit and set the (Default) value back to the browser executable alone, keeping the %1 or --single-argument %1 that follows it (that placeholder is how Windows hands the clicked address to the browser). Do not delete the whole key: remove the http handler and no link opens anything. Change this layer first, then clean the BR-01 profile value - in the other order this layer overwrites your fix again.",
+                                                 "why":  "The browser start page has three places to land and this layer is the most upstream: the value in the profile (BR-01) and the argument in the shortcut (BR-11) are only what gets written on each launch, while the registry launch command defines what the path \"open a browser / click a link on this machine\" is in the first place. It is machine-level too, resetting the profile does not touch it, reinstalling the browser does not necessarily overwrite it, and it applies to every profile and every open action started by the shell, which makes it sturdier than the two layers below it.",
+                                                 "verified_evidence":  "8 registry launch commands on this machine, 0 hits. Six come from HKLM:\\SOFTWARE\\Clients\\StartMenuInternet (Google Chrome, IEXPLORE.EXE, Lenovo SLBrowser, Microsoft Edge, Quark, Quark.pdf), where Quark\u0027s value is C:\\Program Files\\Quark\\quark.exe --brand-quark - an extra argument with no URL. The other two come from resolving the http/https and .shtml/.xhtml/.mhtml handlers (Classes/MSEdgeHTM, Classes/MSEdgeMHT), whose value is --single-argument %1. The criterion looks only for a literal http(s) address on the command line: %1 is a placeholder and --brand-quark is a legitimate argument, neither should fire, and neither does. The launch_cmds array in tests/fixtures/facts-browser.json pins that boundary with three rows: one carrying http:// that must fire, one carrying --brand-quark \"%1\" that must not, and one exe-only row that must not. The criterion never looks at the key name - HKCU:\\SOFTWARE\\Classes\\secure-browser on this machine belongs to Avast Browser, a name that looks exactly like a hijack but is uninstall residue (AvastBrowser.exe no longer exists).",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-14",
+                         "title":  "浏览器策略强制了启动页 / 首页 / 新标签页 / 搜索引擎 / 扩展 / 代理",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "browser_policy / HKLM Edge RestoreOnStartupURLs\\1",
+                         "key":  "BR-14|browser_policy / HKLM Edge RestoreOnStartupURLs\\1",
+                         "fingerprint":  "DE94EB15E73F85FB",
+                         "evidence":  {
+                                          "pol_hive":  "HKLM",
+                                          "pol_vendor":  "Edge",
+                                          "pol_key":  "RestoreOnStartupURLs",
+                                          "pol_value":  "1",
+                                          "pol_kind":  "value",
+                                          "pol_data":  "http://www.2345.com/?cid=win23",
+                                          "pol_mtime":  "2026-06-12 06:50:03",
+                                          "path":  "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge\\RestoreOnStartupURLs"
+                                      },
+                         "advice":  "这一条在 HKLM 下面，写入需要提权：可能是公司 IT 推的组策略，也可能是某个用管理员权限跑起来的安装器。先确认它是不是你自己单位的策略——如果是，这条按 ack 处理；如果不是，删除这个策略值（先 reg export 备份），因为只要它还在，你对 BR-01/BR-09 的任何手工修复都会在下次启动被覆盖。",
+                         "why":  "策略是浏览器设置的上一层，也是唯一一层你在设置页里改不动的：策略一旦存在，设置页对应项会变灰并显示「由你的组织管理」，你点下去的值被直接忽略。这解释了三件事里最难的一件——为什么 BR-01 修好了又会回来。前两种机制（enclave 密封副本、云端回灌）报告已经能报，第三种以前完全看不见。把它单独成条还有一个好处：它和 BR-01 命中同一个 URL 时，说明有人既改了偏好又压了策略，那是刻意维持而不是巧合。",
+                         "verified_on":  "2026-10-21",
+                         "verified_evidence":  "本机命中 0 条，而且这个 0 是有结构的：本机浏览器策略面总共只有 3 行（HKCU Edge 一个空键、HKLM Edge 一个 LocalNetworkAccessAllowedForUrls、HKLM Chrome 一个 ExternalProtocolDialogShowAlwaysOpenCheckbox），没有一行属于强制类，所以这条在本机空转。判据的已知答案落在夹具上：一条 HKLM 的 RestoreOnStartupURLs 指向黑名单域必须命中，一条 HKCU 的 ExtensionInstallForcelist 也必须命中，而 MetricsReportingEnabled、CloudPrintProxyEnabled 这类无害企业策略必须沉默——不加这条负例，名单就会在下次改动时被顺手扩成「有策略就算」。策略名名单是规则里的数据，不在引擎里。判据匹配的是 pol_name，引擎从键路径的最后一段取它，不取值名：列表型策略（RestoreOnStartupURLs、ExtensionInstallForcelist、LocalNetworkAccessAllowedForUrls、URLBlocklist）把名字写在键上、值里只留序号，按值名匹配会恰好漏掉这批强制力最强的——这个坑是探针写完后第一次跑引擎才暴露的，当时 HKLM Edge 那条局域网豁免明明在名单里却没命中。",
+                         "detail_path":  "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge\\RestoreOnStartupURLs",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A browser policy forces the startup page / homepage / new tab / search engine / extensions / proxy",
+                                                 "advice":  "This one lives under HKLM, so writing it needed elevation: it is either a group policy pushed by your IT department or an installer that ran as administrator. Check whether it is your own organisation first - if it is, acknowledge it. If it is not, delete the policy value (export the key first), because while it exists any manual repair you make of BR-01/BR-09 is overwritten on the next start.",
+                                                 "why":  "Policy is the layer above the browser settings, and the only one the settings page cannot reach: while a policy exists the matching control is greyed out with \"managed by your organisation\", and the value you click is discarded. That accounts for the hardest of three explanations for a fix that came back - the first two (the sealed enclave copy and the cloud write-back) are already reported, the third was invisible. Splitting it out buys one more thing: when BR-14 and BR-01 name the same URL, someone set both the preference and the policy over it, which is deliberate maintenance rather than coincidence.",
+                                                 "verified_evidence":  "0 hits on this machine, and the zero has structure: the whole browser policy surface here is 3 rows (one empty HKCU Edge key, one HKLM Edge LocalNetworkAccessAllowedForUrls, one HKLM Chrome ExternalProtocolDialogShowAlwaysOpenCheckbox), none of which is a forcing policy, so this rule is idle locally. Its known-answer test lives in the fixture: an HKLM RestoreOnStartupURLs pointing at a blocklisted domain must fire, an HKCU ExtensionInstallForcelist must fire, and benign enterprise policies such as MetricsReportingEnabled and CloudPrintProxyEnabled must stay silent - without those negatives the list drifts into \"any policy counts\" the next time someone edits it. The policy-name list is data in the rule file, not in the engine. Predicates match pol_name, which the engine derives from the last segment of the key path rather than from the value name: list-shaped policies (RestoreOnStartupURLs, ExtensionInstallForcelist, LocalNetworkAccessAllowedForUrls, URLBlocklist) carry their name in the key and only an index in the value, so matching on the value name would miss exactly the strongest ones - the trap the engine smoke test exposed first, when the HKLM Edge local-network row sat in the list without firing.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-14",
+                         "title":  "浏览器策略强制了启动页 / 首页 / 新标签页 / 搜索引擎 / 扩展 / 代理",
+                         "severity":  "high",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "browser_policy / HKCU Chrome ExtensionInstallForcelist\\1",
+                         "key":  "BR-14|browser_policy / HKCU Chrome ExtensionInstallForcelist\\1",
+                         "fingerprint":  "74E76635824ED36A",
+                         "evidence":  {
+                                          "pol_hive":  "HKCU",
+                                          "pol_vendor":  "Chrome",
+                                          "pol_key":  "ExtensionInstallForcelist",
+                                          "pol_value":  "1",
+                                          "pol_kind":  "value",
+                                          "pol_data":  "abcdefghijklmnopabcdefghijklmnop;https://clients2.example/service/update2/crx",
+                                          "pol_mtime":  "2026-09-27 04:48:00",
+                                          "path":  "HKCU:\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist"
+                                      },
+                         "advice":  "这一条在 HKCU 下面，意味着写它的人不需要管理员权限——以你的身份跑起来的任何东西都能留下它。它同时压住了设置页里对应的那一项，所以你在 edge://settings 或 chrome://settings 里改完，下次启动又会被策略值覆盖回去。删除这个策略值（先 reg export 备份这个键），然后重开浏览器确认设置页不再显示「由你的组织管理」。",
+                         "why":  "策略是浏览器设置的上一层，也是唯一一层你在设置页里改不动的：策略一旦存在，设置页对应项会变灰并显示「由你的组织管理」，你点下去的值被直接忽略。这解释了三件事里最难的一件——为什么 BR-01 修好了又会回来。前两种机制（enclave 密封副本、云端回灌）报告已经能报，第三种以前完全看不见。把它单独成条还有一个好处：它和 BR-01 命中同一个 URL 时，说明有人既改了偏好又压了策略，那是刻意维持而不是巧合。",
+                         "verified_on":  "2026-10-21",
+                         "verified_evidence":  "本机命中 0 条，而且这个 0 是有结构的：本机浏览器策略面总共只有 3 行（HKCU Edge 一个空键、HKLM Edge 一个 LocalNetworkAccessAllowedForUrls、HKLM Chrome 一个 ExternalProtocolDialogShowAlwaysOpenCheckbox），没有一行属于强制类，所以这条在本机空转。判据的已知答案落在夹具上：一条 HKLM 的 RestoreOnStartupURLs 指向黑名单域必须命中，一条 HKCU 的 ExtensionInstallForcelist 也必须命中，而 MetricsReportingEnabled、CloudPrintProxyEnabled 这类无害企业策略必须沉默——不加这条负例，名单就会在下次改动时被顺手扩成「有策略就算」。策略名名单是规则里的数据，不在引擎里。判据匹配的是 pol_name，引擎从键路径的最后一段取它，不取值名：列表型策略（RestoreOnStartupURLs、ExtensionInstallForcelist、LocalNetworkAccessAllowedForUrls、URLBlocklist）把名字写在键上、值里只留序号，按值名匹配会恰好漏掉这批强制力最强的——这个坑是探针写完后第一次跑引擎才暴露的，当时 HKLM Edge 那条局域网豁免明明在名单里却没命中。",
+                         "detail_path":  "HKCU:\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A browser policy forces the startup page / homepage / new tab / search engine / extensions / proxy",
+                                                 "advice":  "This one lives under HKCU, which means whoever wrote it needed no administration rights - anything running as you can leave it behind. It also pins the matching entry in the settings page, so whatever you change in edge://settings or chrome://settings gets overwritten by the policy on the next launch. Delete the policy value (export the key first as a backup), then restart the browser and confirm the settings page no longer says \"managed by your organisation\".",
+                                                 "why":  "Policy is the layer above the browser settings, and the only one the settings page cannot reach: while a policy exists the matching control is greyed out with \"managed by your organisation\", and the value you click is discarded. That accounts for the hardest of three explanations for a fix that came back - the first two (the sealed enclave copy and the cloud write-back) are already reported, the third was invisible. Splitting it out buys one more thing: when BR-14 and BR-01 name the same URL, someone set both the preference and the policy over it, which is deliberate maintenance rather than coincidence.",
+                                                 "verified_evidence":  "0 hits on this machine, and the zero has structure: the whole browser policy surface here is 3 rows (one empty HKCU Edge key, one HKLM Edge LocalNetworkAccessAllowedForUrls, one HKLM Chrome ExternalProtocolDialogShowAlwaysOpenCheckbox), none of which is a forcing policy, so this rule is idle locally. Its known-answer test lives in the fixture: an HKLM RestoreOnStartupURLs pointing at a blocklisted domain must fire, an HKCU ExtensionInstallForcelist must fire, and benign enterprise policies such as MetricsReportingEnabled and CloudPrintProxyEnabled must stay silent - without those negatives the list drifts into \"any policy counts\" the next time someone edits it. The policy-name list is data in the rule file, not in the engine. Predicates match pol_name, which the engine derives from the last segment of the key path rather than from the value name: list-shaped policies (RestoreOnStartupURLs, ExtensionInstallForcelist, LocalNetworkAccessAllowedForUrls, URLBlocklist) carry their name in the key and only an index in the value, so matching on the value name would miss exactly the strongest ones - the trap the engine smoke test exposed first, when the HKLM Edge local-network row sat in the list without firing.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -826,7 +896,7 @@
                          "title":  "签名孤儿：此处曾被篡改并清理过",
                          "severity":  "medium",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Default",
                          "key":  "BR-04|Edge / Default",
                          "fingerprint":  "22542FD1F1FEC9AD",
@@ -853,7 +923,7 @@
                                                  "advice":  "protection.macs.session still carries the signature of startup_urls / restore_on_startup while session no longer holds the plaintext. That means the value existed once and was deleted (by you, or by a cleaning tool). It is historical evidence, not a current threat, and needs no action.",
                                                  "why":  "The browser signs protected keys, and protection.macs is a two-level structure (section -\u003e key -\u003e signature), not the single level many tools assume. The signatures are deterministic: within the same profile set, the same missing value yields the same signature. So deleting the value and leaving the signature does not corrupt the file - the browser simply re-signs on its next write.",
                                                  "verified_evidence":  "macs.session in Edge Default, Edge Profile 2 and Chrome Default all contain a startup_urls signature while session holds no plaintext.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -863,43 +933,7 @@
                          "title":  "黑名单域名仍持有内容设置例外",
                          "severity":  "medium",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "Edge / Default",
-                         "key":  "BR-08|Edge / Default",
-                         "fingerprint":  "20955B2D0A399EE9",
-                         "evidence":  {
-                                          "perm_grants_bad":  "http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02",
-                                          "perm_bad_settings":  [
-                                                                    "http_allowed"
-                                                                ],
-                                          "perm_total_keys":  411,
-                                          "startup_urls_bad":  {
-
-                                                               },
-                                          "sync_preferences_enabled":  false
-                                      },
-                         "advice":  "启动页已经干净，但浏览器仍然记得这个域名——这一条证明的是\"页面被真正加载过\"，而 BR-01 只能证明\"配置里写了它\"。撤销入口：edge://settings/content/all 或 chrome://settings/content/all 按域名搜索逐条删除；若列表里搜不到该域名，说明这个类型没有 UI 开关，只能清 Profile 或接受它作为历史记录。",
-                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
-                         "verified_on":  "2026-10-16",
-                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
-                                                 "advice":  "The startup page is already clean, but the browser still remembers this domain - this row proves that the page was really loaded, where BR-01 can only prove that the configuration mentioned it. Revoking: search the domain in edge://settings/content/all or chrome://settings/content/all and delete the rows one by one; if the domain cannot be found in that list, this setting type has no UI switch and the only options are clearing the profile or accepting it as history.",
-                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
-                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "BR-08",
-                         "title":  "黑名单域名仍持有内容设置例外",
-                         "severity":  "medium",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Default",
                          "key":  "BR-08|Chrome / Default",
                          "fingerprint":  "1D8763E652CC573F",
@@ -929,7 +963,7 @@
                                                  "advice":  "This domain\u0027s startup page is still present right now, and these exceptions are residue from the same episode. Handle the startup page per BR-01 first, then come back to edge://settings/content/all (or chrome://settings/content/all), search the domain and delete these rows - otherwise a single load writes new exceptions.",
                                                  "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
                                                  "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -939,7 +973,43 @@
                          "title":  "黑名单域名仍持有内容设置例外",
                          "severity":  "medium",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "Edge / Default",
+                         "key":  "BR-08|Edge / Default",
+                         "fingerprint":  "20955B2D0A399EE9",
+                         "evidence":  {
+                                          "perm_grants_bad":  "http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02",
+                                          "perm_bad_settings":  [
+                                                                    "http_allowed"
+                                                                ],
+                                          "perm_total_keys":  411,
+                                          "startup_urls_bad":  {
+
+                                                               },
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "启动页已经干净，但浏览器仍然记得这个域名——这一条证明的是\"页面被真正加载过\"，而 BR-01 只能证明\"配置里写了它\"。撤销入口：edge://settings/content/all 或 chrome://settings/content/all 按域名搜索逐条删除；若列表里搜不到该域名，说明这个类型没有 UI 开关，只能清 Profile 或接受它作为历史记录。",
+                         "why":  "profile.content_settings.exceptions 是浏览器自己维护的\"这个源我加载过、我当时怎么决定的\"台账，它不受启动页清理影响，也不在一般清理工具的视野里。键名里的 setting 决定含义：http_allowed / media_engagement / site_engagement 说明页面真的渲染过，trackers_data 是浏览器把它标记成跟踪器，notifications 才是可被滥用的推送授权。只有把三者混在一起列出来，才能判断这个域名是历史访问还是仍在生效的能力。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "Edge / Profile 1 在 10-16 修复启动页后仍留下 4 条命中（另有 1 条 trackers_data|https://cdn.weather.hao.360.cn:443,* 在 19:05 的手工枚举里还在、19:27 探针采集时已消失，同一 Profile 的台账总数从 1355 掉到 1251，中间是 Edge 19:24:58 自己回写这个文件——说明这本台账会随浏览器写入缩水，不能当永久记录）：http_allowed|https://2345.pbgia.com:443,* 与 site_engagement|https://www.2345.com:443,* 的 last_modified 解出 2026-10-16 12:38:35，media_engagement|https://www.2345.com:443,* 解出 12:38:39，media_engagement|https://nexus.mydown.com:443,* 解出 10-10 22:15:08——劫持值还在生效的那一刻浏览器确实加载了这个页面，而启动页文件本身给不出这个时间。Edge / Default 另有 http_allowed|https://hao.pbgia.com:443,*（07-12 16:18），Chrome / Default 同时存在 http_allowed|https://2345.pbgia.com:443,*（10-09 11:35）与 www.2345.com 的 media/site engagement 两条（最新 10-15 14:39）——两个浏览器都被加载过。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A blacklisted domain still holds content-setting exceptions",
+                                                 "advice":  "The startup page is already clean, but the browser still remembers this domain - this row proves that the page was really loaded, where BR-01 can only prove that the configuration mentioned it. Revoking: search the domain in edge://settings/content/all or chrome://settings/content/all and delete the rows one by one; if the domain cannot be found in that list, this setting type has no UI switch and the only options are clearing the profile or accepting it as history.",
+                                                 "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
+                                                 "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-08",
+                         "title":  "黑名单域名仍持有内容设置例外",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 1",
                          "key":  "BR-08|Edge / Profile 1",
                          "fingerprint":  "B0959945EA3DE677",
@@ -974,7 +1044,7 @@
                                                  "advice":  "This domain\u0027s startup page is still present right now, and these exceptions are residue from the same episode. Handle the startup page per BR-01 first, then come back to edge://settings/content/all (or chrome://settings/content/all), search the domain and delete these rows - otherwise a single load writes new exceptions.",
                                                  "why":  "profile.content_settings.exceptions is the browser\u0027s own ledger of \"this origin was loaded, and this is what was decided about it then\". It is unaffected by startup-page cleaning and outside the view of ordinary cleaning tools. The setting name in the key carries the meaning: http_allowed / media_engagement / site_engagement mean the page really rendered, trackers_data means the browser marked it as a tracker, notifications is the push permission that can actually be abused. Only by listing all three together can you judge whether a domain is past history or a still-active capability.",
                                                  "verified_evidence":  "Edge / Profile 1 kept 4 hits after the 10-16 startup-page fix (plus trackers_data|https://cdn.weather.hao.360.cn:443,* which was still present in the 19:05 manual enumeration and gone by the 19:27 probe capture; the same profile\u0027s ledger fell from 1355 rows to 1251 in between, Edge having rewritten the file itself at 19:24:58 - the ledger shrinks as the browser writes, so it is not a permanent record): http_allowed|https://2345.pbgia.com:443,* and site_engagement|https://www.2345.com:443,* decode last_modified to 2026-10-16 12:38:35, media_engagement|https://www.2345.com:443,* to 12:38:39, and media_engagement|https://nexus.mydown.com:443,* to 10-10 22:15:08 - at the moment the hijack value was still in effect the browser really did load this page, and the startup-page file cannot yield that timestamp. Edge / Default additionally holds http_allowed|https://hao.pbgia.com:443,* (07-12 16:18), and Chrome / Default holds both http_allowed|https://2345.pbgia.com:443,* (10-09 11:35) and two media/site-engagement rows for www.2345.com (latest 10-15 14:39) - both browsers loaded it.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -984,7 +1054,43 @@
                          "title":  "默认搜索引擎被替换或被策略锁定",
                          "severity":  "medium",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "Chrome / Default",
+                         "key":  "BR-09|Chrome / Default",
+                         "fingerprint":  "1EDA143CB129CCA5",
+                         "evidence":  {
+                                          "search_keyword":  "google.com",
+                                          "search_name":  "Google",
+                                          "search_url":  "",
+                                          "search_policy":  true,
+                                          "search_bad":  {
+
+                                                         },
+                                          "startup_urls_bad":  "http://www.so.com/?q=hijack",
+                                          "sync_preferences_enabled":  false
+                                      },
+                         "advice":  "这个引擎是 enforced_by_policy=true：它不是用户选的，是组策略或注册表策略强制的，所以浏览器设置页里改不动也删不掉。要查 HKLM\\SOFTWARE\\Policies\\Google\\Chrome 与 HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge 下的搜索/扩展策略键；企业设备上这可能是 IT 部门装的，用 ack.bat 标记为已知即可。",
+                         "why":  "启动页劫持决定你打开浏览器看到什么，搜索引擎劫持决定你搜什么出来什么——后者更隐蔽，因为它只在真的搜索时才暴露。判据取 keyword 而不是 search_url，是因为预置引擎（Google/Bing）的 URL 全是 {google:baseURL} 这类占位符，只有 keyword 这个裸域名稳定；而劫持者不是预置引擎，它一定带一条字面 URL，所以两个都读才能同时覆盖两种情况。enforced_by_policy 单列出来是因为它把\"你自己装错了\"和\"有东西替你决定了\"分开，这两种处置方式完全不同。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "The default search engine was replaced, or is locked by policy",
+                                                 "advice":  "This engine has enforced_by_policy=true: the user did not choose it, a group policy or registry policy did, so the browser settings page can neither change nor remove it. Check the search/extension policy keys under HKLM\\SOFTWARE\\Policies\\Google\\Chrome and HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge; on a corporate device IT may have installed it, in which case ack.bat marks it as known.",
+                                                 "why":  "Startup-page hijacking decides what you see when you open the browser; search-engine hijacking decides what your searches return - the latter is more subtle because it only shows up when you actually search. The criterion uses keyword rather than search_url because prepopulated engines (Google/Bing) have URLs that are all placeholders like {google:baseURL}, so only the bare-domain keyword is stable; a hijacker is not prepopulated and always carries a literal URL, so both have to be read to cover both cases. enforced_by_policy is listed separately because it separates \"you installed the wrong thing\" from \"something decided for you\", and those two have completely different remediations.",
+                                                 "verified_evidence":  "Of the 5 profiles on this machine only Chrome / Default exposes default_search_provider_data as a readable object: keyword=google.com, short_name=Google, enforced_by_policy=false, so this machine yields 0 hits and that is the correct state. The 4 Edge profiles store a 40-character hex digest plus _encrypted_hash at the same position (measured: \"template_url_data\":\"31C06AB2...\" in Secure Preferences), so the engine name cannot be read - BR-10 states that blind spot instead of treating it as clean. Extracting from Web Data (SQLite) was attempted and rejected: every Edge profile contains the baidu/sogou/so.com/360 set of prepopulated engine strings, because that table is the list of available engines, not the selected one - using it as a criterion would report every Chinese-language Edge as hijacked. The fixture contains two planted rows: one with a blocklisted keyword, one with enforced_by_policy=true.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-09",
+                         "title":  "默认搜索引擎被替换或被策略锁定",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 2",
                          "key":  "BR-09|Edge / Profile 2",
                          "fingerprint":  "459690FABCD3E653",
@@ -1013,84 +1119,17 @@
                                                  "advice":  "The default engine\u0027s keyword/URL matches the blocklist. Revoking: pick the right engine in edge://settings/search or chrome://settings/searchEngines, press \"make default\", then delete the blacklisted entry; if it cannot be deleted from the list, it arrived through policy or an extension - read the next piece of advice. Note that this item cannot be determined on Edge at all (see BR-10), so this row only means something for Chrome and for manually added engines.",
                                                  "why":  "Startup-page hijacking decides what you see when you open the browser; search-engine hijacking decides what your searches return - the latter is more subtle because it only shows up when you actually search. The criterion uses keyword rather than search_url because prepopulated engines (Google/Bing) have URLs that are all placeholders like {google:baseURL}, so only the bare-domain keyword is stable; a hijacker is not prepopulated and always carries a literal URL, so both have to be read to cover both cases. enforced_by_policy is listed separately because it separates \"you installed the wrong thing\" from \"something decided for you\", and those two have completely different remediations.",
                                                  "verified_evidence":  "Of the 5 profiles on this machine only Chrome / Default exposes default_search_provider_data as a readable object: keyword=google.com, short_name=Google, enforced_by_policy=false, so this machine yields 0 hits and that is the correct state. The 4 Edge profiles store a 40-character hex digest plus _encrypted_hash at the same position (measured: \"template_url_data\":\"31C06AB2...\" in Secure Preferences), so the engine name cannot be read - BR-10 states that blind spot instead of treating it as clean. Extracting from Web Data (SQLite) was attempted and rejected: every Edge profile contains the baidu/sogou/so.com/360 set of prepopulated engine strings, because that table is the list of available engines, not the selected one - using it as a criterion would report every Chinese-language Edge as hijacked. The fixture contains two planted rows: one with a blocklisted keyword, one with enforced_by_policy=true.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "CHANGED"
                      },
                      {
-                         "rule_id":  "BR-09",
-                         "title":  "默认搜索引擎被替换或被策略锁定",
-                         "severity":  "medium",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "Chrome / Default",
-                         "key":  "BR-09|Chrome / Default",
-                         "fingerprint":  "1EDA143CB129CCA5",
-                         "evidence":  {
-                                          "search_keyword":  "google.com",
-                                          "search_name":  "Google",
-                                          "search_url":  "",
-                                          "search_policy":  true,
-                                          "search_bad":  {
-
-                                                         },
-                                          "startup_urls_bad":  "http://www.so.com/?q=hijack",
-                                          "sync_preferences_enabled":  false
-                                      },
-                         "advice":  "这个引擎是 enforced_by_policy=true：它不是用户选的，是组策略或注册表策略强制的，所以浏览器设置页里改不动也删不掉。要查 HKLM\\SOFTWARE\\Policies\\Google\\Chrome 与 HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge 下的搜索/扩展策略键；企业设备上这可能是 IT 部门装的，用 ack.bat 标记为已知即可。",
-                         "why":  "启动页劫持决定你打开浏览器看到什么，搜索引擎劫持决定你搜什么出来什么——后者更隐蔽，因为它只在真的搜索时才暴露。判据取 keyword 而不是 search_url，是因为预置引擎（Google/Bing）的 URL 全是 {google:baseURL} 这类占位符，只有 keyword 这个裸域名稳定；而劫持者不是预置引擎，它一定带一条字面 URL，所以两个都读才能同时覆盖两种情况。enforced_by_policy 单列出来是因为它把\"你自己装错了\"和\"有东西替你决定了\"分开，这两种处置方式完全不同。",
-                         "verified_on":  "2026-10-16",
-                         "verified_evidence":  "本机 5 个 Profile 中只有 Chrome / Default 的 default_search_provider_data 可读到对象：keyword=google.com、short_name=Google、enforced_by_policy=false，因此本机命中 0 条，这是正确状态。Edge 的 4 个 Profile 里同一位置存的是 40 位十六进制哈希加 _encrypted_hash（实测 Secure Preferences 中 \"template_url_data\":\"31C06AB2...\"），读不出引擎名——这个盲区由 BR-10 明说，而不是当成干净结果。曾尝试从 Web Data(SQLite) 提取：实测每个 Edge Profile 都含 baidu/sogou/so.com/360 一批预置引擎字符串，那是\"可用引擎列表\"不是\"当前默认\"，用它做判据会把每一台中文版 Edge 都报成劫持，所以放弃该路径。夹具里造了两条：一条 keyword 命中黑名单、一条 enforced_by_policy=true。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Secure Preferences",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "The default search engine was replaced, or is locked by policy",
-                                                 "advice":  "This engine has enforced_by_policy=true: the user did not choose it, a group policy or registry policy did, so the browser settings page can neither change nor remove it. Check the search/extension policy keys under HKLM\\SOFTWARE\\Policies\\Google\\Chrome and HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge; on a corporate device IT may have installed it, in which case ack.bat marks it as known.",
-                                                 "why":  "Startup-page hijacking decides what you see when you open the browser; search-engine hijacking decides what your searches return - the latter is more subtle because it only shows up when you actually search. The criterion uses keyword rather than search_url because prepopulated engines (Google/Bing) have URLs that are all placeholders like {google:baseURL}, so only the bare-domain keyword is stable; a hijacker is not prepopulated and always carries a literal URL, so both have to be read to cover both cases. enforced_by_policy is listed separately because it separates \"you installed the wrong thing\" from \"something decided for you\", and those two have completely different remediations.",
-                                                 "verified_evidence":  "Of the 5 profiles on this machine only Chrome / Default exposes default_search_provider_data as a readable object: keyword=google.com, short_name=Google, enforced_by_policy=false, so this machine yields 0 hits and that is the correct state. The 4 Edge profiles store a 40-character hex digest plus _encrypted_hash at the same position (measured: \"template_url_data\":\"31C06AB2...\" in Secure Preferences), so the engine name cannot be read - BR-10 states that blind spot instead of treating it as clean. Extracting from Web Data (SQLite) was attempted and rejected: every Edge profile contains the baidu/sogou/so.com/360 set of prepopulated engine strings, because that table is the list of available engines, not the selected one - using it as a criterion would report every Chinese-language Edge as hijacked. The fixture contains two planted rows: one with a blocklisted keyword, one with enforced_by_policy=true.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
                          "rule_id":  "BR-13",
                          "title":  "浏览器文件类型指向一个已不存在的处理程序",
                          "severity":  "medium",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "browser_file_assoc / .htm",
-                         "key":  "BR-13|browser_file_assoc / .htm",
-                         "fingerprint":  "97DC0CD461DCF7F9",
-                         "evidence":  {
-                                          "assoc_progid":  "2345HTML",
-                                          "assoc_kind":  "missing",
-                                          "assoc_hash":  true,
-                                          "path":  "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.htm\\UserChoice"
-                                      },
-                         "advice":  "这条 UserChoice 带 Hash，说明它是某个程序通过正规 API 写的、Windows 认它。去 设置 → 应用 → 默认应用 把 .htm/.html 重新指给你在用的浏览器。不要手工 reg 导入替代：UserChoice 的 Hash 与当前用户的密钥绑定，手写的副本会被判无效并回退到上一个处理器。",
-                         "why":  "文件类型关联是「某个程序曾经接管过你的 .htm/.html」的化石。目标 ProgID 已经不在了，说明那个程序被删过或卸载干净了，但它的接管声明还留在注册表里：双击本地网页会打不开或弹窗问用什么应用，而这条记录本身给出了「这台机器装过什么、什么时候被卸载」的时间线证据。它是残留而不是主动劫持，所以给 medium；但同一条链上如果处理器还在、命令行又带着 URL，那就是 BR-12，两个判据互补。",
-                         "verified_on":  "2026-10-20",
-                         "verified_evidence":  "本机命中 2 条：.htm 与 .html 的 UserChoice Progid 都是 ZEROBURL，而 HKLM 与 HKCU 的 SOFTWARE\\Classes 下都没有 ZEROBURL（直接打开 HKEY_CLASSES_ROOT\\ZEROBURL 也是空的），两条都带 Hash。范围是实测收敛出来的：本机共有 211 个扩展名带 UserChoice，其中 13 个指向 Classes 里不存在的 ProgID，绝大多数是 AppX 包（.3mf/.stl → AppX…）和 Windows 组件（Windows.XPSReachViewer、Windows.Sandbox），它们本来就不注册在 Classes 下面——如果不做范围限制，这一条规则一次就能造 13 条误报。所以探针只采集浏览器文档类型（.htm/.html/.shtml/.xhtml/.mhtml），并把 AppX 形态（^appx[a-z0-9]{20,}$）单独标成 appx 而不是 missing。剩下 3 个扩展名在本机都正常解析到 MSEdgeHTM/MSEdgeMHT。夹具的 file_assocs 造了三条：悬空且非 AppX 必须命中、AppX 形态必须不命中、能解析到在用的 ProgID 必须不命中。已知盲区：ProgID 能解析、但它指向的 exe 已被删除（本机的 secure-browser → AvastBrowser.exe 就是这种），探针没有判定，因为从命令行里可靠地切出可执行文件路径需要一个真正的命令行解析器，切错就会对着装着的浏览器报「程序不见了」。",
-                         "detail_path":  "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.htm\\UserChoice",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "A browser file type points at a handler that no longer exists",
-                                                 "advice":  "This UserChoice carries a Hash, which means a program wrote it through the proper API and Windows honours it. Re-point .htm/.html at the browser you actually use in Settings -\u003e Apps -\u003e Default apps. Do not import a hand-written .reg over it: the UserChoice Hash is bound to the current user\u0027s secret, so a copied value is judged invalid and the shell falls back to the previous handler.",
-                                                 "why":  "A file-type association is the fossil of \"some program once took over your .htm/.html\". The target ProgID is gone, which means that program was deleted or uninstalled cleanly, but its claim on your file types is still in the registry: double-clicking a saved web page now fails or asks which app to use, and the record itself is timeline evidence for what was installed on this machine and when it was removed. It is residue rather than an active hijack, hence medium; if the handler is still present and its command line carries a URL, that is BR-12, so the two criteria are complementary.",
-                                                 "verified_evidence":  "2 hits on this machine: the UserChoice Progid for .htm and .html is ZEROBURL, while neither HKLM nor HKCU SOFTWARE\\Classes contains ZEROBURL (opening HKEY_CLASSES_ROOT\\ZEROBURL directly returns nothing), and both rows carry a Hash. The scope was narrowed by measurement: 211 extensions on this machine have a UserChoice and 13 of them point at a ProgID that does not resolve under Classes - mostly AppX packages (.3mf/.stl -\u003e AppX...) and Windows components (Windows.XPSReachViewer, Windows.Sandbox), which are legitimately not registered under Classes. Without that scope this single rule would produce 13 false positives at once. So the probe captures only browser document types (.htm/.html/.shtml/.xhtml/.mhtml) and marks AppX-shaped identifiers (^[Aa]pp[xX][a-z0-9]{20,}$) as appx rather than missing. The other three extensions resolve normally to MSEdgeHTM/MSEdgeMHT. file_assocs in the fixture plants three rows: a dangling non-AppX ProgID that must fire, an AppX-shaped one that must not, and one that resolves to a live ProgID and must not. Known blind spot: a ProgID that resolves but whose command points at a deleted executable (this machine\u0027s secure-browser -\u003e AvastBrowser.exe is exactly that) is not judged, because slicing the executable reliably out of a command line needs a real command-line parser and a wrong slice would report \"the program is missing\" about a browser that is installed.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "BR-13",
-                         "title":  "浏览器文件类型指向一个已不存在的处理程序",
-                         "severity":  "medium",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "browser_file_assoc / .xhtml",
                          "key":  "BR-13|browser_file_assoc / .xhtml",
                          "fingerprint":  "DF19227615542951",
@@ -1111,42 +1150,108 @@
                                                  "advice":  "A UserChoice without a Hash was imported by hand and Windows ignores it anyway, but this dangling key still misleads whoever looks at the Open with list later, and it does not fool a forensic read either. Delete this UserChoice subkey so the shell uses the default handler under Classes.",
                                                  "why":  "A file-type association is the fossil of \"some program once took over your .htm/.html\". The target ProgID is gone, which means that program was deleted or uninstalled cleanly, but its claim on your file types is still in the registry: double-clicking a saved web page now fails or asks which app to use, and the record itself is timeline evidence for what was installed on this machine and when it was removed. It is residue rather than an active hijack, hence medium; if the handler is still present and its command line carries a URL, that is BR-12, so the two criteria are complementary.",
                                                  "verified_evidence":  "2 hits on this machine: the UserChoice Progid for .htm and .html is ZEROBURL, while neither HKLM nor HKCU SOFTWARE\\Classes contains ZEROBURL (opening HKEY_CLASSES_ROOT\\ZEROBURL directly returns nothing), and both rows carry a Hash. The scope was narrowed by measurement: 211 extensions on this machine have a UserChoice and 13 of them point at a ProgID that does not resolve under Classes - mostly AppX packages (.3mf/.stl -\u003e AppX...) and Windows components (Windows.XPSReachViewer, Windows.Sandbox), which are legitimately not registered under Classes. Without that scope this single rule would produce 13 false positives at once. So the probe captures only browser document types (.htm/.html/.shtml/.xhtml/.mhtml) and marks AppX-shaped identifiers (^[Aa]pp[xX][a-z0-9]{20,}$) as appx rather than missing. The other three extensions resolve normally to MSEdgeHTM/MSEdgeMHT. file_assocs in the fixture plants three rows: a dangling non-AppX ProgID that must fire, an AppX-shaped one that must not, and one that resolves to a live ProgID and must not. Known blind spot: a ProgID that resolves but whose command points at a deleted executable (this machine\u0027s secure-browser -\u003e AvastBrowser.exe is exactly that) is not judged, because slicing the executable reliably out of a command line needs a real command-line parser and a wrong slice would report \"the program is missing\" about a browser that is installed.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
                      },
                      {
-                         "rule_id":  "PS-01",
-                         "title":  "自启动项指向已经不存在的文件",
+                         "rule_id":  "BR-13",
+                         "title":  "浏览器文件类型指向一个已不存在的处理程序",
                          "severity":  "medium",
-                         "group":  "persistence",
-                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
-                         "subject":  "scheduled_task / \\ZzTaskGone",
-                         "key":  "PS-01|scheduled_task / \\ZzTaskGone",
-                         "fingerprint":  "458D8317364C7E3F",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "browser_file_assoc / .htm",
+                         "key":  "BR-13|browser_file_assoc / .htm",
+                         "fingerprint":  "97DC0CD461DCF7F9",
                          "evidence":  {
-                                          "kind":  "scheduled_task",
-                                          "command":  "\"C:\\Program Files (x86)\\ZzSuite\\task.exe\" --daily",
-                                          "exe":  "C:\\Program Files (x86)\\ZzSuite\\task.exe",
-                                          "exe_exists":  false,
-                                          "location":  "\\ZzTaskGone",
-                                          "sig_status":  "",
-                                          "svc_state":  "",
-                                          "task_state":  "Ready"
+                                          "assoc_progid":  "2345HTML",
+                                          "assoc_kind":  "missing",
+                                          "assoc_hash":  true,
+                                          "path":  "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.htm\\UserChoice"
                                       },
-                         "advice":  "计划任务的目标已丢失。schtasks /query /tn \"\u003c任务名\u003e\" /v 看触发器，确认无用后 schtasks /delete /tn \"\u003c任务名\u003e\" /f。",
-                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
-                         "verified_on":  "2026-10-14",
-                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
-                         "detail_path":  "\\ZzTaskGone",
+                         "advice":  "这条 UserChoice 带 Hash，说明它是某个程序通过正规 API 写的、Windows 认它。去 设置 → 应用 → 默认应用 把 .htm/.html 重新指给你在用的浏览器。不要手工 reg 导入替代：UserChoice 的 Hash 与当前用户的密钥绑定，手写的副本会被判无效并回退到上一个处理器。",
+                         "why":  "文件类型关联是「某个程序曾经接管过你的 .htm/.html」的化石。目标 ProgID 已经不在了，说明那个程序被删过或卸载干净了，但它的接管声明还留在注册表里：双击本地网页会打不开或弹窗问用什么应用，而这条记录本身给出了「这台机器装过什么、什么时候被卸载」的时间线证据。它是残留而不是主动劫持，所以给 medium；但同一条链上如果处理器还在、命令行又带着 URL，那就是 BR-12，两个判据互补。",
+                         "verified_on":  "2026-10-20",
+                         "verified_evidence":  "本机命中 2 条：.htm 与 .html 的 UserChoice Progid 都是 ZEROBURL，而 HKLM 与 HKCU 的 SOFTWARE\\Classes 下都没有 ZEROBURL（直接打开 HKEY_CLASSES_ROOT\\ZEROBURL 也是空的），两条都带 Hash。范围是实测收敛出来的：本机共有 211 个扩展名带 UserChoice，其中 13 个指向 Classes 里不存在的 ProgID，绝大多数是 AppX 包（.3mf/.stl → AppX…）和 Windows 组件（Windows.XPSReachViewer、Windows.Sandbox），它们本来就不注册在 Classes 下面——如果不做范围限制，这一条规则一次就能造 13 条误报。所以探针只采集浏览器文档类型（.htm/.html/.shtml/.xhtml/.mhtml），并把 AppX 形态（^appx[a-z0-9]{20,}$）单独标成 appx 而不是 missing。剩下 3 个扩展名在本机都正常解析到 MSEdgeHTM/MSEdgeMHT。夹具的 file_assocs 造了三条：悬空且非 AppX 必须命中、AppX 形态必须不命中、能解析到在用的 ProgID 必须不命中。已知盲区：ProgID 能解析、但它指向的 exe 已被删除（本机的 secure-browser → AvastBrowser.exe 就是这种），探针没有判定，因为从命令行里可靠地切出可执行文件路径需要一个真正的命令行解析器，切错就会对着装着的浏览器报「程序不见了」。",
+                         "detail_path":  "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.htm\\UserChoice",
                          "i18n":  {
                                       "en":  {
-                                                 "title":  "A startup entry points at a file that no longer exists",
-                                                 "advice":  "The scheduled task\u0027s target is gone. schtasks /query /tn \"\u003ctask name\u003e\" /v to see the trigger, and once you have confirmed it is useless: schtasks /delete /tn \"\u003ctask name\u003e\" /f.",
-                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
-                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
-                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                                 "title":  "A browser file type points at a handler that no longer exists",
+                                                 "advice":  "This UserChoice carries a Hash, which means a program wrote it through the proper API and Windows honours it. Re-point .htm/.html at the browser you actually use in Settings -\u003e Apps -\u003e Default apps. Do not import a hand-written .reg over it: the UserChoice Hash is bound to the current user\u0027s secret, so a copied value is judged invalid and the shell falls back to the previous handler.",
+                                                 "why":  "A file-type association is the fossil of \"some program once took over your .htm/.html\". The target ProgID is gone, which means that program was deleted or uninstalled cleanly, but its claim on your file types is still in the registry: double-clicking a saved web page now fails or asks which app to use, and the record itself is timeline evidence for what was installed on this machine and when it was removed. It is residue rather than an active hijack, hence medium; if the handler is still present and its command line carries a URL, that is BR-12, so the two criteria are complementary.",
+                                                 "verified_evidence":  "2 hits on this machine: the UserChoice Progid for .htm and .html is ZEROBURL, while neither HKLM nor HKCU SOFTWARE\\Classes contains ZEROBURL (opening HKEY_CLASSES_ROOT\\ZEROBURL directly returns nothing), and both rows carry a Hash. The scope was narrowed by measurement: 211 extensions on this machine have a UserChoice and 13 of them point at a ProgID that does not resolve under Classes - mostly AppX packages (.3mf/.stl -\u003e AppX...) and Windows components (Windows.XPSReachViewer, Windows.Sandbox), which are legitimately not registered under Classes. Without that scope this single rule would produce 13 false positives at once. So the probe captures only browser document types (.htm/.html/.shtml/.xhtml/.mhtml) and marks AppX-shaped identifiers (^[Aa]pp[xX][a-z0-9]{20,}$) as appx rather than missing. The other three extensions resolve normally to MSEdgeHTM/MSEdgeMHT. file_assocs in the fixture plants three rows: a dangling non-AppX ProgID that must fire, an AppX-shaped one that must not, and one that resolves to a live ProgID and must not. Known blind spot: a ProgID that resolves but whose command points at a deleted executable (this machine\u0027s secure-browser -\u003e AvastBrowser.exe is exactly that) is not judged, because slicing the executable reliably out of a command line needs a real command-line parser and a wrong slice would report \"the program is missing\" about a browser that is installed.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-15",
+                         "title":  "浏览器策略静默授予了某项权限、削弱了某个保护，或用户蜂巢里有一个空的策略键",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "browser_policy / HKCU Chromium (key itself)",
+                         "key":  "BR-15|browser_policy / HKCU Chromium (key itself)",
+                         "fingerprint":  "12D19CC3D90EA928",
+                         "evidence":  {
+                                          "pol_hive":  "HKCU",
+                                          "pol_vendor":  "Chromium",
+                                          "pol_key":  "",
+                                          "pol_value":  "",
+                                          "pol_kind":  "empty_key",
+                                          "pol_data":  "",
+                                          "pol_mtime":  "2026-08-03 17:22:41",
+                                          "path":  "HKCU:\\SOFTWARE\\Policies\\Chromium"
+                                      },
+                         "advice":  "这个策略键存在，但一个值都没有、也没有子键。它没有改变浏览器的任何行为，所以不是正在生效的劫持；它的意义在于\"有东西以你的身份建了一个浏览器策略键然后什么都没写\"——要么是一次没做完的写入，要么是残留。可以先放着，但如果你从没主动创建过它，把它记进时间线：这条的写入时间是探针用 RegQueryInfoKey 直接取的，不受基线影响。",
+                         "why":  "策略面里不是每一条都是\"替你决定了某个设置\"，还有一类是\"免掉了一次本该问你的确认\"。局域网访问就是典型：新版浏览器会就\"这个网站想访问你内网的设备\"弹窗，一条策略能让它从此不弹。这类东西不会出现在任何设置页的显眼位置，所以需要一个表面专门看它。空的策略键单列，是因为它什么也不做却确实存在——一个只报问题的扫描器会把它漏掉，而它是\"有东西动过这个位置\"的证据。",
+                         "verified_on":  "2026-10-21",
+                         "verified_evidence":  "本机命中 3 条：HKLM Edge 的 LocalNetworkAccessAllowedForUrls\\1 给了一个具名 https 源访问局域网的豁免（父键与子键同一秒写入，2026-06-12 06:50:03，说明是同一次安装行为留下的）；HKLM Chrome 的 ExternalProtocolDialogShowAlwaysOpenCheckbox 免掉了外部协议那个「每次都问我」的确认；HKCU Edge 有一个 0 值 0 子键的空策略键，写入时间 2026-09-27 04:48:00。时间戳是这条规则能成立的前提：PowerShell 的注册表提供器根本不暴露写入时间（一个键对象只有 Handle/Name/SubKeyCount/ValueCount/View 五个属性），必须 P/Invoke advapi32!RegQueryInfoKey 才拿得到，而它只有 12 个参数——多写一个就会静默返回 0 且 rc 仍是 0。",
+                         "detail_path":  "HKCU:\\SOFTWARE\\Policies\\Chromium",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A browser policy silently grants a permission, weakens a protection, or an empty policy key sits in the user hive",
+                                                 "advice":  "This policy key exists but holds no value and no subkey. It changes nothing about how the browser behaves, so it is not an active hijack; what it means is that something created a browser policy key as your user and then wrote nothing - either an unfinished write or a leftover. Leaving it alone is defensible, but if you never created it deliberately, keep it in the timeline: its write time comes straight from RegQueryInfoKey via P/Invoke, so it does not depend on the baseline.",
+                                                 "why":  "Not every row in the policy surface replaces a setting; some remove a confirmation. Local network access is the clear case - current browsers ask \"this site wants to reach devices on your network\", and one policy line stops it ever asking. Nothing in a settings page surfaces that, so it needs its own surface. The empty policy key is listed separately because it does nothing yet demonstrably exists: a scanner that only reports problems drops it, and it is evidence that something touched this position.",
+                                                 "verified_evidence":  "3 hits on this machine: HKLM Edge LocalNetworkAccessAllowedForUrls\\1 grants one named https origin access to the local network (parent and child key share the same write second, 2026-06-12 06:50:03, i.e. one install action), HKLM Chrome ExternalProtocolDialogShowAlwaysOpenCheckbox removes the per-protocol \"always open\" confirmation, and HKCU Edge holds an empty policy key with 0 values and 0 subkeys written 2026-09-27 04:48:00. The timestamp is a precondition for this rule: the PowerShell registry provider exposes no write time at all (a key object has only Handle, Name, SubKeyCount, ValueCount, View), so the probe P/Invokes advapi32!RegQueryInfoKey - which takes exactly 12 parameters, and adding a thirteenth makes it return 0 silently with rc still 0.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-15",
+                         "title":  "浏览器策略静默授予了某项权限、削弱了某个保护，或用户蜂巢里有一个空的策略键",
+                         "severity":  "medium",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "browser_policy / HKLM Edge LocalNetworkAccessAllowedForUrls\\1",
+                         "key":  "BR-15|browser_policy / HKLM Edge LocalNetworkAccessAllowedForUrls\\1",
+                         "fingerprint":  "8491496A98FC801B",
+                         "evidence":  {
+                                          "pol_hive":  "HKLM",
+                                          "pol_vendor":  "Edge",
+                                          "pol_key":  "LocalNetworkAccessAllowedForUrls",
+                                          "pol_value":  "1",
+                                          "pol_kind":  "value",
+                                          "pol_data":  "https://intranet.example",
+                                          "pol_mtime":  "2026-06-12 06:50:03",
+                                          "path":  "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge\\LocalNetworkAccessAllowedForUrls"
+                                      },
+                         "advice":  "这一类不强制任何一个设置项，它做的是免掉一次询问：正常情况下浏览器会弹窗问你的权限，被策略列出来之后就永远不问、也不显示。逐条核对策略里点名的源是不是你真的需要——比如 LocalNetworkAccessAllowedForUrls 的每一项都是一个被允许访问你局域网里设备的网站。不需要就删，需要的话按 ack 记为已知，别把整条规则调瞎。",
+                         "why":  "策略面里不是每一条都是\"替你决定了某个设置\"，还有一类是\"免掉了一次本该问你的确认\"。局域网访问就是典型：新版浏览器会就\"这个网站想访问你内网的设备\"弹窗，一条策略能让它从此不弹。这类东西不会出现在任何设置页的显眼位置，所以需要一个表面专门看它。空的策略键单列，是因为它什么也不做却确实存在——一个只报问题的扫描器会把它漏掉，而它是\"有东西动过这个位置\"的证据。",
+                         "verified_on":  "2026-10-21",
+                         "verified_evidence":  "本机命中 3 条：HKLM Edge 的 LocalNetworkAccessAllowedForUrls\\1 给了一个具名 https 源访问局域网的豁免（父键与子键同一秒写入，2026-06-12 06:50:03，说明是同一次安装行为留下的）；HKLM Chrome 的 ExternalProtocolDialogShowAlwaysOpenCheckbox 免掉了外部协议那个「每次都问我」的确认；HKCU Edge 有一个 0 值 0 子键的空策略键，写入时间 2026-09-27 04:48:00。时间戳是这条规则能成立的前提：PowerShell 的注册表提供器根本不暴露写入时间（一个键对象只有 Handle/Name/SubKeyCount/ValueCount/View 五个属性），必须 P/Invoke advapi32!RegQueryInfoKey 才拿得到，而它只有 12 个参数——多写一个就会静默返回 0 且 rc 仍是 0。",
+                         "detail_path":  "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge\\LocalNetworkAccessAllowedForUrls",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A browser policy silently grants a permission, weakens a protection, or an empty policy key sits in the user hive",
+                                                 "advice":  "This class does not force a setting - it removes a question. Permissions the browser would normally ask you about are pre-granted by policy, so the prompt never appears and nothing shows that it was skipped. Check the origins each entry names one by one: every item in LocalNetworkAccessAllowedForUrls, for instance, is a site allowed to reach devices on your local network. Delete what you do not need, and acknowledge what you do rather than dulling the rule.",
+                                                 "why":  "Not every row in the policy surface replaces a setting; some remove a confirmation. Local network access is the clear case - current browsers ask \"this site wants to reach devices on your network\", and one policy line stops it ever asking. Nothing in a settings page surfaces that, so it needs its own surface. The empty policy key is listed separately because it does nothing yet demonstrably exists: a scanner that only reports problems drops it, and it is evidence that something touched this position.",
+                                                 "verified_evidence":  "3 hits on this machine: HKLM Edge LocalNetworkAccessAllowedForUrls\\1 grants one named https origin access to the local network (parent and child key share the same write second, 2026-06-12 06:50:03, i.e. one install action), HKLM Chrome ExternalProtocolDialogShowAlwaysOpenCheckbox removes the per-protocol \"always open\" confirmation, and HKCU Edge holds an empty policy key with 0 values and 0 subkeys written 2026-09-27 04:48:00. The timestamp is a precondition for this rule: the PowerShell registry provider exposes no write time at all (a key object has only Handle, Name, SubKeyCount, ValueCount, View), so the probe P/Invokes advapi32!RegQueryInfoKey - which takes exactly 12 parameters, and adding a thirteenth makes it return 0 silently with rc still 0.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1214,6 +1319,41 @@
                                       "en":  {
                                                  "title":  "A startup entry points at a file that no longer exists",
                                                  "advice":  "The service registry key is still there but the binary was deleted. After confirming you did not disable it yourself: sc query \u003cname\u003e for the state, sc delete \u003cname\u003e to clear the registration. It fails to start at every boot, and it also gives genuinely malicious persistence somewhere to hide.",
+                                                 "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
+                                                 "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
+                                                 "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "PS-01",
+                         "title":  "自启动项指向已经不存在的文件",
+                         "severity":  "medium",
+                         "group":  "persistence",
+                         "group_title":  "开机驻留：启动项、服务、驱动与网络层",
+                         "subject":  "scheduled_task / \\ZzTaskGone",
+                         "key":  "PS-01|scheduled_task / \\ZzTaskGone",
+                         "fingerprint":  "458D8317364C7E3F",
+                         "evidence":  {
+                                          "kind":  "scheduled_task",
+                                          "command":  "\"C:\\Program Files (x86)\\ZzSuite\\task.exe\" --daily",
+                                          "exe":  "C:\\Program Files (x86)\\ZzSuite\\task.exe",
+                                          "exe_exists":  false,
+                                          "location":  "\\ZzTaskGone",
+                                          "sig_status":  "",
+                                          "svc_state":  "",
+                                          "task_state":  "Ready"
+                                      },
+                         "advice":  "计划任务的目标已丢失。schtasks /query /tn \"\u003c任务名\u003e\" /v 看触发器，确认无用后 schtasks /delete /tn \"\u003c任务名\u003e\" /f。",
+                         "why":  "卸载不干净是 Windows 上最常见的驻留形态，数量远超真正的恶意软件。它本身无害，但它让「有多少启动项」这个指标彻底失去意义——当你有 40 条残留时，第 41 条新加的东西没人会注意到。",
+                         "verified_on":  "2026-10-14",
+                         "verified_evidence":  "本机命中 1 条：service/AndrowsSvr（腾讯手游助手残留，D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe 已不存在）。scheduled_task/\\自动拨号 曾被这条规则一起命中，是误报：它的命令行是裸命令名 rasdial，CreateProcess 会按 PATH 解析到 C:\\Windows\\System32\\rasdial.exe，探针补上这一步后它就不再被当成丢失目标。",
+                         "detail_path":  "\\ZzTaskGone",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "A startup entry points at a file that no longer exists",
+                                                 "advice":  "The scheduled task\u0027s target is gone. schtasks /query /tn \"\u003ctask name\u003e\" /v to see the trigger, and once you have confirmed it is useless: schtasks /delete /tn \"\u003ctask name\u003e\" /f.",
                                                  "why":  "Uninstall residue is by far the most common persistence shape on Windows, and it is far more numerous than actual malware. It is harmless in itself, but it destroys the usefulness of the metric \"how many startup entries do I have\" - when you have 40 rows of residue, nobody notices the 41st one being added.",
                                                  "verified_evidence":  "One hit on this machine: service/AndrowsSvr (Tencent GameLabs residue, D:\\Program Files\\Tencent\\Androws\\Application\\5.10.7500.6534\\AndrowsSvr.exe no longer exists). scheduled_task/\\自动拨号 (the task literally named \"auto dial\") used to be hit by this same rule and was a false positive: its command line is the bare command name rasdial, which CreateProcess resolves through PATH to C:\\Windows\\System32\\rasdial.exe; after the probe learned that step it stopped being treated as a missing target.",
                                                  "group_title":  "Boot-time persistence: startup entries, services, drivers, network layer"
@@ -1292,7 +1432,7 @@
                          "title":  "浏览器上次不是正常退出",
                          "severity":  "low",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Profile 3",
                          "key":  "BR-06|Chrome / Profile 3",
                          "fingerprint":  "774F67CB7B4A2E62",
@@ -1311,7 +1451,7 @@
                                                  "advice":  "exit_type=Crashed usually means browser processes were killed - cleaning tools do this a lot. After a kill, the value still held in memory gets written back into the config file after the next start, which makes an already-deleted hijack value look like it resurrected itself. Exit the browser properly before cleaning, and turn off Edge startup boost / background running.",
                                                  "why":  "Deciding whether a browser profile is in use cannot be done by process name (background processes are always there). Opening the file with an exclusive non-blocking lock and succeeding is the reliable signal, together with exit_type.",
                                                  "verified_evidence":  "Preferences of both Edge Profile 1 and Chrome Default carry exit_type=Crashed.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1321,7 +1461,7 @@
                          "title":  "浏览器上次不是正常退出",
                          "severity":  "low",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 1",
                          "key":  "BR-06|Edge / Profile 1",
                          "fingerprint":  "854C7AB26D4FFF0A",
@@ -1340,7 +1480,7 @@
                                                  "advice":  "exit_type=Crashed usually means browser processes were killed - cleaning tools do this a lot. After a kill, the value still held in memory gets written back into the config file after the next start, which makes an already-deleted hijack value look like it resurrected itself. Exit the browser properly before cleaning, and turn off Edge startup boost / background running.",
                                                  "why":  "Deciding whether a browser profile is in use cannot be done by process name (background processes are always there). Opening the file with an exclusive non-blocking lock and succeeding is the reliable signal, together with exit_type.",
                                                  "verified_evidence":  "Preferences of both Edge Profile 1 and Chrome Default carry exit_type=Crashed.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1383,37 +1523,7 @@
                          "title":  "启动模式被设为\"打开特定页面\"",
                          "severity":  "info",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
-                         "subject":  "Edge / Profile 1",
-                         "key":  "BR-03|Edge / Profile 1",
-                         "fingerprint":  "7974729764A4D24A",
-                         "evidence":  {
-                                          "startup_mode":  4,
-                                          "startup_urls":  "http://2345.pbgia.com/win23",
-                                          "doc_role":  "secure"
-                                      },
-                         "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
-                         "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
-                         "verified_on":  "2026-10-15",
-                         "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
-                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
-                         "i18n":  {
-                                      "en":  {
-                                                 "title":  "Startup mode is set to \"open specific pages\"",
-                                                 "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
-                                                 "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
-                                                 "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
-                                             }
-                                  },
-                         "state":  "PERSIST"
-                     },
-                     {
-                         "rule_id":  "BR-03",
-                         "title":  "启动模式被设为\"打开特定页面\"",
-                         "severity":  "info",
-                         "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Default",
                          "key":  "BR-03|Chrome / Default",
                          "fingerprint":  "527FD4EF905161F0",
@@ -1433,7 +1543,7 @@
                                                  "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
                                                  "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
                                                  "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1443,7 +1553,7 @@
                          "title":  "启动模式被设为\"打开特定页面\"",
                          "severity":  "info",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Profile 3",
                          "key":  "BR-03|Chrome / Profile 3",
                          "fingerprint":  "00BE10BD4FFAB55F",
@@ -1463,41 +1573,37 @@
                                                  "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
                                                  "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
                                                  "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
                      },
                      {
-                         "rule_id":  "BR-10",
-                         "title":  "本工具在这个对象上有判定盲区",
+                         "rule_id":  "BR-03",
+                         "title":  "启动模式被设为\"打开特定页面\"",
                          "severity":  "info",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Profile 1",
-                         "key":  "BR-10|Edge / Profile 1",
-                         "fingerprint":  "1E854703F517CDC8",
+                         "key":  "BR-03|Edge / Profile 1",
+                         "fingerprint":  "7974729764A4D24A",
                          "evidence":  {
-                                          "blind_spots":  [
-                                                              "engine_unreadable"
-                                                          ],
-                                          "doc_role":  "secure",
-                                          "search_read":  false,
-                                          "bytes":  145715,
-                                          "mtime":  "2026-10-14 21:58:28"
+                                          "startup_mode":  4,
+                                          "startup_urls":  "http://2345.pbgia.com/win23",
+                                          "doc_role":  "secure"
                                       },
-                         "advice":  "这条不是威胁，是本工具主动声明的覆盖边界：证据里列出的每一项都是这次扫描看不到的东西。它们不该被忽略，因为\"没查到\"和\"查不了\"在处置上是两个结论。",
-                         "why":  "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
-                         "verified_on":  "2026-10-16",
-                         "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
+                         "advice":  "restore_on_startup=4 本身不是恶意值，它只是\"打开以下页面\"。单独出现不报告为问题，和 BR-01 同时出现才说明这个模式被劫持利用了。",
+                         "why":  "在 Secure Preferences 里模式键叫 restore_on_startup，在明文 Preferences 里叫 startup_setting。只看 startup_urls 会漏掉\"模式已设但列表已被清空\"的残留状态——那会让浏览器下次自己造一个默认值。",
+                         "verified_on":  "2026-10-15",
+                         "verified_evidence":  "Profile 1: restore_on_startup=4 + 恶意 URL；Default: 无明文但有密封副本与签名。此条也不再要求 doc_role=secure：夹具里 Chrome / Profile 3 只有明文 Preferences 且 mode=4，锚定回退后它应当命中——测试 [6] 钉住这点。",
                          "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
                          "i18n":  {
                                       "en":  {
-                                                 "title":  "This tool has blind spots on this object",
-                                                 "advice":  "This row is not a threat, it is the coverage boundary this tool declares about itself: every item in the evidence is something this scan could not see. They should not be ignored, because \"nothing was found\" and \"could not look\" are two different conclusions when it comes to what you should do.",
-                                                 "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
-                                                 "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "title":  "Startup mode is set to \"open specific pages\"",
+                                                 "advice":  "restore_on_startup=4 is not a malicious value by itself; it just means \"open these pages\". It is not reported as a problem on its own - only together with BR-01 does it show that this mode is being exploited.",
+                                                 "why":  "In Secure Preferences the mode key is called restore_on_startup; in the plain Preferences it is called startup_setting. Looking only at startup_urls misses the state \"mode is set but the list was already emptied\", which lets the browser invent a default on the next start.",
+                                                 "verified_evidence":  "Profile 1: restore_on_startup=4 plus a malicious URL; Default: no plaintext value but a sealed copy and signatures are present. This rule no longer requires doc_role=secure either: Chrome / Profile 3 in the fixture has only the plain Preferences with mode=4, and after the anchor fallback it should fire - test [6] pins that.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1507,7 +1613,7 @@
                          "title":  "本工具在这个对象上有判定盲区",
                          "severity":  "info",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Chrome / Profile 3",
                          "key":  "BR-10|Chrome / Profile 3",
                          "fingerprint":  "AC4FE3F8B35DE191",
@@ -1532,7 +1638,7 @@
                                                  "advice":  "This profile has no Secure Preferences. The sealed copy, the signature protection and the default search engine only exist in that file, so any \"clean\" this tool gives for it means only \"nothing in the plaintext\". Either this profile has never had protected settings written by the browser, or it is not a standard profile - please confirm by hand whether you created it.",
                                                  "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
                                                  "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1542,7 +1648,41 @@
                          "title":  "本工具在这个对象上有判定盲区",
                          "severity":  "info",
                          "group":  "browser",
-                         "group_title":  "浏览器启动页、搜索引擎、快捷方式与注册表启动链",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
+                         "subject":  "Edge / Profile 1",
+                         "key":  "BR-10|Edge / Profile 1",
+                         "fingerprint":  "1E854703F517CDC8",
+                         "evidence":  {
+                                          "blind_spots":  [
+                                                              "engine_unreadable"
+                                                          ],
+                                          "doc_role":  "secure",
+                                          "search_read":  false,
+                                          "bytes":  145715,
+                                          "mtime":  "2026-10-14 21:58:28"
+                                      },
+                         "advice":  "这条不是威胁，是本工具主动声明的覆盖边界：证据里列出的每一项都是这次扫描看不到的东西。它们不该被忽略，因为\"没查到\"和\"查不了\"在处置上是两个结论。",
+                         "why":  "一个只报问题的扫描器，它的\"无问题\"是没有信息量的——无法区分\"这台机器干净\"和\"这台机器上的东西我没覆盖到\"。把每个对象上读不到的表面做成一条会随基线变化的结论，报告里\"干净\"这句话才有可核查的含义。这也是本项目对\"为什么不用关键词黑名单\"的同一条态度的另一面：宁可明说自己不知道什么，也不把不知道写成没有。",
+                         "verified_on":  "2026-10-16",
+                         "verified_evidence":  "本机 5 个 Profile 全部命中：4 个 Edge Profile 各 1 条（默认搜索引擎存成哈希，读不出），Chrome / Default 0 条（引擎可读且干净）。这条规则的判据就是这一句实测差异——如果哪天 Edge 改成明文存储，命中数会自己降到 0，而不是继续谎报盲区。",
+                         "detail_path":  "C:\\Users\\example\\AppData\\Local\\Microsoft\\Edge\\User Data\\Profile 1\\Secure Preferences",
+                         "i18n":  {
+                                      "en":  {
+                                                 "title":  "This tool has blind spots on this object",
+                                                 "advice":  "This row is not a threat, it is the coverage boundary this tool declares about itself: every item in the evidence is something this scan could not see. They should not be ignored, because \"nothing was found\" and \"could not look\" are two different conclusions when it comes to what you should do.",
+                                                 "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
+                                                 "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
+                                             }
+                                  },
+                         "state":  "PERSIST"
+                     },
+                     {
+                         "rule_id":  "BR-10",
+                         "title":  "本工具在这个对象上有判定盲区",
+                         "severity":  "info",
+                         "group":  "browser",
+                         "group_title":  "浏览器启动页、搜索引擎、快捷方式、注册表启动链与策略",
                          "subject":  "Edge / Default",
                          "key":  "BR-10|Edge / Default",
                          "fingerprint":  "CE2053A2A6BF2C7B",
@@ -1566,7 +1706,7 @@
                                                  "advice":  "This row is not a threat, it is the coverage boundary this tool declares about itself: every item in the evidence is something this scan could not see. They should not be ignored, because \"nothing was found\" and \"could not look\" are two different conclusions when it comes to what you should do.",
                                                  "why":  "For a scanner that only reports problems, \"no problems\" carries no information - it cannot distinguish \"this machine is clean\" from \"this machine contains things I do not cover\". Turning every surface that cannot be read on an object into a conclusion that is itself baseline-tracked is what makes the word \"clean\" in the report mean something checkable. It is the same stance that makes this project refuse vendor keyword blocklists: say what you do not know instead of writing ignorance as absence.",
                                                  "verified_evidence":  "All 5 profiles on this machine fire it: the 4 Edge profiles with 1 row each (default engine stored as a hash, unreadable), Chrome / Default with 0 (engine readable and clean). This measured difference is the entire criterion - if Edge ever goes back to plaintext storage, the hit count drops to 0 on its own instead of continuing to claim a blind spot.",
-                                                 "group_title":  "Browser startup page, search engine, shortcuts and the registry launch chain"
+                                                 "group_title":  "Browser startup page, search engine, shortcuts, the registry launch chain and policies"
                                              }
                                   },
                          "state":  "PERSIST"
@@ -1579,7 +1719,7 @@
                          "title":  "上次修复经受住了复查",
                          "subject":  "Edge / Profile 2",
                          "severity":  "good",
-                         "since":  "2026-10-20 13:29:48",
+                         "since":  "2026-10-21 19:41:30",
                          "i18n":  {
                                       "en":  {
                                                  "title":  "The previous repair survived the re-check"
@@ -1632,6 +1772,10 @@
     emptyList: ['（无）', '(none)'],
     noSigTarget: ['无从校验 — 目标文件不存在', 'cannot be checked - the target file does not exist'],
     noSigner: ['（无签名者信息，可能不是 PE 文件）', '(no signer information - may not be a PE file)'],
+    // On the policy surface an empty cell is a fact, not missing data: a root-level
+    // policy has no subkey path and an empty policy key has no value name.
+    polRootKey: ['（厂商策略根键本身）', '(the vendor policy root key itself)'],
+    polNoValue: ['（这个键没有任何值）', '(this key holds no value at all)'],
     existsNo: ['否 — 二进制已丢失', 'no - the binary is gone'],
     falseNo: ['否', 'no'], trueYes: ['是', 'yes'],
     policyYes: ['是 — 浏览器设置页里改不动', 'yes - the browser settings page cannot change it'],
@@ -1715,7 +1859,18 @@
     cmd_bad: ['启动命令命中黑名单', 'Launch command matches the blocklist'],
     assoc_progid: ['文件类型指向的 ProgID', 'ProgID the file type points at'],
     assoc_kind: ['ProgID 的解析结果', 'How the ProgID resolves'],
-    assoc_hash: ['UserChoice 带 Hash', 'UserChoice carries a Hash']
+    assoc_hash: ['UserChoice 带 Hash', 'UserChoice carries a Hash'],
+    // BR-14/BR-15 read the policy layer. It lives below the settings page, so the
+    // evidence has to name the hive (which decides who could write it), the policy
+    // and its value, and the write time - the only "when" available for a
+    // machine-level row, since PowerShell exposes no timestamp for a registry key.
+    pol_hive: ['策略写在哪个蜂巢', 'Which hive the policy is written to'],
+    pol_vendor: ['被下策略的浏览器', 'Browser the policy targets'],
+    pol_key: ['策略键（相对厂商根键）', 'Policy key below the vendor root'],
+    pol_value: ['策略值名', 'Policy value name'],
+    pol_kind: ['这一行的形态', 'Shape of this row'],
+    pol_data: ['策略设定的值', 'What the policy sets'],
+    pol_mtime: ['键的最后写入时间', 'Last write time of the key']
   };
   // Signature failures: a raw Win32 token is not something a reader can act on.
   var HIT = {
@@ -1728,12 +1883,13 @@
     scheduled_task: ['计划任务', 'Scheduled task'], service: ['服务', 'Service'],
     elam_driver: ['Early-Launch 驱动', 'Early-Launch driver'], hosts_file: ['hosts 文件', 'hosts file'],
     ifeo_debugger: ['IFEO 劫持', 'IFEO hijack'], winsock_lsp: ['Winsock LSP', 'Winsock LSP'],
-    // The three machine-level browser surfaces. They sit outside every profile, so
+    // The four machine-level browser surfaces. They sit outside every profile, so
     // without a display name a reader sees an internal token where an action should
     // be - and the subject prefix is what tells them which layer to fix.
     browser_shortcut: ['浏览器快捷方式', 'Browser shortcut'],
     browser_launch_cmd: ['注册表浏览器启动命令', 'Registry browser launch command'],
-    browser_file_assoc: ['浏览器文件类型关联', 'Browser file-type association']
+    browser_file_assoc: ['浏览器文件类型关联', 'Browser file-type association'],
+    browser_policy: ['浏览器策略（注册表）', 'Browser policy (registry)']
   };
   var DRV = {
     '0': ['BOOT_START（开机最早期）', 'BOOT_START (earliest boot stage)'],
@@ -1745,6 +1901,17 @@
   var DOC = {
     secure: ['Secure Preferences（权威副本，会还原明文删除）', 'Secure Preferences (authoritative copy, restores deleted plaintext)'],
     plain_only: ['仅明文 Preferences（该 Profile 没有 Secure Preferences）', 'plain Preferences only (this profile has no Secure Preferences)']
+  };
+  // The hive is the whole story behind a policy row: HKCU means whatever ran as you
+  // left it, HKLM means something that could elevate. The shape decides whether the
+  // row changed behaviour or only proves that someone touched the location.
+  var POLHIVE = {
+    HKCU: ['HKCU — 当前用户，写入不需要管理员权限', 'HKCU - this user; writing it needed no administration rights'],
+    HKLM: ['HKLM — 全机生效，写入需要提权', 'HKLM - machine-wide; writing it needed elevation']
+  };
+  var POLKIND = {
+    value: ['一个策略值', 'a policy value'],
+    empty_key: ['一个空策略键（0 个值、0 个子键）', 'an empty policy key (0 values, 0 subkeys)']
   };
   // How the registry launch chain reached this command, and what the handler table
   // found. The engine emits the tokens; a reader needs to know which user action
@@ -1972,6 +2139,12 @@
       if (k === 'doc_role' && DOC[v]) txt = t(DOC[v]);
       if (k === 'assoc_kind' && AKIND[v]) txt = t(AKIND[v]);
       if (k === 'assoc_hash') txt = t(HASH[String(v)]);
+      if (k === 'pol_hive' && POLHIVE[String(v)]) txt = t(POLHIVE[String(v)]);
+      if (k === 'pol_kind' && POLKIND[String(v)]) txt = t(POLKIND[String(v)]);
+      // An empty path or value on this surface is meaningful, so it must not render
+      // as the generic "none" used for an empty list.
+      if (k === 'pol_key' && (v === '' || v === null)) txt = t(S.polRootKey);
+      if (k === 'pol_value' && (v === '' || v === null)) txt = t(S.polNoValue);
       if (k === 'cmd_source') {
         var bits = String(v).split('+'), read = [];
         for (var bi = 0; bi < bits.length; bi++) {

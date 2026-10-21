@@ -5,9 +5,61 @@ All notable changes to this project are documented here. The format follows
 are the dates the commits landed — this file was written after `v1.0.0` and describes work already in
 the tree rather than pretending the history was planned.
 
-## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.4.0...HEAD)
+## [Unreleased](https://github.com/xuange-hu/winproof/compare/v1.5.0...HEAD)
 
 Nothing pending.
+
+## [1.5.0] — 2026-10-21
+
+Two rules about the one layer the browser's settings page cannot reach, plus a capability the whole report
+had been missing: **when a registry key was written**. 23 rules, 96 assertions, three CI gates
+(`selftest.ps1`, `verify.js`, `hygiene.ps1`), two headless probes, one double-click entry point.
+
+### Added
+
+- **BR-14 — a browser policy forces a setting.** The probe now walks `SOFTWARE\Policies` for Edge, Chrome,
+  Chromium and Brave under HKCU and HKLM, with HKLM read in both the 64-bit and the `WOW6432Node` view, and
+  hands over every value verbatim. The trigger is a list of 28 policy *names* that force a startup page,
+  homepage, new tab, search engine, extension list, proxy, DoH or managed bookmarks — kept in the rule file
+  as data, so a contributed policy name never becomes executable input. The hive is a separate fact on
+  purpose: HKCU means something running as you wrote it, HKLM means something that could elevate, and the
+  two get different remediation.
+- **BR-15 — a policy pre-grants a permission, or an empty policy key sits in the user hive.** A second list
+  of 14 names catches the quieter class: policies that delete a confirmation the browser would otherwise
+  show. One real row on the author's machine — `LocalNetworkAccessAllowedForUrls` under HKLM Edge — means a
+  named origin may reach devices on the local network with no prompt, ever. An empty policy key (0 values,
+  0 subkeys) under HKCU is reported too: it changes nothing, and it is still evidence that something
+  created the location and wrote nothing into it.
+- **Registry write times, via P/Invoke.** The registry provider exposes no last-write time at all, so the
+  probe calls `advapi32!RegQueryInfoKey` for it. Every policy row now carries the second it was written in,
+  which is what lets two rows sharing a second be read as one install action. The probe also emits
+  `policy_mtime` so a reader can tell whether a given capture had timestamps available.
+
+### Changed
+
+- Rule count 21 → 23, browser group 13 → 15, fixture policy rows 0 → 7, selftest assertions 92 → 96,
+  fixture subjects 16 → 23, live baseline findings 29 → 32 on the author's machine.
+- Predicates match `pol_name`, derived by the engine from the last segment of the key path. Matching the
+  registry *value* name is wrong for every list-shaped policy: `RestoreOnStartupURLs`,
+  `ExtensionInstallForcelist`, `LocalNetworkAccessAllowedForUrls` and `URLBlocklist` carry their name in the
+  key and only an index in the value, so a value-name match misses exactly the strongest entries. The engine
+  smoke test caught this — a real HKLM grant sat in the list without firing.
+- `BR-14` is the first rule whose known answer is entirely inside the fixture, because a clean machine cannot
+  produce a positive case for it. The fixture therefore carries three rows that must stay silent
+  (`MetricsReportingEnabled`, `CloudPrintProxyEnabled`, and an empty key under HKLM); without those negatives,
+  widening the list to "any policy counts" keeps every other assertion green while turning a managed
+  corporate laptop red.
+- Two candidate rules were measured and **dropped** instead of shipped: a scheduled-task browser relauncher
+  (0 of 206 tasks on this machine carry any browser command line) and a forced-extension/DNS-over-HTTPS check
+  with no local sample at all. Both are recorded here as refusals, because the project's evidence rule cuts
+  both ways.
+
+### Fixed
+
+- `RegQueryInfoKey` declared with 13 parameters returns `rc = 0` and leaves the FILETIME at 0, so every key
+  looks never-written and nothing errors. The signature has exactly 12; the call was validated against the
+  managed `ValueCount`/`SubKeyCount` on 8 real keys before the parameter list was identified as the culprit,
+  and `Get-KeyWriteTime` now returns an empty string rather than a fabricated zero date.
 
 ## [1.4.0] — 2026-10-20
 
@@ -261,6 +313,7 @@ static HTML report.
   like in the wild comes from public cases, and the README says so instead of inventing a success
   story.
 
+[1.5.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.5.0
 [1.4.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.4.0
 [1.3.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.3.0
 [1.2.0]: https://github.com/xuange-hu/winproof/releases/tag/v1.2.0

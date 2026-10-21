@@ -233,6 +233,10 @@
     emptyList: ['（无）', '(none)'],
     noSigTarget: ['无从校验 — 目标文件不存在', 'cannot be checked - the target file does not exist'],
     noSigner: ['（无签名者信息，可能不是 PE 文件）', '(no signer information - may not be a PE file)'],
+    // On the policy surface an empty cell is a fact, not missing data: a root-level
+    // policy has no subkey path and an empty policy key has no value name.
+    polRootKey: ['（厂商策略根键本身）', '(the vendor policy root key itself)'],
+    polNoValue: ['（这个键没有任何值）', '(this key holds no value at all)'],
     existsNo: ['否 — 二进制已丢失', 'no - the binary is gone'],
     falseNo: ['否', 'no'], trueYes: ['是', 'yes'],
     policyYes: ['是 — 浏览器设置页里改不动', 'yes - the browser settings page cannot change it'],
@@ -316,7 +320,18 @@
     cmd_bad: ['启动命令命中黑名单', 'Launch command matches the blocklist'],
     assoc_progid: ['文件类型指向的 ProgID', 'ProgID the file type points at'],
     assoc_kind: ['ProgID 的解析结果', 'How the ProgID resolves'],
-    assoc_hash: ['UserChoice 带 Hash', 'UserChoice carries a Hash']
+    assoc_hash: ['UserChoice 带 Hash', 'UserChoice carries a Hash'],
+    // BR-14/BR-15 read the policy layer. It lives below the settings page, so the
+    // evidence has to name the hive (which decides who could write it), the policy
+    // and its value, and the write time - the only "when" available for a
+    // machine-level row, since PowerShell exposes no timestamp for a registry key.
+    pol_hive: ['策略写在哪个蜂巢', 'Which hive the policy is written to'],
+    pol_vendor: ['被下策略的浏览器', 'Browser the policy targets'],
+    pol_key: ['策略键（相对厂商根键）', 'Policy key below the vendor root'],
+    pol_value: ['策略值名', 'Policy value name'],
+    pol_kind: ['这一行的形态', 'Shape of this row'],
+    pol_data: ['策略设定的值', 'What the policy sets'],
+    pol_mtime: ['键的最后写入时间', 'Last write time of the key']
   };
   // Signature failures: a raw Win32 token is not something a reader can act on.
   var HIT = {
@@ -329,12 +344,13 @@
     scheduled_task: ['计划任务', 'Scheduled task'], service: ['服务', 'Service'],
     elam_driver: ['Early-Launch 驱动', 'Early-Launch driver'], hosts_file: ['hosts 文件', 'hosts file'],
     ifeo_debugger: ['IFEO 劫持', 'IFEO hijack'], winsock_lsp: ['Winsock LSP', 'Winsock LSP'],
-    // The three machine-level browser surfaces. They sit outside every profile, so
+    // The four machine-level browser surfaces. They sit outside every profile, so
     // without a display name a reader sees an internal token where an action should
     // be - and the subject prefix is what tells them which layer to fix.
     browser_shortcut: ['浏览器快捷方式', 'Browser shortcut'],
     browser_launch_cmd: ['注册表浏览器启动命令', 'Registry browser launch command'],
-    browser_file_assoc: ['浏览器文件类型关联', 'Browser file-type association']
+    browser_file_assoc: ['浏览器文件类型关联', 'Browser file-type association'],
+    browser_policy: ['浏览器策略（注册表）', 'Browser policy (registry)']
   };
   var DRV = {
     '0': ['BOOT_START（开机最早期）', 'BOOT_START (earliest boot stage)'],
@@ -346,6 +362,17 @@
   var DOC = {
     secure: ['Secure Preferences（权威副本，会还原明文删除）', 'Secure Preferences (authoritative copy, restores deleted plaintext)'],
     plain_only: ['仅明文 Preferences（该 Profile 没有 Secure Preferences）', 'plain Preferences only (this profile has no Secure Preferences)']
+  };
+  // The hive is the whole story behind a policy row: HKCU means whatever ran as you
+  // left it, HKLM means something that could elevate. The shape decides whether the
+  // row changed behaviour or only proves that someone touched the location.
+  var POLHIVE = {
+    HKCU: ['HKCU — 当前用户，写入不需要管理员权限', 'HKCU - this user; writing it needed no administration rights'],
+    HKLM: ['HKLM — 全机生效，写入需要提权', 'HKLM - machine-wide; writing it needed elevation']
+  };
+  var POLKIND = {
+    value: ['一个策略值', 'a policy value'],
+    empty_key: ['一个空策略键（0 个值、0 个子键）', 'an empty policy key (0 values, 0 subkeys)']
   };
   // How the registry launch chain reached this command, and what the handler table
   // found. The engine emits the tokens; a reader needs to know which user action
@@ -573,6 +600,12 @@
       if (k === 'doc_role' && DOC[v]) txt = t(DOC[v]);
       if (k === 'assoc_kind' && AKIND[v]) txt = t(AKIND[v]);
       if (k === 'assoc_hash') txt = t(HASH[String(v)]);
+      if (k === 'pol_hive' && POLHIVE[String(v)]) txt = t(POLHIVE[String(v)]);
+      if (k === 'pol_kind' && POLKIND[String(v)]) txt = t(POLKIND[String(v)]);
+      // An empty path or value on this surface is meaningful, so it must not render
+      // as the generic "none" used for an empty list.
+      if (k === 'pol_key' && (v === '' || v === null)) txt = t(S.polRootKey);
+      if (k === 'pol_value' && (v === '' || v === null)) txt = t(S.polNoValue);
       if (k === 'cmd_source') {
         var bits = String(v).split('+'), read = [];
         for (var bi = 0; bi < bits.length; bi++) {

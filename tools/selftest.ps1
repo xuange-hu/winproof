@@ -76,6 +76,13 @@ function SetEq($a, $b) {
     return $true
 }
 function PersSubject($e) { return [string]$e.kind + ' / ' + [string]$e.name }
+# Advice text, looked up rather than retyped: the rules carry CJK wording, so an
+# assertion that compares two rows' advice must read it out of the findings and
+# never hard-code a translation of it here.
+function AdviceOf($doc, $rid, $subj) {
+    return @(@($doc.findings | Where-Object { $_.rule_id -eq $rid -and [string]$_.subject -eq $subj } |
+        ForEach-Object { [string]$_.advice }))[0]
+}
 function KeysOf($doc) {
     return @($doc.findings | ForEach-Object { [string]$_.rule_id + '|' + [string]$_.subject } | Sort-Object)
 }
@@ -136,6 +143,21 @@ $wantBrowser = [ordered]@{
     # again both advice branches. The .shtml row resolves to a live ProgID and must
     # stay silent.
     'BR-13' = @('browser_file_assoc / .htm', 'browser_file_assoc / .xhtml')
+    # BR-14/BR-15 are the policy layer, and the fixture is where their known answer
+    # lives: on a clean machine the whole policy surface is 3 rows and none of them
+    # forces anything, so the live scan can only ever show BR-15 here. Two rows must
+    # fire BR-14 (one HKLM, one HKCU, so both advice branches are exercised) and two
+    # must fire BR-15 (a capability grant plus an empty user-hive key). Three rows
+    # exist only to stay silent: MetricsReportingEnabled and CloudPrintProxyEnabled
+    # are what a managed enterprise machine is full of, and an empty key under HKLM
+    # is not a finding - only the HKCU one is. Drop those negatives and the rules
+    # decay into "any policy counts", which lights up red on a corporate laptop.
+    # Both list-shaped rows are matched by pol_name (the last segment of the key),
+    # not by the value name - the value under RestoreOnStartupURLs is just '1'.
+    'BR-14' = @('browser_policy / HKLM Edge RestoreOnStartupURLs\1',
+                'browser_policy / HKCU Chrome ExtensionInstallForcelist\1')
+    'BR-15' = @('browser_policy / HKLM Edge LocalNetworkAccessAllowedForUrls\1',
+                'browser_policy / HKCU Chromium (key itself)')
 }
 $wantPers = [ordered]@{
     'PS-01' = @('run_key / ZzResidueGhost', 'service / ZzSvcGone', 'scheduled_task / \ZzTaskGone')
@@ -174,22 +196,36 @@ Run-Engine @{ Mode = 'baseline'; FactsFile = @($fxBrowser); StoreDir = (Join-Pat
 $browserBase = Load (Join-Path $work 'b0.json')
 Check-Manifest $browserBase $wantBrowser
 # 5 profiles + 3 machine-level shortcut rows + 4 registry launch commands +
-# 4 browser document-type associations. Counting them here is what makes a row
-# that silently stopped reaching the engine visible as a subject miss rather than
-# as an unexplained clean result.
-Expect 'fixture exposes 5 profiles, 3 shortcuts, 4 launch cmds, 4 file assocs' ([int]$browserBase.subjects_total -eq 16)
+# 4 browser document-type associations + 7 policy rows. Counting them here is what
+# makes a row that silently stopped reaching the engine visible as a subject miss
+# rather than as an unexplained clean result.
+Expect 'fixture exposes 5 profiles, 3 shortcuts, 4 launch cmds, 4 file assocs, 7 policy rows' ([int]$browserBase.subjects_total -eq 23)
 Expect 'only the blocklisted shortcut fires BR-11' (SetEq (SubjectSet $browserBase 'BR-11') @('browser_shortcut / Zz 2345 Chrome.lnk'))
 Expect 'the AppX-shaped dangling ProgID does not fire BR-13' `
     (-not ((SubjectSet $browserBase 'BR-13') -contains 'browser_file_assoc / .html'))
+# The three policy negatives, spelled out rather than left to the set equality:
+# a benign enterprise policy that starts firing BR-14 means the list drifted, and
+# an HKLM empty key that starts firing BR-15 means the hive guard fell off.
+Expect 'benign enterprise policies stay silent (HKLM MetricsReporting, HKCU CloudPrint)' `
+    (@(@('browser_policy / HKLM Chrome MetricsReportingEnabled', 'browser_policy / HKCU Edge CloudPrintProxyEnabled') | Where-Object { (SubjectSet $browserBase 'BR-14') -contains $_ -or (SubjectSet $browserBase 'BR-15') -contains $_ }).Count -eq 0)
+Expect 'an empty policy key under HKLM is not a finding' `
+    (-not ((SubjectSet $browserBase 'BR-15') -contains 'browser_policy / HKLM Brave (key itself)'))
+Expect 'BR-15 picks the empty-key advice on HKCU and the grant advice on HKLM' `
+    ((@($browserBase.findings | Where-Object { $_.rule_id -eq 'BR-15' }).Count -eq 2) -and
+     ((AdviceOf $browserBase 'BR-15' 'browser_policy / HKCU Chromium (key itself)') -ne
+      (AdviceOf $browserBase 'BR-15' 'browser_policy / HKLM Edge LocalNetworkAccessAllowedForUrls\1')))
+Expect 'BR-14 picks the no-elevation advice on HKCU and the elevated advice on HKLM' `
+    ((AdviceOf $browserBase 'BR-14' 'browser_policy / HKCU Chrome ExtensionInstallForcelist\1') -ne
+     (AdviceOf $browserBase 'BR-14' 'browser_policy / HKLM Edge RestoreOnStartupURLs\1'))
 
-Write-Output '[2] live capture and fixture must not be confusable: all 13 browser rules exercised'
+Write-Output '[2] live capture and fixture must not be confusable: all 15 browser rules exercised'
 $brIds = @($browserBase.findings | ForEach-Object { $_.rule_id } | Select-Object -Unique)
-Expect ('all 13 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 13)
+Expect ('all 15 browser rules fire on the fixture (' + ($brIds -join ',') + ')') ($brIds.Count -eq 15)
 
 Write-Output '[3] rescan the same facts: nothing may report as changed'
 Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $work 'store'); OutFile = (Join-Path $work 'scan-same.json') }
 $r0 = StateMap (Join-Path $work 'scan-same.json')
-Expect 'all 27 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 27)
+Expect 'all 31 PERSIST' (@($r0.doc.findings | Where-Object { $_.state -eq 'PERSIST' }).Count -eq 31)
 Expect 'zero NEW' ([int]$r0.doc.counts.NEW -eq 0)
 Expect 'zero RESOLVED' ([int]$r0.doc.counts.RESOLVED -eq 0)
 
@@ -225,7 +261,7 @@ Expect 'BR-09 Edge/Profile 2 is CHANGED (it cites startup_urls_bad)' ($rB.map['B
 Expect 'counts.CHANGED == 1' ([int]$rB.doc.counts.CHANGED -eq 1)
 Expect 'neighbour Edge/Profile 1 unaffected' ($rB.map['BR-01|Edge / Profile 1'] -eq 'PERSIST')
 Expect 'neighbour Chrome/Default unaffected' ($rB.map['BR-05|Chrome / Default'] -eq 'PERSIST')
-Expect 'finding set is 27 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 28)
+Expect 'finding set is 31 - 1 resolved + 2 new' (@($rB.doc.findings).Count -eq 32)
 
 # --- [5] fixture C: the hijacked file is rewritten again ----------------------
 # Same findings, different evidence values: this is the CHANGED path, and it must
@@ -248,7 +284,7 @@ Expect 'BR-02 Edge P1 stays PERSIST (seal keys unchanged)' ($rC.map['BR-02|Edge 
 # reported as changed when the evidence it actually cites changed - otherwise
 # every file write would light up every rule on that profile.
 Expect 'BR-03 Edge P1 stays PERSIST (its own evidence did not change)' ($rC.map['BR-03|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'no finding lost' (@($rC.doc.findings).Count -eq 27)
+Expect 'no finding lost' (@($rC.doc.findings).Count -eq 31)
 Expect 'zero NEW on a metadata rewrite' ([int]$rC.doc.counts.NEW -eq 0)
 # Exactly four rows move, and they are the four whose cited evidence moved:
 # BR-01 and BR-05 show bytes/mtime, BR-06 shows mtime, and BR-10 shows both
@@ -297,7 +333,7 @@ Run-Engine @{ Mode = 'scan'; FactsFile = @($fxBrowser); StoreDir = (Join-Path $w
 $rA = StateMap (Join-Path $work 'scan-ack.json')
 Expect 'BR-06 Chrome/Profile 3 is KNOWN' ($rA.map['BR-06|Chrome / Profile 3'] -eq 'KNOWN')
 Expect 'the other BR-06 stays PERSIST (ack is per-subject)' ($rA.map['BR-06|Edge / Profile 1'] -eq 'PERSIST')
-Expect 'finding still present after ack (27 total)' (@($rA.doc.findings).Count -eq 27)
+Expect 'finding still present after ack (31 total)' (@($rA.doc.findings).Count -eq 31)
 # low severity on this fixture is exactly the two BR-06 rows, so the count is the
 # proof that KNOWN rows are excluded from the severity histogram rather than the
 # list - the report must not still show "2 low" for something the user owns.
@@ -496,7 +532,7 @@ if (-not (Test-Path $realPers)) {
     $lents = @($live.entries)
     Run-Engine @{ Mode = 'baseline'; FactsFile = @($fxBrowser, $realPers); StoreDir = (Join-Path $work 'store-live'); OutFile = (Join-Path $work 'live.json') }
     $ld = Load (Join-Path $work 'live.json')
-    Expect ('subjects = fixture 16 + live persistence ' + $lents.Count) ([int]$ld.subjects_total -eq (16 + $lents.Count))
+    Expect ('subjects = fixture 23 + live persistence ' + $lents.Count) ([int]$ld.subjects_total -eq (23 + $lents.Count))
 
     $want01 = @($lents | Where-Object {
         $_.exe_exists -eq $false -and [string]$_.exe -ne '' -and

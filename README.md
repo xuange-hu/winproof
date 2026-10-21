@@ -57,8 +57,8 @@ look exactly like "deleted".
 
 ## 30-second start
 
-Do not want to clone: download `winproof-1.4.0.zip` from
-[Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.4.0) — under half a megabyte, unzip and
+Do not want to clone: download `winproof-1.5.0.zip` from
+[Releases](https://github.com/xuange-hu/winproof/releases/tag/v1.5.0) — under half a megabyte, unzip and
 double-click. (No byte count here on purpose: GitHub shows the exact size on the release page, and a number
 copied into the README is one more thing that can go stale.)
 CI re-verifies on every push that the three `.bat` files inside that archive are CRLF — an LF-only batch
@@ -90,13 +90,13 @@ and the toggle is in the header (see [Architecture](#architecture-five-layers-no
 
 ---
 
-## Detection inventory: 21 rules, each restatable as one concrete observation
+## Detection inventory: 23 rules, each restatable as one concrete observation
 
 This is not "a long list so it looks thorough". What follows each rule is **what it looks like on your
 machine**. Every rule in `rules/*.json` must fill `verified_evidence` with hit counts and object names
 produced by an actual run — a rule without measured evidence does not reach main.
 
-**Browser startup page, search engine, shortcuts and the registry launch chain — 13 rules**
+**Browser startup page, search engine, shortcuts, the registry launch chain and the policy layer — 15 rules**
 
 | Rule | Severity | The condition, in one line | Why it is a separate rule |
 |---|---|---|---|
@@ -113,6 +113,8 @@ produced by an actual run — a rule without measured evidence does not reach ma
 | BR-11 | high | A browser `.lnk` on the Desktop, Start Menu or Taskbar carries an appended URL that matches the blocklist | The prefs file is not the only place a hijack can live: rewriting the shortcut itself forces the page to open **on every launch from that icon**, no profile key touched, nothing for a prefs-level cleaner to find — and it silently overwrites any BR-01 repair you make from the settings UI |
 | BR-12 | high | A registry browser launch command (`Clients\StartMenuInternet`, or the ProgID that `http`/`https`/a browser file type resolves to) contains a **literal URL** | This is the layer that writes the other two: it defines what "open a browser on this machine" runs at all, so it re-applies the hijack to every profile and every shell-initiated open. It fires on *any* URL rather than on the blocklist, because a real-machine sweep found 33 of 33 browser launch commands with none — the URL itself is the anomaly |
 | BR-13 | medium | A browser file type's `UserChoice` points at a ProgID that is no longer registered anywhere under `Classes` (AppX handlers excluded) | The program that claimed `.htm`/`.html` is gone but its claim is still there: double-clicking a saved page now fails, and the row is timeline evidence of what was installed and removed. Reported as residue, not as an active hijack — and the AppX exclusion is measured, not guessed: 13 of 211 `UserChoice` extensions on a real machine dangle legitimately |
+| BR-14 | high | A browser policy whose **name** is on the forcing list (startup page, homepage, new tab, default search engine, extension install/block lists, proxy, DoH, managed bookmarks) | The one layer the settings page cannot reach: while a policy exists the matching control is greyed out with "managed by your organisation" and the value you click is discarded, which is the third reason a BR-01 repair comes back. Which hive it sits in is reported separately, because HKCU means whatever ran as you wrote it and HKLM means something elevated did |
+| BR-15 | medium | A policy that pre-grants a capability or deletes a confirmation, or an **empty** policy key under HKCU | Not all policy is "decided for you"; some of it is "never asked again". One `LocalNetworkAccessAllowedForUrls` row — real on this machine, written 2026-06-12 — means a named origin may reach devices on your LAN with no prompt, ever. The empty key does nothing at all and is still reported, because a scanner that only reports problems cannot say *something created this and wrote nothing* |
 
 **Boot-time persistence: Run keys, services, drivers, network layer — 8 rules**
 
@@ -147,26 +149,45 @@ other half of the same discipline: its naive predicate ("the handler no longer r
 on a clean machine, so the capture is scoped to browser document types and AppX-shaped identifiers are
 classified separately instead of being reported.
 
+`BR-14`/`BR-15` were written against the same trap, three times over. The naive predicate here is "a
+browser policy key exists" — on a machine managed by an enterprise that fires **dozens** of times, and on
+this laptop it would report `MetricsReportingEnabled` as if it were a hijack, so the trigger is a list of
+28 policy *names* that force a setting plus 14 that pre-grant something. That list lives in
+`rules/browser.json` as data, which keeps the claim in the README true: a contributed rule can name new
+policies without ever becoming executable input. The second trap was structural. Policies that hold a list
+of URLs or extension ids — `RestoreOnStartupURLs`, `ExtensionInstallForcelist`,
+`LocalNetworkAccessAllowedForUrls`, `URLBlocklist` — put their **name in the key** and leave only an index
+in the value, so matching on the value name silently misses exactly the strongest ones; the predicates read
+`pol_name`, which the engine derives from the last path segment. The smoke test caught this: the HKLM
+local-network row sat in the list and did not fire. The third is why these two rows are worth more than
+"present/absent": PowerShell's registry provider exposes **no write time at all** (a key object has `Handle`,
+`Name`, `SubKeyCount`, `ValueCount`, `View` and nothing else), so the probe P/Invokes
+`advapi32!RegQueryInfoKey` for it. That gives a policy row a timestamp, and a timestamp lets two rows written
+in the same second — the local-network key and its parent here — be read as one install action instead of two
+unrelated findings.
+
 ---
 
 ## What it actually reports on this machine
 
 ```
-engine: subjects=82 rules=21 findings=29 high=4 resolved=2
-counts: NEW=11 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
+engine: subjects=87 rules=23 findings=32 high=4 resolved=2
+counts: NEW=14 CHANGED=4 PERSIST=14 KNOWN=0 RESOLVED=2
 ```
-(Re-scanned on 10-20. The baseline was captured on 10-15, so every state above is a judgement **about
-five days ago**, not about yesterday. `subjects=82` is 59 autostart entries + 5 browser profiles + 5
-browser shortcuts + 8 registry launch commands + 5 browser file-type associations.)
+(Re-scanned on 10-21. The baseline was captured on 10-15, so every state above is a judgement **about six
+days ago**, not about yesterday. `subjects=87` is 61 autostart entries + 5 browser profiles + 5
+browser shortcuts + 8 registry launch commands + 5 browser file-type associations + 3 browser policy rows.)
 
 | Severity | Rule | Hits | Objects |
 |---|---|---|---|
 | high | BR-01 startup page hijacked | 1 | Edge / Profile 1 — state `changed`, i.e. the cloud write-back above |
 | high | BR-02 sealed copy exists, plaintext deletion will be reverted | 2 | Edge / Default, Edge / Profile 1 |
 | high | BR-05 it came back after being cleaned | 1 | Edge / Profile 1 |
+| high | BR-14 policy forces a browser setting | 0 | Nothing here, and the zero has structure: the entire policy surface on this machine is 3 rows and none of them forces a setting. The known-answer test for this rule therefore lives in the fixture, where an HKLM `RestoreOnStartupURLs` and an HKCU `ExtensionInstallForcelist` must fire while `MetricsReportingEnabled` stays silent |
 | medium | BR-04 orphan signature (this place was tampered with and cleaned up) | 4 | Edge ×3, Chrome ×1 — the Edge / Profile row is **new** in this scan |
 | medium | BR-08 blacklisted domain still holds content-setting exceptions | 3 | Edge / Profile 1, Edge / Default, Chrome / Default — all three `changed`→`new` because the ledger itself shrank since the baseline |
 | medium | BR-13 browser file type points at a ProgID that no longer exists | 2 | `.htm`, `.html` — both point at `ZEROBURL`, which is registered in neither `Classes` hive, and both carry a Hash, so a program wrote them through the proper API. **New** in this scan: the rule was written the day it caught this |
+| medium | BR-15 policy pre-grants a permission, or an empty policy key in the user hive | 3 | HKLM Edge `LocalNetworkAccessAllowedForUrls\1` lets the origin the row names reach devices on the local network with no prompt, ever — written 2026-06-12 06:50:03, the **same second** as its parent key, so it reads as one install action rather than two findings; HKLM Chrome `ExternalProtocolDialogShowAlwaysOpenCheckbox` removes the per-protocol confirmation; HKCU Edge holds a policy key with 0 values and 0 subkeys written 2026-09-27 04:48:00. All three are `new` because this release is the first that collects the surface. Whether that origin is one you want is your call — the rule reports the grant, not a verdict about the site |
 | medium | PS-01 startup entry points at a missing file | 2 | service / AndrowsSvr, service / Everything (**new** since 10-15: an uninstall left the service behind) |
 | medium | PS-02 boot-time binary without a valid signature | 2 | Authenticator, OpenClaw Gateway |
 | low | BR-06 browser did not exit normally | 1 | Edge / Profile 1 — state `changed` (Chrome / Default is now `resolved`, see below) |
@@ -220,6 +241,18 @@ author's machine: `.htm` and `.html` both point at a ProgID called `ZEROBURL` th
 the proper API and was later removed, leaving the claim behind. That row is why the rule is `medium`
 rather than `high`: nothing can be re-hijacked through a handler that no longer exists, but the machine is
 now demonstrably holding a dead claim on every saved web page.
+
+**BR-14 has 0 hits and BR-15 has 3, and the split is what makes the policy layer readable at all.**
+The whole browser policy surface on this laptop is 3 rows: two values under HKLM and one empty key under
+HKCU. A "policy exists ⇒ red" rule would report the same 3 rows with the same severity and tell you nothing
+about which one changes your security posture. The split by *name* says: none of them forces a setting
+(BR-14 idle), one of them permanently pre-answers a permission prompt (BR-15, the local-network grant), one
+removes a confirmation dialog, and one is a key someone created and wrote nothing into. The timestamps are
+what make the first of those interpretable — the grant and its parent key were written in the same second,
+which is the difference between "one installer did this" and "two unrelated things happened on this machine
+in June". Note also that the empty key is not a bug in the capture: it does nothing, and the report says so
+rather than leaving it out, because a scan that only lists problems cannot distinguish an untouched location
+from one someone opened and abandoned.
 
 **PS-03 / PS-04 / PS-05 / PS-06 have 0 hits, and that is the correct state, not a miss.**
 The Early-Launch group contains only `WdBoot`, hosts contains only `127.0.0.1 localhost`, there is no
@@ -294,7 +327,7 @@ header). Consequences:
 
 ---
 
-## Twenty-six defects, and how each one became code
+## Twenty-eight defects, and how each one became code
 
 These are not reflections. Each corresponds to logic that is still alive in the repository.
 (The Chinese README carries the long form of each; nothing below is a different claim.)
@@ -513,15 +546,38 @@ secret. Three decisions carry that:
   `CHANGED`. The exposure is the *shape* of the command, not its value — and that is the only reading that
   doesn't turn every credential rotation into a phantom "something changed here".
 
+**27. A list-shaped policy keeps its name in the key, not in the value.**
+The first version of `BR-14`/`BR-15` matched on the registry **value name**, which is correct for a scalar
+policy (`MetricsReportingEnabled` is a value) and wrong for every policy that holds a list:
+`RestoreOnStartupURLs`, `ExtensionInstallForcelist`, `LocalNetworkAccessAllowedForUrls`, `URLBlocklist` are
+keys whose values are called `1`, `2`, `3`. The engine smoke test caught it — the HKLM local-network grant was
+in the grant list and did not fire. The engine now derives `pol_name` from the last segment of the key path
+and the predicates read that, so the strongest policies are the ones being matched. The general lesson is
+written into the rule file: whenever a criterion is "the *name* of something", check which level of the
+hierarchy carries the name before writing the predicate.
+
+**28. PowerShell cannot tell you when a registry key was written.**
+Policy rows without a timestamp are presence reports, and the whole value of this layer is that it can say
+*which install action left this behind*. The registry provider's key object exposes only `Handle`, `Name`,
+`SubKeyCount`, `ValueCount` and `View` — no last-write time anywhere — so the probe P/Invokes
+`advapi32!RegQueryInfoKey`. The trap: that function takes **exactly 12** parameters. Declared with 13 (an
+extra security-descriptor data pointer, which does not exist in the signature), it returns `rc = 0` as if it
+had succeeded and leaves the FILETIME at 0, so every key looks "never written" and nothing errors. Before
+concluding, the same call was asked for the value and subkey counts on 8 real keys and compared against the
+managed properties — all 8 matched exactly, which proved the handle and the call shape were right and the
+defect was in the parameter list. `Get-KeyWriteTime` now returns an empty string rather than a fake zero date
+when the call fails, and the probe reports `policy_mtime` so a reader can tell whether this machine's run had
+timestamps at all.
+
 ---
 
-## Known-answer tests: 92 PASS / 0 FAIL
+## Known-answer tests: 96 PASS / 0 FAIL
 
 The criteria are defined before the scanning logic. Run `powershell -File tools\selftest.ps1`:
 
 ```
 [1]  browser fixture: the hit set must equal the manifest, row by row
-[2]  all 13 browser rules get triggered
+[2]  all 15 browser rules get triggered
 [3]  re-scan of the same facts: no CHANGED allowed
 [4]  fixture B: fixed, then came back → NEW, and the retired conclusion becomes RESOLVED
 [5]  fixture C: the file written again → CHANGED, not NEW
@@ -565,6 +621,16 @@ with a `UserChoice` Hash, one without, so both advice branches are exercised ins
 AppX-shaped identifier and a live handler must not. The AppX row is not hypothetical: unscoped, that
 predicate fired 13 times on the author's machine.
 
+`BR-14` is the first rule in the repo whose known answer is **entirely** inside the fixture, because a clean
+machine cannot supply one: the policy surface here has 3 rows and none forces a setting. So the capture adds
+7 policy rows — an HKLM `RestoreOnStartupURLs` and an HKCU `ExtensionInstallForcelist` that must fire (and
+must take *different* advice branches, since the hive decides whether whoever wrote it needed administration
+rights), one capability grant and one empty user-hive key that must fire `BR-15`, and three that must stay
+silent: `MetricsReportingEnabled`, `CloudPrintProxyEnabled`, and an empty policy key under HKLM. Those last
+three are the whole difference between "this rule reads policies" and "this rule reads policies"; without
+them, a future edit that widens the list to "any policy key" keeps every other assertion green while turning
+a managed corporate laptop red 40 times.
+
 [13] pins the semantic boundary of the `BR-09`/`BR-10` pair: the default search engine is a Chromium
 **protected preference**, so it can only live in `Secure Preferences`. The two plain-only records in the
 fixture therefore must **not** be reported as "engine swapped" even though they literally contain `2345.com`
@@ -601,7 +667,7 @@ two probes → `engine -Mode baseline` → `engine -Mode scan` → `report.ps1` 
 
 `verify.js` carries the bilingual checks that need no browser at all: it evaluates the renderer's locale
 tables out of `render/template.html`, and fails on a row that is not a `[zh, en]` pair, on an English half
-that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 21 rules
+that is still Chinese, on a translated sentence that dropped a `%1` placeholder, and on any of the 23 rules
 whose overlay is short. It also checks the *published* demo for the same property, because a visitor who
 clicks "English" on a stale artefact gets Chinese anyway — and a stale demo is invisible to every other gate
 in here, since its counts can be perfectly correct while its wording is a build behind.
@@ -684,6 +750,16 @@ this machine a ProgID called `secure-browser` turns out to be Avast's, and a Sta
 `--brand-quark` turns out to be Quark branding its own launcher, which is exactly what a name-matching probe
 would have got wrong.
 
+Since `BR-14`/`BR-15` it walks one more surface: the **browser policy tree** — `SOFTWARE\Policies` for Edge,
+Chrome, Chromium and Brave, under both HKCU and HKLM, with HKLM read in both the 64-bit and the
+`WOW6432Node` view, because a 32-bit installer writes there and the shell still honours it. Every value under
+those roots is handed over verbatim (hive, vendor, key path, value name, data truncated at 400 characters,
+plus one row for a key that holds nothing at all), and the probe still judges nothing: it never says whether
+`ExtensionInstallForcelist` is good or bad, the rule's name list does. The one thing it does that a plain
+`Get-ItemProperty` cannot is ask `advapi32!RegQueryInfoKey` for the key's last write time, because that is the
+only field on this surface that can turn "a policy exists" into "this appeared on 2026-06-12 at 06:50:03, in
+the same second as the key above it".
+
 The probe layer still judges nothing: it hands over both "what I read here" and "what I could not read here"
 as facts, and the engine aggregates the latter into `blind_spots` codes
 (`no_secure_prefs` / `engine_unreadable` / `prefs_unparseable`).
@@ -704,15 +780,22 @@ sealed copy and a sync switch exist, and that judgement does not necessarily tra
 
 - **Windows only**, relying on `Get-AuthenticodeSignature` / `Get-ScheduledTask` as shipped by PowerShell 5.1.
 - The browser rules cover the startup-page and default-search-engine family of hijacks, `BR-08` adds the
-  permissions-and-visits ledger a malicious origin leaves behind, and `BR-11`/`BR-12`/`BR-13` add the layers
-  **outside** the profile directory: the `.lnk` files, the registry launch commands that define what "open a
-  browser" runs, and the file-type handlers that define what a saved page opens with. Still **not covered**:
-  extension policy, tampering inside other preference sections (new tab page, per-Omnibox engine settings),
-  and scheduled tasks that relaunch the browser. One further gap is named because it is measured on this box:
+  permissions-and-visits ledger a malicious origin leaves behind, `BR-11`/`BR-12`/`BR-13` add the layers
+  **outside** the profile directory (the `.lnk` files, the registry launch commands that define what "open a
+  browser" runs, the file-type handlers that define what a saved page opens with), and `BR-14`/`BR-15` add the
+  layer **above** the settings page: the registry policy keys, each with the second it was written in. Still
+  **not covered**: tampering inside preference sections no policy name reaches (per-Omnibox engine settings,
+  cookie state beyond the ledger `BR-08` reads), and scheduled tasks that relaunch the browser — that last one
+  was drafted, measured at 0 of 206 tasks carrying any browser command line on this box, and dropped rather
+  than shipped as an unverifiable claim. One further gap is named because it is measured on this box:
   a handler that still resolves in `Classes` but points at a deleted executable
   (`HKCU\SOFTWARE\Classes\secure-browser` → an `AvastBrowser.exe` that is no longer installed) is not
   reported, because judging it means slicing an executable path out of a command line, and a wrong slice
   would report "the program is missing" about a browser that is installed.
+- `BR-14`/`BR-15` decide by **policy name**, against a 28-entry forcing list and a 14-entry grant list. A
+  policy outside both lists produces no finding at all, even though the probe captured it — that is the price
+  of not reporting a managed corporate laptop as hijacked, and it is why the lists are rule data rather than
+  engine code: naming a policy the list is missing is a one-line JSON change with a fixture row beside it.
 - **The default search engine cannot be read on Edge.** Edge stores
   `default_search_provider_data` as a 40-hex digest plus `_encrypted_hash`; only Chrome, or a user-added
   engine, is a plaintext object. So on this machine `BR-09` has 0 hits while `BR-10` lights up on 4 Edge
@@ -758,7 +841,7 @@ a format document — which is why the engine reads `restore_on_startup` in `Sec
 path that was never validated against real output can return empty forever without an error.
 
 ```bash
-powershell -File tools\selftest.ps1     # 92 PASS or it did not pass (the fixture part must be identical on any Windows)
+powershell -File tools\selftest.ps1     # 96 PASS or it did not pass (the fixture part must be identical on any Windows)
 node tools\verify.js                    # structure + label coverage + redaction
 powershell -File tools\hygiene.ps1      # .bat must be CRLF; .ps1 must be pure ASCII or carry a BOM
 ```

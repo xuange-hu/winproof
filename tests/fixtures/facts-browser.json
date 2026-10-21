@@ -3,7 +3,7 @@
   "captured_at": "2026-10-15 03:00:00",
   "computer": "FIXTURE",
   "user": "example",
-  "fixture_note": "Synthetic capture. No real profile is read here: every record is a hand-built clone of the shape probes/browser_prefs.ps1 emits, sized so that each browser rule fires on a documented subject and one rule (BR-01 on a plain-only document) can only fire after the anchor fallback fix. tools/selftest.ps1 sections [1]-[5] treat this file as the oracle. Values are fake; the domain strings are the blocklisted ones on purpose. perm_grants is the merged content-settings ledger as setting|origin|last_written_local strings: only the plain Preferences document carries it on a real machine, so BR-08 can fire on a profile whose startup page is clean. The search provider block is scoped the same way it is in Chromium - default_search_provider_data only ever lives in Secure Preferences - so Chrome/Default carries the policy-enforced case, Edge/Profile 2 the blocklisted-engine case, and the three records whose engine is unreadable (Edge/Profile 1, Edge/Default hashed by Edge itself, Chrome/Profile 3 with no Secure Preferences at all) are what BR-10 reports as blind spots rather than as clean. shortcuts is the machine-level .lnk ledger the same probe appends: three rows, one of which points a browser at a blocklisted startup URL (what a hijacker leaves when it replaces the Desktop shortcut rather than the prefs file), one of which is a plain browser shortcut with no URL at all, and one of which is a legitimately URL-bearing PWA launcher (msedge_proxy --app-url). The last two must produce no finding, so BR-11 is pinned in both directions on the fixture instead of only on an infected box. launch_cmds is the registry launch chain (StartMenuInternet plus the ProgIDs that http/https and the browser document types resolve to) and file_assocs is the browser document-type handler table. These two arrays carry a deliberate asymmetry with shortcuts: BR-11 needs the blocklist because a .lnk that opens a site is a normal Windows construct (a PWA launcher), while BR-12 fires on any literal URL because a real-machine sweep of every browser-named open command in both Classes hives found 33 of 33 with none, so the URL itself is the signal - which is why one fixture row carries a benign Outlook app-url and is expected to fire, with the advice telling the reader how to judge it. file_assocs exists to pin the false-positive trap that the scope was narrowed for: on a real machine 13 of 211 UserChoice extensions point at a ProgID that does not resolve under Classes, and they are AppX packages and Windows components, so the AppX-shaped row must NOT fire while the two genuinely dangling ones must, one with a Hash (written through the proper API) and one without (hand-imported).",
+  "fixture_note": "Synthetic capture. No real profile is read here: every record is a hand-built clone of the shape probes/browser_prefs.ps1 emits, sized so that each browser rule fires on a documented subject and one rule (BR-01 on a plain-only document) can only fire after the anchor fallback fix. tools/selftest.ps1 sections [1]-[5] treat this file as the oracle. Values are fake; the domain strings are the blocklisted ones on purpose. perm_grants is the merged content-settings ledger as setting|origin|last_written_local strings: only the plain Preferences document carries it on a real machine, so BR-08 can fire on a profile whose startup page is clean. The search provider block is scoped the same way it is in Chromium - default_search_provider_data only ever lives in Secure Preferences - so Chrome/Default carries the policy-enforced case, Edge/Profile 2 the blocklisted-engine case, and the three records whose engine is unreadable (Edge/Profile 1, Edge/Default hashed by Edge itself, Chrome/Profile 3 with no Secure Preferences at all) are what BR-10 reports as blind spots rather than as clean. shortcuts is the machine-level .lnk ledger the same probe appends: three rows, one of which points a browser at a blocklisted startup URL (what a hijacker leaves when it replaces the Desktop shortcut rather than the prefs file), one of which is a plain browser shortcut with no URL at all, and one of which is a legitimately URL-bearing PWA launcher (msedge_proxy --app-url). The last two must produce no finding, so BR-11 is pinned in both directions on the fixture instead of only on an infected box. launch_cmds is the registry launch chain (StartMenuInternet plus the ProgIDs that http/https and the browser document types resolve to) and file_assocs is the browser document-type handler table. These two arrays carry a deliberate asymmetry with shortcuts: BR-11 needs the blocklist because a .lnk that opens a site is a normal Windows construct (a PWA launcher), while BR-12 fires on any literal URL because a real-machine sweep of every browser-named open command in both Classes hives found 33 of 33 with none, so the URL itself is the signal - which is why one fixture row carries a benign Outlook app-url and is expected to fire, with the advice telling the reader how to judge it. file_assocs exists to pin the false-positive trap that the scope was narrowed for: on a real machine 13 of 211 UserChoice extensions point at a ProgID that does not resolve under Classes, and they are AppX packages and Windows components, so the AppX-shaped row must NOT fire while the two genuinely dangling ones must, one with a Hash (written through the proper API) and one without (hand-imported). policy_entries rows are synthetic too: two forcing policies, two benign enterprise policies that must stay silent, one capability grant, and two empty policy keys split across hives so only the user-hive one is a finding.",
   "missing_roots": [],
   "files": [
     {
@@ -16,10 +16,29 @@
       "ctime": "2026-10-10 22:30:17",
       "parse_ok": true,
       "startup_mode": 4,
-      "startup_urls": ["http://2345.pbgia.com/win23"],
-      "session_keys": ["restore_on_startup", "restore_on_startup_edge_enclave", "restore_on_startup_edge_enclave_verify", "startup_urls", "startup_urls_edge_enclave", "startup_urls_edge_enclave_verify"],
-      "seal_keys": ["restore_on_startup_edge_enclave", "restore_on_startup_edge_enclave_verify", "startup_urls_edge_enclave", "startup_urls_edge_enclave_verify"],
-      "macs_session": ["restore_on_startup", "restore_on_startup_encrypted_hash", "startup_urls", "startup_urls_encrypted_hash"],
+      "startup_urls": [
+        "http://2345.pbgia.com/win23"
+      ],
+      "session_keys": [
+        "restore_on_startup",
+        "restore_on_startup_edge_enclave",
+        "restore_on_startup_edge_enclave_verify",
+        "startup_urls",
+        "startup_urls_edge_enclave",
+        "startup_urls_edge_enclave_verify"
+      ],
+      "seal_keys": [
+        "restore_on_startup_edge_enclave",
+        "restore_on_startup_edge_enclave_verify",
+        "startup_urls_edge_enclave",
+        "startup_urls_edge_enclave_verify"
+      ],
+      "macs_session": [
+        "restore_on_startup",
+        "restore_on_startup_encrypted_hash",
+        "startup_urls",
+        "startup_urls_encrypted_hash"
+      ],
       "orphan_sigs": [],
       "sync_prefs": false,
       "sync_keys": [],
@@ -28,7 +47,9 @@
           "name": "Secure Preferences.bak_20261010-221049",
           "bytes": 71212,
           "mtime": "2026-10-10 22:10:50",
-          "urls": ["http://2345.pbgia.com/win23"]
+          "urls": [
+            "http://2345.pbgia.com/win23"
+          ]
         }
       ],
       "exit_type": "",
@@ -59,7 +80,9 @@
       "macs_session": [],
       "orphan_sigs": [],
       "sync_prefs": true,
-      "sync_keys": ["preferred_apps_list"],
+      "sync_keys": [
+        "preferred_apps_list"
+      ],
       "backups": [],
       "exit_type": "Crashed",
       "search_read": false,
@@ -69,7 +92,16 @@
       "search_from": "",
       "search_policy": false,
       "homepage": "",
-      "perm_grants": ["http_allowed|https://2345.pbgia.com:443,*|2026-10-16 12:38:35", "http_allowed|https://www.google.com:443,*|2026-06-09 14:04:05", "media_engagement|https://nexus.mydown.com:443,*|2026-10-12 21:35:08", "media_engagement|https://www.2345.com:443,*|2026-10-16 12:38:39", "media_engagement|https://wustacm.cn:443,*|2026-08-16 23:16:23", "notifications|https://www.2345.com:443,*|2026-10-11 09:02:11", "site_engagement|https://www.2345.com:443,*|2026-10-16 12:38:39", "trackers_data|https://cdn.weather.hao.360.cn:443,*|"],
+      "perm_grants": [
+        "http_allowed|https://2345.pbgia.com:443,*|2026-10-16 12:38:35",
+        "http_allowed|https://www.google.com:443,*|2026-06-09 14:04:05",
+        "media_engagement|https://nexus.mydown.com:443,*|2026-10-12 21:35:08",
+        "media_engagement|https://www.2345.com:443,*|2026-10-16 12:38:39",
+        "media_engagement|https://wustacm.cn:443,*|2026-08-16 23:16:23",
+        "notifications|https://www.2345.com:443,*|2026-10-11 09:02:11",
+        "site_engagement|https://www.2345.com:443,*|2026-10-16 12:38:39",
+        "trackers_data|https://cdn.weather.hao.360.cn:443,*|"
+      ],
       "perm_keys_total": 1355,
       "perm_settings": 126
     },
@@ -83,10 +115,20 @@
       "ctime": "2026-09-21 08:31:02",
       "parse_ok": true,
       "startup_mode": 4,
-      "startup_urls": ["http://www.so.com/?q=hijack"],
-      "session_keys": ["restore_on_startup", "startup_urls"],
+      "startup_urls": [
+        "http://www.so.com/?q=hijack"
+      ],
+      "session_keys": [
+        "restore_on_startup",
+        "startup_urls"
+      ],
       "seal_keys": [],
-      "macs_session": ["restore_on_startup", "restore_on_startup_encrypted_hash", "startup_urls", "startup_urls_encrypted_hash"],
+      "macs_session": [
+        "restore_on_startup",
+        "restore_on_startup_encrypted_hash",
+        "startup_urls",
+        "startup_urls_encrypted_hash"
+      ],
       "orphan_sigs": [],
       "sync_prefs": false,
       "sync_keys": [],
@@ -95,7 +137,9 @@
           "name": "Secure Preferences.bak_20260921-083012",
           "bytes": 97900,
           "mtime": "2026-09-21 08:30:12",
-          "urls": ["http://www.so.com/?q=hijack"]
+          "urls": [
+            "http://www.so.com/?q=hijack"
+          ]
         }
       ],
       "exit_type": "",
@@ -136,7 +180,11 @@
       "search_from": "",
       "search_policy": false,
       "homepage": "",
-      "perm_grants": ["http_allowed|https://2345.pbgia.com:443,*|2026-10-12 08:03:55", "media_engagement|https://www.2345.com:443,*|2026-10-12 08:04:01", "cookies|https://www.so.com:443,*|2026-10-12 08:04:20"],
+      "perm_grants": [
+        "http_allowed|https://2345.pbgia.com:443,*|2026-10-12 08:03:55",
+        "media_engagement|https://www.2345.com:443,*|2026-10-12 08:04:01",
+        "cookies|https://www.so.com:443,*|2026-10-12 08:04:20"
+      ],
       "perm_keys_total": 41,
       "perm_settings": 38
     },
@@ -151,10 +199,28 @@
       "parse_ok": true,
       "startup_mode": null,
       "startup_urls": [],
-      "session_keys": ["restore_on_startup_edge_lightweight", "restore_on_startup_edge_lightweight_verify", "startup_urls_edge_lightweight", "startup_urls_edge_lightweight_verify"],
-      "seal_keys": ["restore_on_startup_edge_lightweight", "restore_on_startup_edge_lightweight_verify", "startup_urls_edge_lightweight", "startup_urls_edge_lightweight_verify"],
-      "macs_session": ["restore_on_startup", "restore_on_startup_encrypted_hash", "startup_urls", "startup_urls_encrypted_hash"],
-      "orphan_sigs": ["restore_on_startup", "startup_urls"],
+      "session_keys": [
+        "restore_on_startup_edge_lightweight",
+        "restore_on_startup_edge_lightweight_verify",
+        "startup_urls_edge_lightweight",
+        "startup_urls_edge_lightweight_verify"
+      ],
+      "seal_keys": [
+        "restore_on_startup_edge_lightweight",
+        "restore_on_startup_edge_lightweight_verify",
+        "startup_urls_edge_lightweight",
+        "startup_urls_edge_lightweight_verify"
+      ],
+      "macs_session": [
+        "restore_on_startup",
+        "restore_on_startup_encrypted_hash",
+        "startup_urls",
+        "startup_urls_encrypted_hash"
+      ],
+      "orphan_sigs": [
+        "restore_on_startup",
+        "startup_urls"
+      ],
       "sync_prefs": false,
       "sync_keys": [],
       "backups": [],
@@ -196,7 +262,11 @@
       "search_from": "",
       "search_policy": false,
       "homepage": "",
-      "perm_grants": ["http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02", "http_allowed|https://10086.91.com:443,*|2026-09-04 18:43:46", "media_engagement|https://www.bilibili.com:443,*|2026-10-01 10:11:12"],
+      "perm_grants": [
+        "http_allowed|https://hao.pbgia.com:443,*|2026-09-30 21:14:02",
+        "http_allowed|https://10086.91.com:443,*|2026-09-04 18:43:46",
+        "media_engagement|https://www.bilibili.com:443,*|2026-10-01 10:11:12"
+      ],
       "perm_keys_total": 411,
       "perm_settings": 121
     },
@@ -213,7 +283,12 @@
       "startup_urls": [],
       "session_keys": [],
       "seal_keys": [],
-      "macs_session": ["restore_on_startup", "restore_on_startup_encrypted_hash", "startup_urls", "startup_urls_encrypted_hash"],
+      "macs_session": [
+        "restore_on_startup",
+        "restore_on_startup_encrypted_hash",
+        "startup_urls",
+        "startup_urls_encrypted_hash"
+      ],
       "orphan_sigs": [],
       "sync_prefs": false,
       "sync_keys": [],
@@ -222,7 +297,9 @@
           "name": "Secure Preferences.bak_20261011-075530",
           "bytes": 39512,
           "mtime": "2026-10-11 07:55:31",
-          "urls": ["http://pbgia.com/win23"]
+          "urls": [
+            "http://pbgia.com/win23"
+          ]
         }
       ],
       "exit_type": "",
@@ -277,8 +354,13 @@
       "ctime": "2026-08-19 07:45:10",
       "parse_ok": true,
       "startup_mode": 4,
-      "startup_urls": ["http://www.hao.360.com/"],
-      "session_keys": ["restore_on_startup", "startup_urls"],
+      "startup_urls": [
+        "http://www.hao.360.com/"
+      ],
+      "session_keys": [
+        "restore_on_startup",
+        "startup_urls"
+      ],
       "seal_keys": [],
       "macs_session": [],
       "orphan_sigs": [],
@@ -304,7 +386,9 @@
       "path": "C:\\Users\\example\\Desktop\\Zz 2345 Chrome.lnk",
       "target_exe": "chrome.exe",
       "args": "--profile-directory=\"Default\" http://www.2345.com/?cid=win23",
-      "urls": ["http://www.2345.com/?cid=win23"]
+      "urls": [
+        "http://www.2345.com/?cid=win23"
+      ]
     },
     {
       "name": "Zz Plain Edge.lnk",
@@ -318,7 +402,9 @@
       "path": "C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Windows\\Start Menu\\Programs\\Zz Office PWA.lnk",
       "target_exe": "msedge_proxy.exe",
       "args": "--profile-directory=Default --app-id=hpdmehepbglnahmidjpfbcaofnbaejmh --app-url=https://outlook.office.com/mail/ --app-launch-source=4",
-      "urls": ["https://outlook.office.com/mail/"]
+      "urls": [
+        "https://outlook.office.com/mail/"
+      ]
     }
   ],
   "launch_cmds": [
@@ -328,7 +414,9 @@
       "source": "url_handler_http_https",
       "cmd": "\"C:\\Program Files\\2345Explorer\\2345Explorer.exe\" http://www.2345.com/?cid=win23 --single-argument %1",
       "path": "HKLM:\\SOFTWARE\\Classes\\2345HTM\\shell\\open\\command",
-      "urls": ["http://www.2345.com/?cid=win23"]
+      "urls": [
+        "http://www.2345.com/?cid=win23"
+      ]
     },
     {
       "hive": "HKLM",
@@ -352,7 +440,9 @@
       "source": "file_handler_.html",
       "cmd": "\"C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe\" --noerrdialogs --user-data-dir=\"C:\\Users\\example\\AppData\\Roaming\\Microsoft\\Edge\\Web Apps\\Profiles\\Default\\hpdmehepbglnahmidjpfbcaofnbaejmh\" --app-url=https://outlook.office.com/mail/ %1",
       "path": "HKCU:\\SOFTWARE\\Classes\\TaskbarEdgeOffice\\shell\\open\\command",
-      "urls": ["https://outlook.office.com/mail/"]
+      "urls": [
+        "https://outlook.office.com/mail/"
+      ]
     }
   ],
   "file_assocs": [
@@ -392,5 +482,78 @@
       "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.xhtml\\UserChoice",
       "cmd": ""
     }
-  ]
+  ],
+  "policy_entries": [
+    {
+      "hive": "HKLM",
+      "vendor": "Edge",
+      "key": "\\RestoreOnStartupURLs",
+      "value": "1",
+      "data": "http://www.2345.com/?cid=win23",
+      "kind": "value",
+      "mtime": "2026-06-12 06:50:03",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge\\RestoreOnStartupURLs"
+    },
+    {
+      "hive": "HKCU",
+      "vendor": "Chrome",
+      "key": "\\ExtensionInstallForcelist",
+      "value": "1",
+      "data": "abcdefghijklmnopabcdefghijklmnop;https://clients2.example/service/update2/crx",
+      "kind": "value",
+      "mtime": "2026-09-27 04:48:00",
+      "path": "HKCU:\\SOFTWARE\\Policies\\Google\\Chrome\\ExtensionInstallForcelist"
+    },
+    {
+      "hive": "HKLM",
+      "vendor": "Chrome",
+      "key": "",
+      "value": "MetricsReportingEnabled",
+      "data": "1",
+      "kind": "value",
+      "mtime": "2026-01-05 02:11:09",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Google\\Chrome"
+    },
+    {
+      "hive": "HKCU",
+      "vendor": "Edge",
+      "key": "",
+      "value": "CloudPrintProxyEnabled",
+      "data": "0",
+      "kind": "value",
+      "mtime": "2026-02-01 09:00:00",
+      "path": "HKCU:\\SOFTWARE\\Policies\\Microsoft\\Edge"
+    },
+    {
+      "hive": "HKLM",
+      "vendor": "Edge",
+      "key": "\\LocalNetworkAccessAllowedForUrls",
+      "value": "1",
+      "data": "https://intranet.example",
+      "kind": "value",
+      "mtime": "2026-06-12 06:50:03",
+      "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge\\LocalNetworkAccessAllowedForUrls"
+    },
+    {
+      "hive": "HKCU",
+      "vendor": "Chromium",
+      "key": "",
+      "value": "",
+      "data": "",
+      "kind": "empty_key",
+      "mtime": "2026-08-03 17:22:41",
+      "path": "HKCU:\\SOFTWARE\\Policies\\Chromium"
+    },
+    {
+      "hive": "HKLM",
+      "vendor": "Brave",
+      "key": "",
+      "value": "",
+      "data": "",
+      "kind": "empty_key",
+      "mtime": "2026-05-05 05:05:05",
+      "path": "HKLM:\\SOFTWARE\\Policies\\BraveSoftware\\Brave-Browser"
+    }
+  ],
+  "policy_mtime_readable": true
 }

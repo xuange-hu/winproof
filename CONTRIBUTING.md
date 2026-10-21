@@ -1,7 +1,7 @@
 # Contributing
 
 Start with the README's
-[detection inventory](README.md#detection-inventory-21-rules-each-restatable-as-one-concrete-observation)
+[detection inventory](README.md#detection-inventory-23-rules-each-restatable-as-one-concrete-observation)
 — every shipped rule there carries the hit count and
 subject names it produced on the author's machine. That convention is the whole contribution model:
 **a judgement you have not measured does not enter the tree.**
@@ -18,7 +18,10 @@ accident, and new operators expand the surface that lets a contributed rule do s
    real structure of the browser preference files on your machine. Every predicate in the tree was
    written against that output rather than against a description of the format — which is why the
    parser reads `restore_on_startup` from `Secure Preferences` and `startup_setting` from
-   `Preferences` instead of guessing one name.
+   `Preferences` instead of guessing one name. Part of looking is finding **which level of the
+   hierarchy carries the thing you match on**: the policy rules first matched registry *value* names,
+   which is silent-wrong for every list-shaped policy, because `RestoreOnStartupURLs` and
+   `ExtensionInstallForcelist` put their name in the **key** and leave `1`, `2`, `3` as the values.
 2. Add the rule to `rules/browser.json` or `rules/persistence.json`, filling `verified_on` and
    `verified_evidence` with **your** measured hit count and subject names.
 3. If it does not fire on your machine, add a fixture row in `tests/fixtures/` that *does* fire and
@@ -35,6 +38,14 @@ accident, and new operators expand the surface that lets a contributed rule do s
    the rule ignores them, and the fixture carries one AppX-shaped dangling identifier that must stay
    silent — without it, a future edit that drops the classifier turns those 13 false positives back on
    and every manifest assertion still passes.
+
+   A rule whose trigger is a **list of names** has the mirror-image problem, and `BR-14` is that case:
+   on a clean machine it cannot fire at all (the whole policy surface here is 3 rows, none forcing), so
+   its positive rows can only come from the fixture — and then the negatives are what make the list
+   honest. The fixture therefore plants `MetricsReportingEnabled` and `CloudPrintProxyEnabled` beside the
+   rows that must fire, and asserts they stay silent. Widen that name list to "any policy counts" and
+   every other assertion in the suite still passes while a managed corporate laptop lights up red forty
+   times; the negative rows are what turn that edit into a failing test instead of a release.
 4. If your rule cites a new evidence field, add its `[zh, en]` label pair to the table in
    `render/template.html` (and to `BLIND` if it is a blind-spot code). `tools/verify.js` walks every
    `show` key in every rule file and fails on an untranslated one, regardless of whether it fired.

@@ -1,9 +1,9 @@
 {
-    "findings":  39,
+    "findings":  43,
     "states":  {
                    "NEW":  2,
                    "CHANGED":  1,
-                   "PERSIST":  36
+                   "PERSIST":  40
                },
     "resolved":  1
 }

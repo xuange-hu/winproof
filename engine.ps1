@@ -390,6 +390,44 @@ function New-BrowserSubjects($facts, $blocklist) {
         $t['path'] = [string]$fa.path
         $subjects += $t
     }
+    # Policy rows are machine-level like the other registry surfaces. The hive is
+    # kept as a separate fact because it decides how the entry got there: HKCU
+    # policy needs no administration rights, HKLM policy does.
+    foreach ($pe in As-Array $facts.policy_entries) {
+        if ($null -eq $pe) { continue }
+        $t = @{}
+        $keyPart = [string]$pe.key
+        if ($keyPart.StartsWith('\')) { $keyPart = $keyPart.Substring(1) }
+        $leaf = $keyPart
+        if ([string]$pe.value -ne '') {
+            if ($leaf -ne '') { $leaf += '\' }
+            $leaf += [string]$pe.value
+        }
+        if ($leaf -eq '') { $leaf = '(key itself)' }
+        $t['kind'] = 'browser_policy'
+        $t['name'] = [string]$pe.hive + ' ' + [string]$pe.vendor + ' ' + $leaf
+        $t['subject'] = 'browser_policy / ' + $t['name']
+        $t['pol_hive'] = [string]$pe.hive
+        $t['pol_vendor'] = [string]$pe.vendor
+        $t['pol_key'] = $keyPart
+        $t['pol_value'] = [string]$pe.value
+        # List-shaped policies (RestoreOnStartupURLs, ExtensionInstallForcelist,
+        # LocalNetworkAccessAllowedForUrls, URLBlocklist) name themselves in the KEY
+        # and leave only an index in the value, so matching a policy by pol_value
+        # would miss exactly the ones that carry the most force.
+        $polName = [string]$pe.value
+        if ($keyPart -ne '') {
+            $segs = $keyPart -split '\\'
+            $polName = $segs[$segs.Count - 1]
+        }
+        $t['pol_name'] = $polName
+        $t['pol_data'] = [string]$pe.data
+        $t['pol_kind'] = [string]$pe.kind
+        $t['pol_mtime'] = [string]$pe.mtime
+        $t['pol_needs_elevation'] = ([string]$pe.hive -ne 'HKCU')
+        $t['path'] = [string]$pe.path
+        $subjects += $t
+    }
 
     return $subjects
 }
